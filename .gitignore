@@ -1,0 +1,17 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+descriptions.qmd
+app_author/
+
+# Static site generated outputs (rebuilt by GitHub Actions)
+site/payload.json
+site/render.js
+site/style.css
+
+# Old shinylive export (101 MB — not committed)
+site/shinylive/
+site/shinylive-sw.js
+site/app.json
+site/edit/

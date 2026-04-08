@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nordic Variations — Set 2</title>
+<style>
+  body { margin: 0; padding: 20px; background: #111; font-family: Arial, sans-serif; }
+  h1 { color: #ccc; font-size: 15px; margin-bottom: 6px; }
+  p  { color: #666; font-size: 11px; margin: 0 0 20px; }
+  .scheme { margin-bottom: 28px; }
+  .label  { color: #aaa; font-size: 12px; margin-bottom: 6px; letter-spacing: 0.04em; }
+  svg { display: block; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>Nordic Variations — Set 2 (built around #2 Dusk, no yellow)</h1>
+<p>Reference: Dusk = bg #1e1f35 · theme #a5b4fc · project #fda4af · skill #86efac</p>
+<script>
+const schemes = [
+  {
+    name: "1 · Midnight — very dark purple, stronger contrast",
+    bg: "#150e2a", sbg: "#0d0819",
+    th: "#818cf8", pr: "#fb7185", sk: "#34d399"
+  },
+  {
+    name: "2 · Dusk Deep — richer purple bg, same hue family",
+    bg: "#191830", sbg: "#0f0e22",
+    th: "#818cf8", pr: "#f9a8d4", sk: "#6ee7b7"
+  },
+  {
+    name: "3 · Dusk Soft — same bg, all accents dialled back",
+    bg: "#1e1f35", sbg: "#131428",
+    th: "#bfdbfe", pr: "#fecdd3", sk: "#a7f3d0"
+  },
+  {
+    name: "4 · Violet — more violet tones, fuchsia project",
+    bg: "#1a1535", sbg: "#100e25",
+    th: "#c4b5fd", pr: "#f0abfc", sk: "#6ee7b7"
+  },
+  {
+    name: "5 · Plum — warm purple-brown bg, lilac/pink/mint",
+    bg: "#251528", sbg: "#160d18",
+    th: "#d8b4fe", pr: "#f9a8d4", sk: "#86efac"
+  },
+  {
+    name: "6 · Indigo — blue-indigo bg, sky/rose/seafoam",
+    bg: "#1a1e40", sbg: "#101328",
+    th: "#93c5fd", pr: "#fda4af", sk: "#5eead4"
+  },
+  {
+    name: "7 · Purple Slate — cooler blue-purple, calm palette",
+    bg: "#1e1b2e", sbg: "#141228",
+    th: "#93c5fd", pr: "#fda4af", sk: "#a7f3d0"
+  },
+  {
+    name: "8 · Dusk Rose — rosy bg tint, softer all round",
+    bg: "#241525", sbg: "#160d18",
+    th: "#a5b4fc", pr: "#fda4af", sk: "#86efac"
+  },
+  {
+    name: "9 · Cosmos — near-black, vivid periwinkle/coral/teal",
+    bg: "#100f1e", sbg: "#09080f",
+    th: "#818cf8", pr: "#fda4af", sk: "#2dd4bf"
+  },
+  {
+    name: "10 · Dusk Teal — original Dusk but teal skills",
+    bg: "#1e1f35", sbg: "#131428",
+    th: "#a5b4fc", pr: "#fda4af", sk: "#5eead4"
+  }
+];
+
+const W = 900, H = 420, SB = 200;
+const CX = [SB + 75, SB + 330, SB + 590];
+const TH = { w: 108, h: 26 }, PH = { w: 190, h: 34 }, SK_W = 130, GAP = 6;
+
+const themes   = ["Existential risk", "Global harmony", "European Union", "Climate Change", "Electricity markets"];
+const projects = ["Tool for existential risk", "Manifesto on history", "EU emission goals", "Carbon pricing", "Power interconnectors"];
+const skills   = [["Data viz / R", ["ggplot2", "Inkscape"]], ["Dashboards", ["Shiny/R"]], ["AI", ["ChatGPT"]], ["Video", ["DaVinci"]]];
+
+function themeY(i) { return 60 + i * (TH.h + GAP); }
+function projY(i)  { return 46 + i * (PH.h + GAP + 2); }
+function skillH(i) { return 38 + skills[i][1].length * 14; }
+function skillBaseY(i) {
+  let y = 52;
+  for (let j = 0; j < i; j++) y += skillH(j) + GAP;
+  return y;
+}
+
+function render(s) {
+  const L = [];
+  L.push(`<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">`);
+  L.push(`<rect width="${W}" height="${H}" fill="${s.bg}"/>`);
+  L.push(`<rect width="${SB}" height="${H}" fill="${s.sbg}"/>`);
+  L.push(`<line x1="${SB}" y1="0" x2="${SB}" y2="${H}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`);
+
+  // Sidebar text
+  L.push(`<text x="14" y="28" fill="rgba(255,255,255,0.88)" font-size="12" font-weight="bold" font-family="Arial">Details</text>`);
+  L.push(`<text x="14" y="43" fill="rgba(255,255,255,0.4)" font-size="9" font-family="Arial">Click an item to show description</text>`);
+  L.push(`<text x="14" y="88" fill="rgba(255,255,255,0.7)" font-size="10" font-weight="bold" font-family="Arial">Vote</text>`);
+  L.push(`<text x="14" y="102" fill="rgba(255,255,255,0.35)" font-size="8.5" font-family="Arial">Vote for themes and projects</text>`);
+  L.push(`<text x="14" y="136" fill="rgba(255,255,255,0.7)" font-size="10" font-weight="bold" font-family="Arial">Funding</text>`);
+  ["– Crowdfunding","– Grants","– Freelance","– Fixed term"].forEach((t,i) =>
+    L.push(`<text x="14" y="${152+i*13}" fill="rgba(255,255,255,0.3)" font-size="8" font-family="Arial">${t}</text>`)
+  );
+
+  // Headers
+  [["Themes","I want to focus on",s.th],["Projects","I'm working on",s.pr],["Skills","I have or want to develop",s.sk]]
+    .forEach(([h1,h2,col],i) => {
+      L.push(`<text x="${CX[i]}" y="22" fill="${col}" font-size="14" font-weight="bold" font-family="Arial" text-anchor="middle">${h1}</text>`);
+      L.push(`<text x="${CX[i]}" y="34" fill="${col}" font-size="8" font-family="Arial" text-anchor="middle" opacity="0.65">${h2}</text>`);
+    });
+
+  // Edges theme→project
+  [[0,0],[0,1],[1,1],[1,2],[2,2],[2,3],[3,3],[3,4],[4,4]].forEach(([ti,pi]) => {
+    if (ti >= themes.length || pi >= projects.length) return;
+    const x1=CX[0]+TH.w/2, y1=themeY(ti)+TH.h/2, x2=CX[1]-PH.w/2, y2=projY(pi)+PH.h/2, mx=(x1+x2)/2;
+    L.push(`<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none" stroke="${s.th}" stroke-width="1.2" opacity="0.45"/>`);
+  });
+  // Edges project→skill
+  [[0,0],[1,0],[1,1],[2,1],[2,2],[3,2],[3,3],[4,1]].forEach(([pi,si]) => {
+    if (pi >= projects.length || si >= skills.length) return;
+    const x1=CX[1]+PH.w/2, y1=projY(pi)+PH.h/2, x2=CX[2]-SK_W/2, y2=skillBaseY(si)+skillH(si)/2, mx=(x1+x2)/2;
+    L.push(`<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none" stroke="${s.sk}" stroke-width="1.2" opacity="0.45"/>`);
+  });
+
+  // Theme nodes
+  themes.forEach((t,i) => {
+    const y=themeY(i);
+    L.push(`<rect x="${CX[0]-TH.w/2}" y="${y}" width="${TH.w}" height="${TH.h}" fill="${s.sbg}" stroke="${s.th}" stroke-width="0.9" rx="1"/>`);
+    L.push(`<text x="${CX[0]+TH.w/2-6}" y="${y+TH.h/2+4}" fill="${s.th}" font-size="8.5" font-weight="bold" font-family="Arial" text-anchor="end">${t}</text>`);
+  });
+  // Project nodes
+  projects.forEach((p,i) => {
+    const y=projY(i);
+    L.push(`<rect x="${CX[1]-PH.w/2}" y="${y}" width="${PH.w}" height="${PH.h}" fill="${s.sbg}" stroke="${s.pr}" stroke-width="0.9" rx="1"/>`);
+    L.push(`<text x="${CX[1]}" y="${y+PH.h/2+4}" fill="${s.pr}" font-size="8.5" font-weight="bold" font-family="Arial" text-anchor="middle">${p}</text>`);
+  });
+  // Skill nodes
+  skills.forEach(([title,subs],i) => {
+    const y=skillBaseY(i), h=skillH(i);
+    L.push(`<rect x="${CX[2]-SK_W/2}" y="${y}" width="${SK_W}" height="${h}" fill="${s.sbg}" stroke="${s.sk}" stroke-width="0.9" rx="1"/>`);
+    L.push(`<text x="${CX[2]-SK_W/2+6}" y="${y+15}" fill="${s.sk}" font-size="8.5" font-weight="bold" font-family="Arial">${title}</text>`);
+    subs.forEach((sub,j) =>
+      L.push(`<text x="${CX[2]-SK_W/2+14}" y="${y+27+j*13}" fill="${s.sk}" font-size="7.5" font-family="Arial" opacity="0.6">${sub}</text>`)
+    );
+  });
+
+  L.push(`</svg>`);
+  return L.join('\n');
+}
+
+schemes.forEach(s => {
+  const div = document.createElement('div');
+  div.className = 'scheme';
+  div.innerHTML = `<div class="label">${s.name}</div>${render(s)}`;
+  document.body.appendChild(div);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-137.5 -110 1090 1090" width="1080" height="1080">
+<rect x="-137.5" y="-110" width="1090" height="1090" fill="#1a0f08"/>
+<text x="0" y="-52" fill="#4ade80" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="bold" text-anchor="middle">Themes</text>
+<text x="0" y="-36" fill="#4ade80" font-family="Arial,Helvetica,sans-serif" font-size="15" text-anchor="middle" opacity="0.55">I want to focus on</text>
+<text x="400" y="-52" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="bold" text-anchor="middle">Projects</text>
+<text x="400" y="-36" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="15" text-anchor="middle" opacity="0.55">I’m working on or want to work on</text>
+<text x="800" y="-52" fill="#f9a8d4" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="bold" text-anchor="middle">Skills</text>
+<text x="800" y="-36" fill="#f9a8d4" font-family="Arial,Helvetica,sans-serif" font-size="15" text-anchor="middle" opacity="0.55">I have or want to develop</text>
+<path d="M98,287 C150.65,287 162.35,31 215,31" fill="none" stroke="#d17bb7" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,291 C150.65,291 162.35,117 215,117" fill="none" stroke="#d17bb7" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,295 C150.65,295 162.35,279 215,279" fill="none" stroke="#d17bb7" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,353 C150.65,353 162.35,199 215,199" fill="none" stroke="#97d88b" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,357 C150.65,357 162.35,283 215,283" fill="none" stroke="#97d88b" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,413 C150.65,413 162.35,203 215,203" fill="none" stroke="#f3d24f" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,417 C150.65,417 162.35,287 215,287" fill="none" stroke="#f3d24f" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,421 C150.65,421 162.35,617 215,617" fill="none" stroke="#f3d24f" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,425 C150.65,425 162.35,701 215,701" fill="none" stroke="#f3d24f" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,473 C150.65,473 162.35,367 215,367" fill="none" stroke="#8fb7e8" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,477 C150.65,477 162.35,537 215,537" fill="none" stroke="#8fb7e8" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,481 C150.65,481 162.35,621 215,621" fill="none" stroke="#8fb7e8" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,485 C150.65,485 162.35,705 215,705" fill="none" stroke="#8fb7e8" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,547 C150.65,547 162.35,625 215,625" fill="none" stroke="#f08c6b" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,551 C150.65,551 162.35,709 215,709" fill="none" stroke="#f08c6b" stroke-width="1.8" opacity="0.75"/>
+<path d="M585,29 C631.35,29 641.65,306 688,306" fill="none" stroke="#7fbf63" stroke-width="1.8" opacity="0.75"/>
+<path d="M585,33 C631.35,33 641.65,388 688,388" fill="none" stroke="#5a83d6" stroke-width="1.8" opacity="0.75"/>
+<path d="M585,37 C631.35,37 641.65,537 688,537" fill="none" stroke="#c084fc" stroke-width="1.8" opacity="0.75"/>
+<path d="M585,367 C631.35,367 641.65,392 688,392" fill="none" stroke="#5a83d6" stroke-width="1.8" opacity="0.75"/>
+<path d="M585,371 C631.35,371 641.65,310 688,310" fill="none" stroke="#7fbf63" stroke-width="1.8" opacity="0.75"/>
+<path d="M585,787 C631.35,787 641.65,314 688,314" fill="none" stroke="#7fbf63" stroke-width="1.8" opacity="0.75"/>
+<path d="M585,791 C631.35,791 641.65,396 688,396" fill="none" stroke="#5a83d6" stroke-width="1.8" opacity="0.75"/>
+<path d="M585,873 C631.35,873 641.65,400 688,400" fill="none" stroke="#5a83d6" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,429 C150.65,429 162.35,371 215,371" fill="none" stroke="#f3d24f" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,299 C150.65,299 162.35,449 215,449" fill="none" stroke="#d17bb7" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,361 C150.65,361 162.35,453 215,453" fill="none" stroke="#97d88b" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,489 C150.65,489 162.35,457 215,457" fill="none" stroke="#8fb7e8" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,493 C150.65,493 162.35,35 215,35" fill="none" stroke="#8fb7e8" stroke-width="1.8" opacity="0.75"/>
+<path d="M98,497 C150.65,497 162.35,291 215,291" fill="none" stroke="#8fb7e8" stroke-width="1.8" opacity="0.75"/>
+<path d="M585,535 C631.35,535 641.65,318 688,318" fill="none" stroke="#7fbf63" stroke-width="1.8" opacity="0.75"/>
+<path d="M585,539 C631.35,539 641.65,469 688,469" fill="none" stroke="#f3a14f" stroke-width="1.8" opacity="0.75"/>
+<rect x="-97.5" y="590" width="195" height="46" fill="#0d0704" stroke="#4ade80" stroke-width="1.1" rx="2"/>
+<text x="90.5" y="617" fill="#4ade80" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="end">Russia/Ukraine</text>
+<rect x="-97.5" y="270" width="195" height="46" fill="#0d0704" stroke="#4ade80" stroke-width="1.1" rx="2"/>
+<text x="90.5" y="289" fill="#4ade80" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="end">Existential risk</text>
+<text x="90.5" y="306" fill="#4ade80" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="end">and longtermism</text>
+<rect x="-97.5" y="462" width="195" height="46" fill="#0d0704" stroke="#4ade80" stroke-width="1.1" rx="2"/>
+<text x="90.5" y="489" fill="#4ade80" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="end">Climate Change</text>
+<rect x="-97.5" y="526" width="195" height="46" fill="#0d0704" stroke="#4ade80" stroke-width="1.1" rx="2"/>
+<text x="90.5" y="545" fill="#4ade80" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="end">Electricity</text>
+<text x="90.5" y="562" fill="#4ade80" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="end">markets</text>
+<rect x="-97.5" y="398" width="195" height="46" fill="#0d0704" stroke="#4ade80" stroke-width="1.1" rx="2"/>
+<text x="90.5" y="425" fill="#4ade80" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="end">European Union</text>
+<rect x="-97.5" y="334" width="195" height="46" fill="#0d0704" stroke="#4ade80" stroke-width="1.1" rx="2"/>
+<text x="90.5" y="361" fill="#4ade80" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="end">Global harmony</text>
+<rect x="215" y="84" width="370" height="66" fill="#0d0704" stroke="#fde047" stroke-width="1.1" rx="2"/>
+<text x="400" y="112.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Optimal ways to evaluate individual</text>
+<text x="400" y="129.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">existential threats (text)</text>
+<rect x="215" y="0" width="370" height="66" fill="#0d0704" stroke="#fde047" stroke-width="1.1" rx="2"/>
+<text x="400" y="28.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Tool for demonstrating existential</text>
+<text x="400" y="45.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">risk (website)</text>
+<rect x="215" y="336" width="370" height="66" fill="#0d0704" stroke="#fde047" stroke-width="1.1" rx="2"/>
+<text x="400" y="364.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Tool for demonstrating possible</text>
+<text x="400" y="381.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">national EU emission goals (website)</text>
+<rect x="215" y="756" width="370" height="66" fill="#0d0704" stroke="#fde047" stroke-width="1.1" rx="2"/>
+<text x="400" y="793" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Circle graph creator (website)</text>
+<rect x="215" y="504" width="370" height="66" fill="#0d0704" stroke="#fde047" stroke-width="1.1" rx="2"/>
+<text x="400" y="532.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Carbon pricing - basics and benefits</text>
+<text x="400" y="549.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">(video)</text>
+<rect x="215" y="588" width="370" height="66" fill="#0d0704" stroke="#fde047" stroke-width="1.1" rx="2"/>
+<text x="400" y="616.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Incentivizing new power</text>
+<text x="400" y="633.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">interconnectors in Europe (text)</text>
+<rect x="215" y="672" width="370" height="66" fill="#0d0704" stroke="#fde047" stroke-width="1.1" rx="2"/>
+<text x="400" y="700.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Pumped storage hydro power in Finland</text>
+<text x="400" y="717.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">(text)</text>
+<rect x="215" y="840" width="370" height="66" fill="#0d0704" stroke="#fde047" stroke-width="1.1" rx="2"/>
+<text x="400" y="877" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Homepage (website)</text>
+<rect x="215" y="252" width="370" height="66" fill="#0d0704" stroke="#fde047" stroke-width="1.1" rx="2"/>
+<text x="400" y="272" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Manifesto on us being the most</text>
+<text x="400" y="289" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">important generations in history</text>
+<text x="400" y="306" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">(text)</text>
+<rect x="215" y="168" width="370" height="66" fill="#0d0704" stroke="#fde047" stroke-width="1.1" rx="2"/>
+<text x="400" y="196.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Overlapping tariff unions as a global</text>
+<text x="400" y="213.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">political tool (text)</text>
+<rect x="687.5" y="512" width="225" height="50" fill="#0d0704" stroke="#f9a8d4" stroke-width="1.1" rx="2"/>
+<text x="695.5" y="528" fill="#f9a8d4" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold">Artificial intelligence</text>
+<text x="705.5" y="544" fill="#f9a8d4" font-family="Arial,Helvetica,sans-serif" font-size="15" opacity="0.7">ChatGPT etc.</text>
+<rect x="687.5" y="280" width="225" height="64" fill="#0d0704" stroke="#f9a8d4" stroke-width="1.1" rx="2"/>
+<text x="695.5" y="286" fill="#f9a8d4" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold">Data visualization and</text>
+<text x="695.5" y="302" fill="#f9a8d4" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold">graphic design</text>
+<text x="705.5" y="318" fill="#f9a8d4" font-family="Arial,Helvetica,sans-serif" font-size="15" opacity="0.7">ggplot2 / R</text>
+<text x="705.5" y="336" fill="#f9a8d4" font-family="Arial,Helvetica,sans-serif" font-size="15" opacity="0.7">Krita, Inkscape etc.</text>
+<rect x="687.5" y="362" width="225" height="64" fill="#0d0704" stroke="#f9a8d4" stroke-width="1.1" rx="2"/>
+<text x="695.5" y="376" fill="#f9a8d4" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold">Dashboards and websites</text>
+<text x="705.5" y="392" fill="#f9a8d4" font-family="Arial,Helvetica,sans-serif" font-size="15" opacity="0.7">Shiny / R</text>
+<text x="705.5" y="410" fill="#f9a8d4" font-family="Arial,Helvetica,sans-serif" font-size="15" opacity="0.7">Quarto / R</text>
+<rect x="687.5" y="444" width="225" height="50" fill="#0d0704" stroke="#f9a8d4" stroke-width="1.1" rx="2"/>
+<text x="695.5" y="460" fill="#f9a8d4" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold">Videos and streaming</text>
+<text x="705.5" y="476" fill="#f9a8d4" font-family="Arial,Helvetica,sans-serif" font-size="15" opacity="0.7">DaVinci Resolve</text>
+<rect x="687.5" y="580" width="225" height="46" fill="#0d0704" stroke="#f9a8d4" stroke-width="1.1" rx="2"/>
+<text x="695.5" y="603" fill="#f9a8d4" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold">Social media</text>
+<rect x="215" y="420" width="370" height="66" fill="#0d0704" stroke="#fde047" stroke-width="1.1" rx="2"/>
+<text x="400" y="448.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">Sustainable life - what would it look</text>
+<text x="400" y="465.5" fill="#fde047" font-family="Arial,Helvetica,sans-serif" font-size="12" font-weight="bold" text-anchor="middle">like on average (text)</text>
+</svg>

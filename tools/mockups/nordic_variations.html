@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Nordic Color Variations</title>
+<style>
+  body { margin: 0; padding: 20px; background: #111; font-family: Arial, sans-serif; }
+  h1 { color: #ccc; font-size: 15px; margin-bottom: 20px; }
+  .scheme { margin-bottom: 32px; }
+  .label { color: #aaa; font-size: 12px; margin-bottom: 6px; letter-spacing: 0.05em; }
+  svg { display: block; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>Nordic variations — open in browser</h1>
+
+<script>
+const schemes = [
+  {
+    name: "1 · Nordic Silver — slate bg, gold projects, cyan skills",
+    bg: "#161f2c", sbg: "#0d1520",
+    th: "#94a3b8", pr: "#fcd34d", sk: "#67e8f9"
+  },
+  {
+    name: "2 · Nordic Dusk — purple-tinted, periwinkle/rose/mint",
+    bg: "#1e1f35", sbg: "#131428",
+    th: "#a5b4fc", pr: "#fda4af", sk: "#86efac"
+  },
+  {
+    name: "3 · Nordic Stone — warm grey, lavender/peach/mint",
+    bg: "#232028", sbg: "#16141b",
+    th: "#c4b5fd", pr: "#fdba74", sk: "#86efac"
+  },
+  {
+    name: "4 · Nordic Ocean — deep blue, sky/amber/seafoam",
+    bg: "#0f2535", sbg: "#081520",
+    th: "#7dd3fc", pr: "#fbbf24", sk: "#6ee7b7"
+  },
+  {
+    name: "5 · Nordic Forest — dark teal bg, mint/apricot/blue",
+    bg: "#162830", sbg: "#0c181e",
+    th: "#a7f3d0", pr: "#fed7aa", sk: "#93c5fd"
+  }
+];
+
+const W = 900, H = 420;
+const SB = 200; // sidebar width
+const GW = W - SB; // graph width
+
+// Representative nodes: [col (0=theme,1=proj,2=skill), y, label, subs?]
+const themes   = ["Existential risk", "Global harmony", "European Union", "Climate Change", "Electricity markets"];
+const projects = ["Tool for existential risk", "Manifesto on history", "EU emission goals", "Carbon pricing", "Power interconnectors"];
+const skills   = [["Data viz / R", ["ggplot2", "Inkscape"]], ["Dashboards", ["Shiny/R"]], ["AI", ["ChatGPT"]], ["Video", ["DaVinci"]]];
+
+const GAP_V = 6;
+const TH = { w: 108, h: 26 };
+const PH = { w: 190, h: 34 };
+const SK_W = 130;
+
+function themeY(i) { return 60 + i * (TH.h + GAP_V); }
+function projY(i)  { return 46 + i * (PH.h + GAP_V + 2); }
+function skillBaseY(i) {
+  let y = 52;
+  for (let j = 0; j < i; j++) { y += (skills[j][1].length > 0 ? 38 + skills[j][1].length * 14 : 32) + GAP_V; }
+  return y;
+}
+function skillH(i) { return skills[i][1].length > 0 ? 38 + skills[i][1].length * 14 : 32; }
+
+// Column x centres (within graph area, offset by SB)
+const CX = [SB + 75, SB + 330, SB + 590];
+
+function renderScheme(s) {
+  const lines = [];
+  lines.push(`<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">`);
+
+  // Background
+  lines.push(`<rect width="${W}" height="${H}" fill="${s.bg}"/>`);
+
+  // Sidebar
+  lines.push(`<rect width="${SB}" height="${H}" fill="${s.sbg}"/>`);
+  lines.push(`<text x="14" y="28" fill="rgba(255,255,255,0.9)" font-size="12" font-weight="bold" font-family="Arial">Details</text>`);
+  lines.push(`<text x="14" y="44" fill="rgba(255,255,255,0.45)" font-size="9" font-family="Arial">Click an item to show description</text>`);
+  lines.push(`<line x1="${SB}" y1="0" x2="${SB}" y2="${H}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`);
+
+  // Sidebar: Vote + Funding hint
+  lines.push(`<text x="14" y="90" fill="rgba(255,255,255,0.75)" font-size="10" font-weight="bold" font-family="Arial">Vote</text>`);
+  lines.push(`<text x="14" y="105" fill="rgba(255,255,255,0.4)" font-size="8.5" font-family="Arial">Vote for themes and projects</text>`);
+  lines.push(`<text x="14" y="140" fill="rgba(255,255,255,0.75)" font-size="10" font-weight="bold" font-family="Arial">Funding</text>`);
+  for (let i = 0; i < 4; i++) {
+    lines.push(`<text x="14" y="${158 + i*13}" fill="rgba(255,255,255,0.35)" font-size="8" font-family="Arial">– Item ${i+1}</text>`);
+  }
+
+  // Column headers
+  const hdrs = [["Themes","I want to focus on",s.th], ["Projects","I'm working on",s.pr], ["Skills","I have or want to develop",s.sk]];
+  hdrs.forEach(([h1,h2,col], i) => {
+    lines.push(`<text x="${CX[i]}" y="22" fill="${col}" font-size="14" font-weight="bold" font-family="Arial" text-anchor="middle">${h1}</text>`);
+    lines.push(`<text x="${CX[i]}" y="34" fill="${col}" font-size="8" font-family="Arial" text-anchor="middle" opacity="0.7">${h2}</text>`);
+  });
+
+  // Draw edges (theme→project, project→skill) as bezier curves - simplified
+  const edgePairs = [[0,0],[0,1],[1,0],[1,1],[1,2],[2,2],[2,3],[3,3],[3,4],[4,3],[4,4]];
+  edgePairs.forEach(([ti, pi]) => {
+    if (ti >= themes.length || pi >= projects.length) return;
+    const x1 = CX[0] + TH.w/2, y1 = themeY(ti) + TH.h/2;
+    const x2 = CX[1] - PH.w/2, y2 = projY(pi) + PH.h/2;
+    const mx = (x1+x2)/2;
+    lines.push(`<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none" stroke="${s.th}" stroke-width="1.2" opacity="0.5"/>`);
+  });
+  const edgePairs2 = [[0,0],[1,0],[1,1],[2,1],[2,2],[3,2],[3,3],[4,1]];
+  edgePairs2.forEach(([pi, si]) => {
+    if (pi >= projects.length || si >= skills.length) return;
+    const x1 = CX[1] + PH.w/2, y1 = projY(pi) + PH.h/2;
+    const x2 = CX[2] - SK_W/2, y2 = skillBaseY(si) + skillH(si)/2;
+    const mx = (x1+x2)/2;
+    lines.push(`<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none" stroke="${s.sk}" stroke-width="1.2" opacity="0.5"/>`);
+  });
+
+  // Theme nodes
+  themes.forEach((t, i) => {
+    const y = themeY(i);
+    lines.push(`<rect x="${CX[0]-TH.w/2}" y="${y}" width="${TH.w}" height="${TH.h}" fill="${s.sbg}" stroke="${s.th}" stroke-width="0.9" rx="1"/>`);
+    lines.push(`<text x="${CX[0]+TH.w/2-6}" y="${y+TH.h/2+4}" fill="${s.th}" font-size="8.5" font-weight="bold" font-family="Arial" text-anchor="end">${t}</text>`);
+  });
+
+  // Project nodes
+  projects.forEach((p, i) => {
+    const y = projY(i);
+    lines.push(`<rect x="${CX[1]-PH.w/2}" y="${y}" width="${PH.w}" height="${PH.h}" fill="${s.sbg}" stroke="${s.pr}" stroke-width="0.9" rx="1"/>`);
+    lines.push(`<text x="${CX[1]}" y="${y+PH.h/2+4}" fill="${s.pr}" font-size="8.5" font-weight="bold" font-family="Arial" text-anchor="middle">${p}</text>`);
+  });
+
+  // Skill nodes
+  skills.forEach(([title, subs], i) => {
+    const y = skillBaseY(i);
+    const h = skillH(i);
+    lines.push(`<rect x="${CX[2]-SK_W/2}" y="${y}" width="${SK_W}" height="${h}" fill="${s.sbg}" stroke="${s.sk}" stroke-width="0.9" rx="1"/>`);
+    lines.push(`<text x="${CX[2]-SK_W/2+6}" y="${y+15}" fill="${s.sk}" font-size="8.5" font-weight="bold" font-family="Arial">${title}</text>`);
+    subs.forEach((sub, j) => {
+      lines.push(`<text x="${CX[2]-SK_W/2+14}" y="${y+27+j*13}" fill="${s.sk}" font-size="7.5" font-family="Arial" opacity="0.65">${sub}</text>`);
+    });
+  });
+
+  lines.push(`</svg>`);
+  return lines.join('\n');
+}
+
+schemes.forEach(s => {
+  const div = document.createElement('div');
+  div.className = 'scheme';
+  div.innerHTML = `<div class="label">${s.name}</div>${renderScheme(s)}`;
+  document.body.appendChild(div);
+});
+</script>
+</body>
+</html>

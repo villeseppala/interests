@@ -1,0 +1,1 @@
+options(shiny.autoreload = FALSE)
