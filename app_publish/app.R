@@ -1,4 +1,4 @@
-﻿# app_publish/app.R — Public viewer (no authoring UI)
+# app_publish/app.R — Public viewer (no authoring UI)
 # Sources shared layout engine; JS in www/render.js
 
 library(shiny)
