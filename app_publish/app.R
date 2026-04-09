@@ -4,6 +4,9 @@
 library(shiny)
 library(here)
 
+# Ensure CWD is app_publish/ regardless of how Positron launches the app
+if (!file.exists("www/graph.json")) setwd(here("app_publish"))
+
 source(here("shared", "layout.R"))
 
 # ── Paths ────────────────────────────────────────────────────────────────────
@@ -24,6 +27,7 @@ ui <- fluidPage(
   tags$head(
     tags$meta(name = "viewport", content = "width=device-width, initial-scale=1, maximum-scale=5"),
     tags$style(HTML(APP_CSS)),
+    tags$link(rel = "stylesheet", href = "https://cdnjs.cloudflare.com/ajax/libs/flag-icons/7.2.3/css/flag-icons.min.css"),
     tags$script(src = "https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"),
     tags$script(src = "render.js")
   ),
@@ -41,9 +45,9 @@ ui <- fluidPage(
               div(id = "controls-row",
                   tags$button(id = "mode-btn", onclick = "toggleLightMode()", "\u2600"),
                   tags$button(class = "lang-btn lang-active", id = "lang-btn-en",
-                              onclick = "setLanguage('en')", "\U0001F1EC\U0001F1E7"),
+                              onclick = "setLanguage('en')", HTML('<span class="fi fi-gb"></span>')),
                   tags$button(class = "lang-btn", id = "lang-btn-fi",
-                              onclick = "setLanguage('fi')", "\U0001F1EB\U0001F1EE"),
+                              onclick = "setLanguage('fi')", HTML('<span class="fi fi-fi"></span>')),
                   tags$a(id = "github-btn", href = "#", target = "_blank", title = "GitHub",
                          HTML('<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>'))
               )
@@ -121,6 +125,17 @@ ui <- fluidPage(
 )
 
 # ── Server ───────────────────────────────────────────────────────────────────
+linkify <- function(txt) {
+  txt <- gsub("\n", "<br>", txt, fixed = TRUE)
+  txt <- gsub("\\[([^\\]]+)\\]\\((https?://[^)\\s]+)\\)",
+    '<a href="\\2" target="_blank" rel="noopener" style="color:inherit;opacity:0.85;text-decoration:underline;">\\1</a>',
+    txt, perl = TRUE)
+  txt <- gsub('(?<!href=")(https?://[^\\s<>"]+)',
+    '<a href="\\1" target="_blank" rel="noopener" style="color:inherit;opacity:0.85;text-decoration:underline;">\\1</a>',
+    txt, perl = TRUE)
+  HTML(txt)
+}
+
 server <- function(input, output, session) {
   g        <- read_graph(GRAPH_PATH)
   desc_map <- read_desc(DESC_PATH)
@@ -169,6 +184,7 @@ server <- function(input, output, session) {
       ptypePct        = as.numeric(ly$ptype_pct  %||% 10),
       projectNodeWidth = as.numeric(ly$w_project %||% NODE_W$Project)
     ))
+    session$sendCustomMessage("setEdgeWidth", list(width = ly$edge_width %||% 2.5))
   })
   observe({ session$sendCustomMessage("initCy", cd) })
   observe({
@@ -190,7 +206,7 @@ server <- function(input, output, session) {
   col_intro_text  <- ly$col_intro_text   %||% ""
   col_intro_title <- ly$col_intro_title  %||% "What is this site about"
   details_title   <- ly$details_title    %||% "Details"
-  details_hint    <- ly$details_hint     %||% "Click on an item to show description"
+  details_hint    <- ly$details_hint     %||% "Click on a topic in the graph to see details here"
   vote_title      <- ly$vote_title       %||% "Vote"
   vote_text       <- ly$vote_text        %||% "Vote for themes, projects and skills you\u2019d like me to focus on:"
   fund_title      <- ly$funding_title    %||% "Funding"
@@ -201,7 +217,7 @@ server <- function(input, output, session) {
   fi_intro_title   <- ly$fi_col_intro_title   %||% ""
   fi_intro_text    <- ly$fi_col_intro_text    %||% ""
   fi_details_title <- ly$fi_details_title     %||% ""
-  fi_details_hint  <- ly$fi_details_hint      %||% ""
+  fi_details_hint  <- ly$fi_details_hint      %||% "Klikkaa aihetta graafissa n\u00e4hd\u00e4ksesi sen kuvauksen t\u00e4ss\u00e4"
   fi_vote_title    <- ly$fi_vote_title        %||% ""
   fi_vote_text     <- ly$fi_vote_text         %||% ""
   fi_fund_title    <- ly$fi_funding_title     %||% ""
@@ -226,25 +242,24 @@ server <- function(input, output, session) {
     style_str <- "color:rgba(255,255,255,0.8);font-family:Arial,Helvetica,sans-serif;font-size:var(--desc-font);line-height:1.65;margin-bottom:12px;"
     tagList(
       if (nzchar(trimws(col_intro_text)))
-        div(class = "en-only", style = style_str, HTML(gsub("\n", "<br>", col_intro_text, fixed = TRUE))),
-      div(class = "fi-only", style = style_str, HTML(gsub("\n", "<br>", txt_fi, fixed = TRUE)))
+        div(class = "en-only", style = style_str, linkify(col_intro_text)),
+      div(class = "fi-only", style = style_str, linkify(txt_fi))
     )
   })
 
   output$sidebar_hint_ui <- renderUI({
     hint_fi <- if (nzchar(fi_details_hint)) fi_details_hint else details_hint
     div(id = "sidebar-hint",
-        span(class = "en-only", details_hint),
-        span(class = "fi-only", hint_fi)
+        span(class = "en-only", linkify(details_hint)),
+        span(class = "fi-only", linkify(hint_fi))
     )
   })
 
   output$vote_section_ui <- renderUI({
     vtext_fi <- if (nzchar(fi_vote_text)) fi_vote_text else vote_text
-    to_html <- function(txt) HTML(gsub("\n", "<br>", txt, fixed = TRUE))
     div(id = "vote-section",
-        tags$div(class = "en-only", style = "color:rgba(255,255,255,0.8);font-family:Arial,Helvetica,sans-serif;line-height:1.65;", to_html(vote_text)),
-        tags$div(class = "fi-only", style = "color:rgba(255,255,255,0.8);font-family:Arial,Helvetica,sans-serif;line-height:1.65;", to_html(vtext_fi))
+        tags$div(class = "en-only", style = "color:rgba(255,255,255,0.8);font-family:Arial,Helvetica,sans-serif;line-height:1.65;", linkify(vote_text)),
+        tags$div(class = "fi-only", style = "color:rgba(255,255,255,0.8);font-family:Arial,Helvetica,sans-serif;line-height:1.65;", linkify(vtext_fi))
     )
   })
 
@@ -257,8 +272,8 @@ server <- function(input, output, session) {
     fi_intro_eff <- if (nzchar(fi_fund_intro)) fi_fund_intro else fund_intro
     div(id = "funding-section",
         tags$div(class = "funding-body",
-                 tags$div(class = "en-only", style = "margin-bottom:8px;line-height:1.6;", fund_intro),
-                 tags$div(class = "fi-only", style = "margin-bottom:8px;line-height:1.6;", fi_intro_eff),
+                 tags$div(class = "en-only", style = "margin-bottom:8px;line-height:1.6;", linkify(fund_intro)),
+                 tags$div(class = "fi-only", style = "margin-bottom:8px;line-height:1.6;", linkify(fi_intro_eff)),
                  tags$div(style = "line-height:1.7;", HTML(paste(html_items, collapse = "<br>")))
         )
     )

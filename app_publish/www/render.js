@@ -15,7 +15,7 @@ if (typeof Shiny === 'undefined') {
     setInputValue: function(name, value) {
       // Route clicked_node_id directly to showDescPanel using pre-loaded descriptions
       if (name === 'clicked_node_id' && window.staticNodeDescs) {
-        var desc = window.staticNodeDescs[String(Math.round(value))];
+        var desc = window.staticNodeDescs[String(value)];
         if (desc) {
           var fn = Shiny._handlers['showDescPanel'];
           if (fn) fn({ title: desc.title, title_fi: desc.title_fi || '',
@@ -305,15 +305,15 @@ function buildStyle() {
         'background-fill': 'flat',
         'background-color': function() { var b = nodeBgSameAsGraph ? colBg : colSidebarBg; return blendWithWhite(b, 0.28); },
         'shadow-opacity': 0,
-        'outline-width': 3, 'outline-color': lightMode ? '#000000' : '#ffffff', 'outline-style': 'solid', 'outline-offset': 1, 'outline-opacity': 1,
+        'outline-width': 6, 'outline-color': lightMode ? '#000000' : '#ffffff', 'outline-style': 'solid', 'outline-offset': 1, 'outline-opacity': 1,
     }},
     { selector: 'node.hovered', style: {
-        'border-width': 5,
+        'border-width': 10,
         'border-color': function(ele) { var g=ele.data('group'); return g==='Theme'?colTheme:g==='Project'?colProject:colSkill; },
         'border-opacity': 0.85,
     }},
     { selector: 'node.selected.hovered', style: {
-        'outline-width': 3, 'outline-color': lightMode ? '#000000' : '#ffffff', 'outline-style': 'solid', 'outline-offset': 1, 'outline-opacity': 1,
+        'outline-width': 6, 'outline-color': lightMode ? '#000000' : '#ffffff', 'outline-style': 'solid', 'outline-offset': 1, 'outline-opacity': 1,
     }},
     { selector: 'edge', style: { opacity: 0, width: 0 } },
     { selector: 'edge.selected', style: { opacity: 0, width: 0 } },
@@ -332,8 +332,7 @@ function buildElements(data) {
 
 function dualLabel(en, fi) {
   var en_esc = esc(en || '');
-  var fi_esc = esc(fi || '') || en_esc;
-  if (!fi || fi === en) return en_esc;
+  var fi_esc = fi ? esc(fi) : en_esc;
   return '<span class="en-only">' + en_esc + '</span><span class="fi-only">' + fi_esc + '</span>';
 }
 
@@ -378,13 +377,13 @@ function nodeHtml(data) {
   if (g === 'Project') {
     var ptypeRaw = data.ptype || '';
     var ptypeFi = { 'Text': 'Teksti', 'Text, long': 'Pitkä teksti', 'Text, short': 'Lyhyt teksti', 'Website': 'Nettisivu' };
-    var ptypeLabel = (currentLang === 'fi' && ptypeFi[ptypeRaw]) ? ptypeFi[ptypeRaw] : ptypeRaw;
+    var ptypeLabel = dualLabel(ptypeRaw, ptypeFi[ptypeRaw] || ptypeRaw);
     var ptypeFontSize = (fontPtype + 2) + 'px';
     var typeCol = ptypeRaw
       ? '<div style="width:' + Math.round((data.w || projectNodeWidth) * ptypePct / 100) + 'px;flex-shrink:0;border-left:1.1px solid ' + colProject + ';' +
         'display:flex;align-items:center;justify-content:center;padding:0 5px;' +
         'color:' + colProject + ';font-family:Arial,Helvetica,sans-serif;font-size:' + ptypeFontSize + ';' +
-        'font-weight:bold;text-align:center;line-height:1.25;">' + esc(ptypeLabel) + '</div>'
+        'font-weight:bold;text-align:center;line-height:1.25;">' + ptypeLabel + '</div>'
       : '';
     return '<div style="width:100%;height:100%;box-sizing:border-box;position:relative;overflow:hidden;' +
       'display:flex;align-items:stretch;">' +
@@ -441,8 +440,10 @@ function showInfoSheet() {
   var bs = document.getElementById('mobile-bottom-sheet');
   if (!bsTitle || !bsBody || !bs) return;
 
+  var aboutBody = document.querySelector('#acc-about .acc-body');
   var html = '';
-  if (voteEl) html += voteEl.innerHTML;
+  if (aboutBody) html += aboutBody.innerHTML;
+  if (voteEl) html += (html ? '<hr style="margin:14px 0 10px;border-color:rgba(255,255,255,0.15);">' : '') + voteEl.innerHTML;
   if (fundEl) html += '<hr style="margin:14px 0 10px;border-color:rgba(255,255,255,0.15);">' + fundEl.innerHTML;
   bsTitle.textContent = 'Info';
   bsTitle.style.color = '#78e6e7';
@@ -533,7 +534,29 @@ function toggleLightMode() {
     if (btn) btn.textContent = '\u2600'; // sun for "go light"
   }
   applyColors();
-  if (cy) { cy.style(buildStyle()); }
+  if (cy) { cy.style(buildStyle()); if (lastData) positionHeaders(lastData); }
+  // Re-apply description panel accent color with updated globals
+  if (lastDescMsg) {
+    var grp = lastDescMsg.group || 'Project';
+    var colors = { Theme: colTheme, Project: colProject, Skill: colSkill };
+    var c = colors[grp] || colProject;
+    var panel = document.getElementById('desc-panel');
+    var title = document.getElementById('desc-title');
+    var close = document.getElementById('desc-close');
+    if (panel && panel.style.display !== 'none') {
+      panel.style.borderColor = c;
+      if (title) title.style.color = c;
+      if (close) { close.style.color = c; close.style.borderColor = c; }
+    }
+    var bsTitle = document.getElementById('mobile-bs-title');
+    var bsClose = document.getElementById('mobile-bs-close');
+    var bs = document.getElementById('mobile-bottom-sheet');
+    if (bs && bs.classList.contains('visible') && bsTitle) {
+      bsTitle.style.color = c;
+      if (bsClose) { bsClose.style.color = c; bsClose.style.borderColor = c; }
+      bs.style.borderColor = c;
+    }
+  }
 }
 
 /* ── Edge SVG Overlay ────────────────────────────────────────────────────── */
@@ -580,7 +603,7 @@ function drawEdgeOverlay() {
     var glow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     glow.setAttribute('d', ep.pathD); glow.setAttribute('fill', 'none');
     glow.setAttribute('stroke', lightMode ? '#000000' : '#ffffff');
-    glow.setAttribute('stroke-width', strokeW * 2);
+    glow.setAttribute('stroke-width', strokeW * 2.5);
     svg.appendChild(glow);
   });
   // Pass 2: all colored edges — hovered edges 3× width, others normal
@@ -621,7 +644,7 @@ function drawNodeConnector() {
   svg.id = 'node-connector';
   svg.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:1;overflow:visible;';
   document.body.appendChild(svg);
-  var sw = baseEdgeWidth * zoom * 2;
+  var sw = baseEdgeWidth * zoom * 0.75;
   var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   var d, nx_start, dx_fb;
 
@@ -713,6 +736,16 @@ function positionHeaders(data) {
   if (!cy || !data || !data.headers) return;
   var area = document.getElementById('graph-area');
   var pan = cy.pan(), zoom = cy.zoom();
+  // On mobile, derive header x from actual node positions so layout shifts are reflected
+  if (mobileMode && cy) {
+    var groupXs = { Theme: [], Project: [], Skill: [] };
+    cy.nodes().forEach(function(n) { var g = n.data('group'); if (groupXs[g]) groupXs[g].push(n.position('x')); });
+    var grpOrder = ['Theme', 'Project', 'Skill'];
+    data.headers.forEach(function(h, i) {
+      var xs = groupXs[grpOrder[i]];
+      if (xs && xs.length) h.x = xs.reduce(function(a, b) { return a + b; }, 0) / xs.length;
+    });
+  }
   data.headers.forEach(function (h, i) {
     var sx = h.x * zoom + pan.x, sy = h.y * zoom + pan.y;
     var div = document.createElement('div');
@@ -1034,6 +1067,30 @@ function initCyGraph(data) {
     cy.on('mouseout', 'node', function () { hoveredNodeId = null; applyHighlightState(); });
   }
   cy.on('pan zoom', function () { positionHeaders(lastData); drawEdgeOverlay(); drawNodeConnector(); });
+  // Dragging on a node pans the graph (nodes are non-grabbable)
+  cy.on('vmousedown', 'node', function(evt) {
+    var oe = evt.originalEvent; if (!oe) return;
+    var t = oe.touches && oe.touches[0];
+    var sx = t ? t.clientX : oe.clientX, sy = t ? t.clientY : oe.clientY;
+    var px0 = cy.pan().x, py0 = cy.pan().y, moved = false;
+    function move(e) {
+      var tt = e.touches && e.touches[0];
+      var cx = tt ? tt.clientX : e.clientX, cy_ = tt ? tt.clientY : e.clientY;
+      if (!moved && Math.abs(cx - sx) < 4 && Math.abs(cy_ - sy) < 4) return;
+      moved = true;
+      cy.pan({ x: px0 + cx - sx, y: py0 + cy_ - sy });
+    }
+    function up() {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('touchmove', move);
+      document.removeEventListener('mouseup', up);
+      document.removeEventListener('touchend', up);
+    }
+    document.addEventListener('mousemove', move);
+    document.addEventListener('touchmove', move, { passive: false });
+    document.addEventListener('mouseup', up);
+    document.addEventListener('touchend', up);
+  });
   positionHeaders(data); drawEdgeOverlay();
 }
 
@@ -1162,6 +1219,7 @@ function setLanguage(lang) {
   if (btnFi) btnFi.classList.toggle('lang-active', lang === 'fi');
   applyAccTitles();
   applyDescPanelLang();
+  if (cy && lastData) positionHeaders(lastData);
 }
 
 Shiny.addCustomMessageHandler('updateAccTitles', function(t) {
@@ -1215,7 +1273,7 @@ function mdToHtml(text) {
     var m = line.match(/^(#{3,6})\s*(.+)$/);
     if (m) {
       var level = Math.min(m[1].length + 1, 6);
-      out.push('<h' + level + ' style="margin:12px 0 4px;font-size:' + (descFontSize + 2) + 'px;font-weight:bold;color:rgba(255,255,255,0.9);">' + processInline(m[2]) + '</h' + level + '>');
+      out.push('<h' + level + ' style="margin:12px 0 4px;font-size:' + (descFontSize + 2) + 'px;font-weight:bold;">' + processInline(m[2]) + '</h' + level + '>');
     } else if (line.trim() === '') {
       out.push('<br>');
     } else {
