@@ -278,7 +278,6 @@ function alignGraphLeft() {
 /* ── Cytoscape Styles — border 1.1px ─────────────────────────────────────── */
 
 function buildStyle() {
-  var bg = colBg;
   var borderColor = function (e) {
     var g = e.data('group');
     if (g === 'Theme') return colTheme; if (g === 'Project') return colProject;
@@ -288,32 +287,25 @@ function buildStyle() {
   return [
     { selector: 'node', style: {
         shape: 'rectangle', width: 'data(w)', height: 'data(h)',
-        'background-fill': 'linear-gradient',
-        'background-gradient-direction': 'to-bottom',
-        'background-gradient-stop-colors': function() { var b = nodeBgSameAsGraph ? colBg : colSidebarBg; return blendWithWhite(b, 0.08) + ' ' + blendWithBlack(b, 0.18); },
-        'background-gradient-stop-positions': '0% 100%',
+        'background-fill': 'flat',
+        'background-color': function() { return nodeBgSameAsGraph ? colBg : colSidebarBg; },
         'border-width': 1.2,
         'border-color': borderColor, 'border-style': 'solid', label: '',
-        'shadow-blur': 8, 'shadow-color': '#000000',
-        'shadow-offset-x': 2, 'shadow-offset-y': 3, 'shadow-opacity': 0.45,
+        'shadow-opacity': 0, 'outline-width': 0, 'outline-opacity': 0, 'underlay-opacity': 0, 'overlay-opacity': 0,
         cursor: function (e) {
           var g = e.data('group');
           return (g === 'Project' || g === 'Theme' || g === 'Skill') ? 'pointer' : 'default';
         },
     }},
     { selector: 'node.selected', style: {
-        'background-fill': 'flat',
-        'background-color': function() { var b = nodeBgSameAsGraph ? colBg : colSidebarBg; return blendWithWhite(b, 0.28); },
-        'shadow-opacity': 0,
-        'outline-width': 6, 'outline-color': lightMode ? '#000000' : '#ffffff', 'outline-style': 'solid', 'outline-offset': 1, 'outline-opacity': 1,
+        'background-color': function() { var b = nodeBgSameAsGraph ? colBg : colSidebarBg; return blendWithWhite(b, 0.15); },
+        'border-width': 6, 'shadow-opacity': 0, 'outline-width': 0, 'outline-opacity': 0,
     }},
     { selector: 'node.hovered', style: {
-        'border-width': 10,
-        'border-color': function(ele) { var g=ele.data('group'); return g==='Theme'?colTheme:g==='Project'?colProject:colSkill; },
-        'border-opacity': 0.85,
+        'border-width': 6, 'outline-width': 0,
     }},
     { selector: 'node.selected.hovered', style: {
-        'outline-width': 6, 'outline-color': lightMode ? '#000000' : '#ffffff', 'outline-style': 'solid', 'outline-offset': 1, 'outline-opacity': 1,
+        'outline-width': 0, 'outline-opacity': 0,
     }},
     { selector: 'edge', style: { opacity: 0, width: 0 } },
     { selector: 'edge.selected', style: { opacity: 0, width: 0 } },

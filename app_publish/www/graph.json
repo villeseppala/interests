@@ -12,7 +12,7 @@
       "group": "Theme",
       "title": "Existential and catastropic risks",
       "edgeColor": "#DE53C9",
-      "title_fi": "Eksistentiaali riskit"
+      "title_fi": "Eksistentiaaliset riskit"
     },
     {
       "id": 104,
@@ -527,11 +527,11 @@
     "edge_width": 5,
     "watermark_text": "",
     "watermark_size": 10,
-    "col_bg": "#40362D",
-    "col_sidebar_bg": "#1D1D21",
-    "col_theme": "#B9A9FC",
-    "col_project": "#FBADA2",
-    "col_skill": "#A9F3FA",
+    "col_bg": "#262D42",
+    "col_sidebar_bg": "#262d42",
+    "col_theme": "#E79DFD",
+    "col_project": "#FBCCA0",
+    "col_skill": "#98FAB6",
     "light_col_bg": "#CBCCD0",
     "light_col_sidebar_bg": "#EDE7E7",
     "light_col_theme": "#99641E",
