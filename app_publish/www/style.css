@@ -182,16 +182,69 @@ body.lang-fi span.fi-only, body.lang-fi b.fi-only, body.lang-fi a.fi-only { disp
   .col-spacer { display:none; }
 }
 @media (max-width: 768px) {
-  html, body { overflow:auto; }
-  #main-row { flex-direction:column; height:auto; overflow:visible; }
+  html, body { overflow:hidden; height:100%; }
+  #main-row { flex-direction:column; height:100vh; overflow:hidden; }
   .col-spacer { display:none; }
   #info-sidebar { display:none; }
   #sidebar-resize-handle { display:none; }
-  #graph-area { width:100%; overflow:visible; }
+  #graph-area { width:100%; flex:none; height:70vh; overflow:hidden; }
   #cy { pointer-events:auto; }
-  #mobile-bottom-sheet { display:flex; }
-  #mobile-info-btn { display:block; }
+  #mobile-bottom-sheet { display:none !important; }
+  #mobile-info-btn { display:none !important; }
+  #mob-handle { display:flex; }
+  #mob-panel { display:flex; }
 }
+
+/* ── Mobile split panel ──────────────────────────────────────────────── */
+#mob-handle {
+  display:none; flex:none; height:16px; width:100%;
+  cursor:ns-resize; align-items:center; justify-content:center;
+  background:rgba(0,0,0,0.25); z-index:10; }
+#mob-handle::after {
+  content:''; width:40px; height:4px; border-radius:2px;
+  background:rgba(255,255,255,0.3); }
+#mob-panel {
+  display:none; flex:1; min-height:0; flex-direction:column;
+  background:rgba(8,22,38,0.97); overflow:hidden; position:relative; }
+#mob-tab-bar {
+  flex:none; display:flex;
+  border-bottom:1px solid rgba(255,255,255,0.1); }
+.mob-tab {
+  flex:1; background:none; border:none;
+  border-bottom:2px solid transparent;
+  color:rgba(255,255,255,0.5);
+  font-family:Arial,Helvetica,sans-serif; font-size:13px; font-weight:bold;
+  padding:9px 4px 8px; cursor:pointer;
+  transition:color 0.15s,border-color 0.15s; }
+.mob-tab.mob-tab-active {
+  color:rgba(255,255,255,0.9);
+  border-bottom-color:var(--col-skill, #78e6e7); }
+#mob-tab-content { flex:1; min-height:0; overflow-y:auto; }
+.mob-tab-pane {
+  display:none; padding:10px 14px 16px;
+  color:rgba(255,255,255,0.82); font-family:Arial,Helvetica,sans-serif;
+  font-size:14px; line-height:1.65; }
+.mob-tab-pane.mob-tab-pane-active { display:block; }
+#mob-desc-panel {
+  display:none; flex-direction:column;
+  position:absolute; inset:0;
+  background:rgba(8,22,38,0.97); z-index:5; overflow:hidden; }
+#mob-desc-panel.mob-desc-visible { display:flex; }
+#mob-desc-header {
+  flex:none; display:flex; justify-content:space-between; align-items:flex-start;
+  padding:9px 14px 6px;
+  border-bottom:1px solid var(--col-project-dim2, rgba(255,173,51,0.25)); }
+#mob-desc-title {
+  color:var(--col-project, #ffad33); font-family:Arial,Helvetica,sans-serif;
+  font-size:17px; font-weight:bold; line-height:1.3; flex:1; padding-right:10px; }
+#mob-desc-close {
+  background:none; border:1px solid var(--col-project-dim, rgba(255,173,51,0.4));
+  color:var(--col-project, #ffad33); font-size:16px; cursor:pointer;
+  padding:2px 8px; flex:none; line-height:1.4; min-width:32px; min-height:32px; text-align:center; }
+#mob-desc-body {
+  flex:1; min-height:0; overflow-y:auto;
+  color:rgba(255,255,255,0.82); font-family:Arial,Helvetica,sans-serif;
+  font-size:14px; line-height:1.65; padding:10px 14px 16px; }
 
 /* ── Light mode overrides ─────────────────────────────────────────────── */
 body.light-mode #page-title { color:rgba(0,0,0,0.82); }
@@ -221,3 +274,11 @@ body.light-mode #github-btn:hover { background:rgba(0,0,0,0.07) !important; colo
 body.light-mode #sidebar-resize-handle { background:rgba(0,0,0,0.15); }
 body.light-mode #mobile-bottom-sheet { background:rgba(220,232,245,0.97); }
 body.light-mode #mobile-bs-body { color:rgba(0,0,0,0.82) !important; }
+body.light-mode #mob-panel { background:rgba(220,232,245,0.97); }
+body.light-mode #mob-desc-panel { background:rgba(220,232,245,0.97); }
+body.light-mode .mob-tab { color:rgba(0,0,0,0.45); }
+body.light-mode .mob-tab.mob-tab-active { color:rgba(0,0,0,0.85); }
+body.light-mode .mob-tab-pane { color:rgba(0,0,0,0.8); }
+body.light-mode #mob-desc-body { color:rgba(0,0,0,0.82) !important; }
+body.light-mode #mob-handle { background:rgba(0,0,0,0.12); }
+body.light-mode #mob-handle::after { background:rgba(0,0,0,0.25); }

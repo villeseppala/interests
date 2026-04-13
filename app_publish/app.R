@@ -76,7 +76,7 @@ ui <- fluidPage(
                       span(class = "acc-title", id = "acc-title-about"),
                       span(class = "acc-arrow", HTML("&#9660;"))
                   ),
-                  div(class = "acc-body",
+                  div(class = "acc-body", id = "acc-about-body",
                       uiOutput("col_intro_ui")
                   )
               ),
@@ -86,7 +86,7 @@ ui <- fluidPage(
                       span(class = "acc-title", id = "acc-title-vote"),
                       span(class = "acc-arrow", HTML("&#9660;"))
                   ),
-                  div(class = "acc-body",
+                  div(class = "acc-body", id = "acc-vote-body",
                       uiOutput("vote_section_ui")
                   )
               ),
@@ -96,7 +96,7 @@ ui <- fluidPage(
                       span(class = "acc-title", id = "acc-title-fund"),
                       span(class = "acc-arrow", HTML("&#9660;"))
                   ),
-                  div(class = "acc-body",
+                  div(class = "acc-body", id = "acc-fund-body",
                       uiOutput("funding_ui")
                   )
               )
@@ -107,9 +107,43 @@ ui <- fluidPage(
       div(id = "sidebar-resize-handle"),
       
       # ── Graph area ──
-      div(id = "graph-area", div(id = "cy"))
+      div(id = "graph-area", div(id = "cy")),
+
+      # ── Mobile drag handle ──
+      div(id = "mob-handle"),
+
+      # ── Mobile bottom panel ──
+      div(id = "mob-panel",
+          div(id = "mob-tab-bar",
+              tags$button(class = "mob-tab mob-tab-active", id = "mob-tab-about",
+                          onclick = "mobShowTab('about')",
+                          span(class = "en-only", "About"), span(class = "fi-only", "Tietoa")),
+              tags$button(class = "mob-tab", id = "mob-tab-vote",
+                          onclick = "mobShowTab('vote')",
+                          span(class = "en-only", "Vote"), span(class = "fi-only", "\u00c4\u00e4nest\u00e4")),
+              tags$button(class = "mob-tab", id = "mob-tab-fund",
+                          onclick = "mobShowTab('fund')",
+                          span(class = "en-only", "Funding"), span(class = "fi-only", "Rahoitus")),
+              tags$button(class = "mob-tab", id = "mob-tab-settings",
+                          onclick = "mobShowTab('settings')",
+                          span(class = "en-only", "Settings"), span(class = "fi-only", "Asetukset"))
+          ),
+          div(id = "mob-tab-content",
+              div(id = "mob-content-about", class = "mob-tab-pane mob-tab-pane-active"),
+              div(id = "mob-content-vote",  class = "mob-tab-pane"),
+              div(id = "mob-content-fund",  class = "mob-tab-pane"),
+              div(id = "mob-content-settings", class = "mob-tab-pane")
+          ),
+          div(id = "mob-desc-panel",
+              div(id = "mob-desc-header",
+                  div(id = "mob-desc-title", ""),
+                  tags$button(id = "mob-desc-close", onclick = "mobCloseDesc()", "\u00d7")
+              ),
+              div(id = "mob-desc-body", "")
+          )
+      )
   ),
-  
+
   # ── Mobile bottom sheet (outside main-row, fixed position) ──
   div(id = "mobile-bottom-sheet",
       div(id = "mobile-bs-grab"),
@@ -160,6 +194,7 @@ server <- function(input, output, session) {
                              light_col_theme = ly$light_col_theme %||% "#1e7c45",
                              light_col_project = ly$light_col_project %||% "#c06000",
                              light_col_skill = ly$light_col_skill %||% "#1a7a7b",
+                             light_edge_color = ly$light_edge_color %||% "#555555",
                              mob_font_mult    = ly$mob_font_mult    %||% MOBILE_DEFAULTS$mob_font_mult,
                              mob_h_theme_mult = ly$mob_h_theme_mult %||% MOBILE_DEFAULTS$mob_h_theme_mult,
                              mob_h_proj_mult  = ly$mob_h_proj_mult  %||% MOBILE_DEFAULTS$mob_h_proj_mult,
@@ -279,6 +314,10 @@ server <- function(input, output, session) {
     )
   })
   
+  outputOptions(output, "col_intro_ui",    suspendWhenHidden = FALSE)
+  outputOptions(output, "vote_section_ui", suspendWhenHidden = FALSE)
+  outputOptions(output, "funding_ui",      suspendWhenHidden = FALSE)
+
   observeEvent(input$clicked_node_id, {
     id  <- as.numeric(input$clicked_node_id)
     nd  <- Filter(function(n) as.numeric(n$id) == id, g$nodes)

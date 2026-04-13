@@ -5,42 +5,48 @@
       "group": "Theme",
       "title": "Russia/Ukraine",
       "edgeColor": "#B47238",
-      "title_fi": "Venäjä/Ukraina"
+      "title_fi": "Venäjä/Ukraina",
+      "lightEdgeColor": "#2D51F1"
     },
     {
       "id": 101,
       "group": "Theme",
       "title": "Existential and catastropic risks",
       "edgeColor": "#DE53C9",
-      "title_fi": "Eksistentiaaliset riskit"
+      "title_fi": "Eksistentiaaliset riskit",
+      "lightEdgeColor": "#91B63A"
     },
     {
       "id": 104,
       "group": "Theme",
       "title": "Climate Change",
       "edgeColor": "#CDCC44",
-      "title_fi": "Ilmastonmuutos"
+      "title_fi": "Ilmastonmuutos",
+      "lightEdgeColor": "#D420C7"
     },
     {
       "id": 105,
       "group": "Theme",
       "title": "Electricity markets",
       "edgeColor": "#54E07E",
-      "title_fi": "Sähkömarkkinat"
+      "title_fi": "Sähkömarkkinat",
+      "lightEdgeColor": "#C62163"
     },
     {
       "id": 103,
       "group": "Theme",
       "title": "European Union",
       "edgeColor": "#4D64CC",
-      "title_fi": "Euroopan Unioni"
+      "title_fi": "Euroopan Unioni",
+      "lightEdgeColor": "#C2C521"
     },
     {
       "id": 102,
       "group": "Theme",
       "title": "Global harmony",
       "edgeColor": "#7BD349",
-      "title_fi": "Globaali harmonia"
+      "title_fi": "Globaali harmonia",
+      "lightEdgeColor": "#6CA531"
     },
     {
       "id": 202,
@@ -130,7 +136,8 @@
         "ChatGPT etc."
       ],
       "edgeColor": "#8D4AC2",
-      "title_fi": "Tekoäly"
+      "title_fi": "Tekoäly",
+      "lightEdgeColor": "#59B9D9"
     },
     {
       "id": 301,
@@ -141,7 +148,8 @@
         "Krita, Inkscape etc."
       ],
       "edgeColor": "#CA4572",
-      "title_fi": "Datavisualisointi ja graafinen suunnittelu"
+      "title_fi": "Datavisualisointi ja graafinen suunnittelu",
+      "lightEdgeColor": "#359BAC"
     },
     {
       "id": 302,
@@ -152,7 +160,8 @@
         "Quarto / R"
       ],
       "edgeColor": "#4BF7B4",
-      "title_fi": "Dashboardit ja nettisivut"
+      "title_fi": "Dashboardit ja nettisivut",
+      "lightEdgeColor": "#DC1D43"
     },
     {
       "id": 303,
@@ -162,7 +171,8 @@
         "DaVinci Resolve"
       ],
       "edgeColor": "#71EA57",
-      "title_fi": "Videot ja striimaus"
+      "title_fi": "Videot ja striimaus",
+      "lightEdgeColor": "#B0C24B"
     },
     {
       "id": 305,
@@ -170,7 +180,8 @@
       "title": "Social media",
       "edgeColor": "#C461DE",
       "title_fi": "Sosiaalinen media",
-      "subs": []
+      "subs": [],
+      "lightEdgeColor": "#30E33E"
     },
     {
       "id": 205.5,
@@ -527,7 +538,7 @@
     "edge_width": 5,
     "watermark_text": "",
     "watermark_size": 10,
-    "col_bg": "#262D42",
+    "col_bg": "#293047",
     "col_sidebar_bg": "#262d42",
     "col_theme": "#E79DFD",
     "col_project": "#FBCCA0",
@@ -537,6 +548,7 @@
     "light_col_theme": "#99641E",
     "light_col_project": "#18903D",
     "light_col_skill": "#3C178F",
+    "light_edge_color": "#555555",
     "mob_font_mult": 1.5,
     "mob_h_theme_mult": 3,
     "mob_h_proj_mult": 3,
@@ -565,9 +577,9 @@
     "hdr_theme_line1": "Themes",
     "hdr_theme_line2": "I want to focus on",
     "hdr_project_line1": "Projects",
-    "hdr_project_line2": "I’m working on or want to work on",
+    "hdr_project_line2": "I want to work on",
     "hdr_skill_line1": "Skills",
-    "hdr_skill_line2": "I have or want to develop",
+    "hdr_skill_line2": "I want to develop",
     "fi_hdr_theme_line1": "Teemat",
     "fi_hdr_theme_line2": "joihin haluan keskittyä",
     "fi_hdr_project_line1": "Projektit",

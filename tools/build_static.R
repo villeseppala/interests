@@ -40,6 +40,7 @@ cd <- build_dual_cyto_data(g,
   light_col_theme      = ly$light_col_theme      %||% "#1e7c45",
   light_col_project    = ly$light_col_project    %||% "#c06000",
   light_col_skill      = ly$light_col_skill      %||% "#1a7a7b",
+  light_edge_color     = ly$light_edge_color     %||% "#555555",
   mob_font_mult    = ly$mob_font_mult    %||% MOBILE_DEFAULTS$mob_font_mult,
   mob_h_theme_mult = ly$mob_h_theme_mult %||% MOBILE_DEFAULTS$mob_h_theme_mult,
   mob_h_proj_mult  = ly$mob_h_proj_mult  %||% MOBILE_DEFAULTS$mob_h_proj_mult,
@@ -126,6 +127,7 @@ cd$ptypeLayout   <- list(
   ptypePct         = as.numeric(ly$ptype_pct %||% 10),
   projectNodeWidth = as.numeric(ly$w_project %||% NODE_W$Project)
 )
+cd$edge_width <- as.numeric(ly$edge_width %||% 2.5)
 cd$github_url <- ly$github_url %||% "#"
 
 write_json(cd, file.path(OUT_DIR, "payload.json"), auto_unbox = TRUE, null = "null")

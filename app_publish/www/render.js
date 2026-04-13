@@ -65,6 +65,7 @@ var lightColSidebarBg = '#e2eaf3';
 var lightColTheme = '#1e7c45';
 var lightColProject = '#c06000';
 var lightColSkill = '#1a7a7b';
+var lightEdgeColor = '#555555';
 var darkColBg = '#0b3552';
 var darkColSidebarBg = '#081626';
 var darkColTheme = '#3be37a';
@@ -205,15 +206,25 @@ function resizeCy() {
   var w = el.parentElement.clientWidth;
   if (w < 10) return; // not laid out yet
   if (useMobileLayout()) {
-    var aspectH = w * (previewHeight / previewWidth);
     var data = lastData;
-    if (data && data.max_h1) {
-      var scale = w / ((data.headers && data.headers.length >= 3)
-        ? (data.headers[2].x + 130) : 800);
-      var contentH = (data.max_h1 + 140) * scale;
-      el.style.height = Math.max(contentH, aspectH * 0.6) + 'px';
+    if (data && data.nodes && data.nodes.length > 0) {
+      // Compute bounding box from node data to match the zoomW used in fitWithHeaders
+      var bx1 = Infinity, bx2 = -Infinity, by1 = Infinity, by2 = -Infinity;
+      (data.nodes || []).forEach(function(n) {
+        if (!n.data || !n.position) return;
+        var nw = n.data.w || 100, nh = n.data.h || 40;
+        bx1 = Math.min(bx1, n.position.x - nw / 2);
+        bx2 = Math.max(bx2, n.position.x + nw / 2);
+        by1 = Math.min(by1, n.position.y - nh / 2);
+        by2 = Math.max(by2, n.position.y + nh / 2);
+      });
+      var bbW = bx2 - bx1, bbH = by2 - by1;
+      var hm = (data.headerMargin) || 70;
+      var zoom = (w - 40) / bbW; // same zoomW as fitWithHeaders uses
+      var contentH = 8 + (hm + bbH) * zoom + 20;
+      el.style.height = Math.max(contentH, 150) + 'px';
     } else {
-      el.style.height = aspectH + 'px';
+      el.style.height = (w * (previewHeight / previewWidth)) + 'px';
     }
   } else {
     var parentH = el.parentElement.clientHeight || window.innerHeight;
@@ -249,8 +260,8 @@ function fitWithHeaders() {
   // Horizontal: 20 + bb.w*zoom + 20           = W  →  zoom = (W−40)/bb.w
   var hm = (lastData && lastData.headerMargin) || 70;
   var zoomH = (H - 28) / (bb.h + hm);
-  var zoomW = (W - 40) / bb.w;
-  var zoom  = Math.min(zoomH, zoomW);
+  var zoomW = useMobileLayout() ? (W - 4) / bb.w : (W - 40) / bb.w;
+  var zoom  = useMobileLayout() ? zoomW : Math.min(zoomH, zoomW);
   zoom = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), zoom));
   cy.zoom(zoom);
   // Centre horizontally; top-align so headers have exactly 8px clearance
@@ -289,7 +300,7 @@ function buildStyle() {
         shape: 'rectangle', width: 'data(w)', height: 'data(h)',
         'background-fill': 'flat',
         'background-color': function() { return nodeBgSameAsGraph ? colBg : colSidebarBg; },
-        'border-width': 1.2,
+        'border-width': 2,
         'border-color': borderColor, 'border-style': 'solid', label: '',
         'shadow-opacity': 0, 'outline-width': 0, 'outline-opacity': 0, 'underlay-opacity': 0, 'overlay-opacity': 0,
         cursor: function (e) {
@@ -371,7 +382,7 @@ function nodeHtml(data) {
     var ptypeFi = { 'Text': 'Teksti', 'Text, long': 'Pitkä teksti', 'Text, short': 'Lyhyt teksti', 'Website': 'Nettisivu' };
     var ptypeLabel = dualLabel(ptypeRaw, ptypeFi[ptypeRaw] || ptypeRaw);
     var ptypeFontSize = (fontPtype + 2) + 'px';
-    var typeCol = ptypeRaw
+    var typeCol = (!mobileMode && ptypeRaw)
       ? '<div style="width:' + Math.round((data.w || projectNodeWidth) * ptypePct / 100) + 'px;flex-shrink:0;border-left:1.1px solid ' + colProject + ';' +
         'display:flex;align-items:center;justify-content:center;padding:0 5px;' +
         'color:' + colProject + ';font-family:Arial,Helvetica,sans-serif;font-size:' + ptypeFontSize + ';' +
@@ -405,92 +416,137 @@ function hideBottomSheet() {
   var bs = document.getElementById('mobile-bottom-sheet');
   if (bs) { bs.classList.remove('visible'); bs.style.maxHeight = '50vh'; }
   sheetMode = null;
-  updateInfoBtnVisibility();
+  mobCloseDesc();
 }
 
-function showBottomSheet() {
-  var bs = document.getElementById('mobile-bottom-sheet');
-  if (bs) bs.classList.add('visible');
-  updateInfoBtnVisibility();
-}
-
-function updateInfoBtnVisibility() {
-  var btn = document.getElementById('mobile-info-btn');
-  if (!btn) return;
-  // Hide info button when any sheet is showing (close button handles dismissal)
-  if (sheetMode) { btn.style.opacity = '0'; btn.style.pointerEvents = 'none'; }
-  else { btn.style.opacity = '1'; btn.style.pointerEvents = ''; }
-}
+function showBottomSheet() { /* mob-panel is always visible; no-op */ }
+function updateInfoBtnVisibility() { /* info button removed; no-op */ }
 
 function showInfoSheet() {
-  // Grab voting + funding content from sidebar (exists in DOM, hidden on mobile via CSS)
-  var voteEl = document.getElementById('vote-section');
-  var fundEl = document.getElementById('funding-section');
-  var bsTitle = document.getElementById('mobile-bs-title');
-  var bsBody = document.getElementById('mobile-bs-body');
-  var bsClose = document.getElementById('mobile-bs-close');
-  var bs = document.getElementById('mobile-bottom-sheet');
-  if (!bsTitle || !bsBody || !bs) return;
-
-  var aboutBody = document.querySelector('#acc-about .acc-body');
-  var html = '';
-  if (aboutBody) html += aboutBody.innerHTML;
-  if (voteEl) html += (html ? '<hr style="margin:14px 0 10px;border-color:rgba(255,255,255,0.15);">' : '') + voteEl.innerHTML;
-  if (fundEl) html += '<hr style="margin:14px 0 10px;border-color:rgba(255,255,255,0.15);">' + fundEl.innerHTML;
-  bsTitle.textContent = 'Info';
-  bsTitle.style.color = '#78e6e7';
-  bsBody.innerHTML = html || 'No info available.';
-  bs.style.borderColor = '#78e6e7';
-  bs.style.maxHeight = '50vh'; // reset from any drag
-  if (bsClose) { bsClose.style.color = '#78e6e7'; bsClose.style.borderColor = 'rgba(120,230,231,0.4)'; }
-  sheetMode = 'info';
-  showBottomSheet();
-  // Deselect any node
+  mobShowTab('about');
   selectedNodeId = null; applyHighlightState();
 }
 
-/* ── Draggable Bottom Sheet ──────────────────────────────────────────────── */
+/* ── Mobile tab / description helpers ───────────────────────────────────── */
+
+function mobShowTab(tab) {
+  ['about','vote','fund','settings'].forEach(function(t) {
+    var btn  = document.getElementById('mob-tab-' + t);
+    var pane = document.getElementById('mob-content-' + t);
+    var on   = (t === tab);
+    if (btn)  btn.classList.toggle('mob-tab-active', on);
+    if (pane) pane.classList.toggle('mob-tab-pane-active', on);
+  });
+}
+
+function initSettingsTab() {
+  var el = document.getElementById('mob-content-settings');
+  if (!el) return;
+  var gb = document.getElementById('github-btn');
+  var githubHref = gb ? gb.getAttribute('href') : '#';
+  var modeIcon = lightMode ? '\u263d' : '\u2600';
+  var secStyle = 'margin-bottom:20px;';
+  var lbl = 'font-size:11px;opacity:0.55;margin-bottom:8px;text-transform:uppercase;' +
+    'letter-spacing:0.05em;font-family:Arial,Helvetica,sans-serif;display:block;';
+  el.innerHTML =
+    '<div style="padding:16px;">' +
+    '<div style="' + secStyle + '">' +
+    '<span style="' + lbl + '">Language</span>' +
+    '<div style="display:flex;gap:8px;">' +
+    '<button id="mob-lang-btn-en" class="lang-btn' + (currentLang === 'en' ? ' lang-active' : '') + '" onclick="setLanguage(\'en\')"><span class="fi fi-gb"></span></button>' +
+    '<button id="mob-lang-btn-fi" class="lang-btn' + (currentLang === 'fi' ? ' lang-active' : '') + '" onclick="setLanguage(\'fi\')"><span class="fi fi-fi"></span></button>' +
+    '</div></div>' +
+    '<div style="' + secStyle + '">' +
+    '<span style="' + lbl + '"><span class="en-only">Appearance</span><span class="fi-only">Ulkoasu</span></span>' +
+    '<button id="mob-mode-btn" onclick="toggleLightMode()" style="font-size:20px;line-height:1;background:none;border:none;cursor:pointer;padding:0;color:inherit;">' + modeIcon + '</button>' +
+    '</div>' +
+    (githubHref && githubHref !== '#' ?
+      '<div style="' + secStyle + '">' +
+      '<span style="' + lbl + '">GitHub</span>' +
+      '<a href="' + githubHref + '" target="_blank" rel="noopener" style="color:inherit;opacity:0.8;font-family:Arial,Helvetica,sans-serif;font-size:14px;text-decoration:underline;">View on GitHub</a>' +
+      '</div>' : '') +
+    '</div>';
+}
+
+function mobOpenDesc() {
+  var p = document.getElementById('mob-desc-panel');
+  if (p) p.classList.add('mob-desc-visible');
+}
+
+function mobCloseDesc() {
+  var p = document.getElementById('mob-desc-panel');
+  if (p) p.classList.remove('mob-desc-visible');
+  if (sheetMode === 'desc') sheetMode = null;
+}
+
+function syncMobileTabs() {
+  var map = { 'acc-about-body': 'mob-content-about', 'acc-vote-body': 'mob-content-vote', 'acc-fund-body': 'mob-content-fund' };
+  Object.keys(map).forEach(function(srcId) {
+    var src = document.getElementById(srcId);
+    var dst = document.getElementById(map[srcId]);
+    if (src && dst) dst.innerHTML = src.innerHTML;
+  });
+}
+
+/* ── Mobile split-pane drag handle ──────────────────────────────────────── */
 
 (function () {
-  var grabbing = false, startY = 0, startH = 0, sheet = null;
+  var dragging = false, startY = 0, startH = 0;
   document.addEventListener('DOMContentLoaded', function () {
-    var handle = document.getElementById('mobile-bs-grab');
-    sheet = document.getElementById('mobile-bottom-sheet');
-    if (!handle || !sheet) return;
+    var handle = document.getElementById('mob-handle');
+    var ga     = document.getElementById('graph-area');
+    if (!handle || !ga) return;
 
     function onStart(y) {
-      grabbing = true; startY = y; startH = sheet.offsetHeight;
+      dragging = true; startY = y; startH = ga.offsetHeight;
       document.body.style.userSelect = 'none';
     }
     function onMove(y) {
-      if (!grabbing) return;
-      var delta = startY - y;
-      var newH = Math.max(80, Math.min(window.innerHeight * 0.85, startH + delta));
-      sheet.style.maxHeight = newH + 'px';
+      if (!dragging) return;
+      var total = window.innerHeight;
+      var newH = Math.max(total * 0.2, Math.min(total * 0.85, startH + (y - startY)));
+      ga.style.height = newH + 'px';
+      resizeCy(); positionHeaders(lastData);
     }
     function onEnd() {
-      if (!grabbing) return;
-      grabbing = false;
-      document.body.style.userSelect = '';
-      // If dragged very small, close
-      if (sheet.offsetHeight < 100) hideBottomSheet();
+      if (!dragging) return;
+      dragging = false; document.body.style.userSelect = '';
+      resizeCy();
     }
-    handle.addEventListener('mousedown', function (e) { e.preventDefault(); onStart(e.clientY); });
-    document.addEventListener('mousemove', function (e) { if (grabbing) onMove(e.clientY); });
-    document.addEventListener('mouseup', onEnd);
-    handle.addEventListener('touchstart', function (e) { e.preventDefault(); onStart(e.touches[0].clientY); }, { passive: false });
-    document.addEventListener('touchmove', function (e) { if (grabbing) { e.preventDefault(); onMove(e.touches[0].clientY); } }, { passive: false });
-    document.addEventListener('touchend', onEnd);
+    handle.addEventListener('mousedown',   function(e) { e.preventDefault(); onStart(e.clientY); });
+    document.addEventListener('mousemove', function(e) { if (dragging) onMove(e.clientY); });
+    document.addEventListener('mouseup',   onEnd);
+    handle.addEventListener('touchstart',  function(e) { e.preventDefault(); onStart(e.touches[0].clientY); }, { passive:false });
+    document.addEventListener('touchmove', function(e) { if (dragging) { e.preventDefault(); onMove(e.touches[0].clientY); } }, { passive:false });
+    document.addEventListener('touchend',  onEnd);
   });
 
-  // Info button handler
+  // Watch sidebar accordion bodies and sync to mobile panes when content changes
   document.addEventListener('DOMContentLoaded', function () {
-    var btn = document.getElementById('mobile-info-btn');
-    if (btn) btn.addEventListener('click', function () {
-      if (sheetMode === 'info') { hideBottomSheet(); } else { showInfoSheet(); }
+    var pairs = [
+      ['acc-about-body', 'mob-content-about'],
+      ['acc-vote-body',  'mob-content-vote'],
+      ['acc-fund-body',  'mob-content-fund']
+    ];
+    pairs.forEach(function(pair) {
+      var src = document.getElementById(pair[0]);
+      if (!src) return;
+      new MutationObserver(function() {
+        var dst = document.getElementById(pair[1]);
+        if (dst) dst.innerHTML = src.innerHTML;
+      }).observe(src, { childList: true, subtree: true });
     });
   });
 })();
+
+// Sync mobile tabs when Shiny renders sidebar accordion content
+if (window.jQuery) {
+  jQuery(document).on('shiny:value', function(event) {
+    if (event.name === 'col_intro_ui' || event.name === 'vote_section_ui' || event.name === 'funding_ui') {
+      setTimeout(syncMobileTabs, 100);
+    }
+  });
+}
 
 /* ── Independent Highlight: selected + hovered coexist ───────────────────── */
 
@@ -516,14 +572,17 @@ function clearSelection() { selectedNodeId = null; applyHighlightState(); }
 function toggleLightMode() {
   lightMode = !lightMode;
   var btn = document.getElementById('mode-btn');
+  var mobBtn = document.getElementById('mob-mode-btn');
   if (lightMode) {
     colBg = lightColBg; colSidebarBg = lightColSidebarBg;
     colTheme = lightColTheme; colProject = lightColProject; colSkill = lightColSkill;
     if (btn) btn.textContent = '\u263d'; // crescent for "go dark"
+    if (mobBtn) mobBtn.textContent = '\u263d';
   } else {
     colBg = darkColBg; colSidebarBg = darkColSidebarBg;
     colTheme = darkColTheme; colProject = darkColProject; colSkill = darkColSkill;
     if (btn) btn.textContent = '\u2600'; // sun for "go light"
+    if (mobBtn) mobBtn.textContent = '\u2600';
   }
   applyColors();
   if (cy) { cy.style(buildStyle()); if (lastData) positionHeaders(lastData); }
@@ -540,13 +599,12 @@ function toggleLightMode() {
       if (title) title.style.color = c;
       if (close) { close.style.color = c; close.style.borderColor = c; }
     }
-    var bsTitle = document.getElementById('mobile-bs-title');
-    var bsClose = document.getElementById('mobile-bs-close');
-    var bs = document.getElementById('mobile-bottom-sheet');
-    if (bs && bs.classList.contains('visible') && bsTitle) {
-      bsTitle.style.color = c;
-      if (bsClose) { bsClose.style.color = c; bsClose.style.borderColor = c; }
-      bs.style.borderColor = c;
+    var mdPanel = document.getElementById('mob-desc-panel');
+    if (mdPanel && mdPanel.classList.contains('mob-desc-visible')) {
+      var mdTitle = document.getElementById('mob-desc-title');
+      var mdClose = document.getElementById('mob-desc-close');
+      if (mdTitle) mdTitle.style.color = c;
+      if (mdClose) { mdClose.style.color = c; mdClose.style.borderColor = c; }
     }
   }
 }
@@ -584,7 +642,7 @@ function drawEdgeOverlay() {
     var cx1 = x1 + (x2 - x1) * 0.45, cx2 = x2 - (x2 - x1) * 0.45;
     edgePaths.push({
       pathD: 'M' + x1 + ',' + y1 + ' C' + cx1 + ',' + y1 + ' ' + cx2 + ',' + y2 + ' ' + x2 + ',' + y2,
-      color: d.color || '#ffffff', dashes: d.dashes,
+      color: d.color || '#ffffff', lightColor: d.lightColor || lightEdgeColor, dashes: d.dashes,
       isSel: edge.hasClass('selected'), isHov: edge.hasClass('hovered')
     });
   });
@@ -602,7 +660,7 @@ function drawEdgeOverlay() {
   edgePaths.forEach(function (ep) {
     var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', ep.pathD); path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', ep.color);
+    path.setAttribute('stroke', lightMode ? ep.lightColor : ep.color);
     path.setAttribute('stroke-width', (ep.isHov && !ep.isSel) ? strokeW * 3 : strokeW);
     path.setAttribute('opacity', '0.85');
     if (ep.dashes) path.setAttribute('stroke-dasharray', (5 * zoom) + ',' + (3 * zoom));
@@ -826,6 +884,7 @@ function applyDataGlobals(data) {
   if (data.lightColTheme)      lightColTheme       = data.lightColTheme;
   if (data.lightColProject)    lightColProject     = data.lightColProject;
   if (data.lightColSkill)      lightColSkill       = data.lightColSkill;
+  if (data.lightEdgeColor)     lightEdgeColor      = data.lightEdgeColor;
   // Apply active color set
   if (lightMode) {
     colBg = lightColBg; colSidebarBg = lightColSidebarBg;
@@ -1025,6 +1084,197 @@ function autoFitProjectWidth(data) {
   }
 }
 
+function measureNodeHeight(lines, screenWidthPx, zoomW) {
+  // lines: array of {text, fontSize, fontWeight, lineHeight, paddingLeft}
+  // Measures at actual screen-pixel width; returns height in cyto units (px / zoomW)
+  var container = document.createElement('div');
+  container.style.cssText = 'position:absolute;visibility:hidden;left:-9999px;top:0;width:' + screenWidthPx + 'px;';
+  lines.forEach(function(ln) {
+    var el = document.createElement('div');
+    el.style.cssText = 'font-family:Arial,Helvetica,sans-serif;' +
+      'font-size:' + ln.fontSize + 'px;font-weight:' + (ln.fontWeight || 'normal') + ';' +
+      'line-height:' + (ln.lineHeight || 1.25) + ';' +
+      'padding-left:' + (ln.paddingLeft || 0) + 'px;' +
+      'word-wrap:break-word;overflow-wrap:break-word;';
+    el.textContent = ln.text;
+    container.appendChild(el);
+  });
+  document.body.appendChild(container);
+  var hPx = container.scrollHeight;
+  document.body.removeChild(container);
+  // Convert screen pixels back to cyto units; 10px vertical padding (screen) included
+  return Math.max(hPx + 10, 20) / zoomW;
+}
+
+function measureProjectNodeHeight(nodeData, w, zoomW) {
+  // Project nodeHtml: outer flex has no padding; inner div has padding:4px 9px → 18px horizontal
+  var screenW = Math.max(w * zoomW - 18, 20);
+  var label = String(nodeData.label || '');
+  var labelFi = String(nodeData.label_fi || '');
+  return measureNodeHeight(
+    [{ text: labelFi.length > label.length ? labelFi : label, fontSize: fontNode, fontWeight: 'bold', lineHeight: 1.3 }],
+    screenW, zoomW
+  );
+}
+
+function measureThemeNodeHeight(nodeData, w, zoomW) {
+  // Theme nodeHtml: outer padding:3px 7px (14px) + span padding-right:14px → 28px horizontal
+  var screenW = Math.max(w * zoomW - 28, 10);
+  var label = String(nodeData.label || '');
+  var labelFi = String(nodeData.label_fi || '');
+  return measureNodeHeight(
+    [{ text: labelFi.length > label.length ? labelFi : label, fontSize: fontNode, fontWeight: 'bold', lineHeight: 1.25 }],
+    screenW, zoomW
+  );
+}
+
+function measureSkillNodeHeight(nodeData, w, zoomW) {
+  // Skill nodeHtml: outer padding:4px 7px → 14px horizontal
+  var screenW = Math.max(w * zoomW - 14, 10);
+  var label = String(nodeData.label || '');
+  var labelFi = String(nodeData.label_fi || '');
+  var lines = [{ text: labelFi.length > label.length ? labelFi : label, fontSize: fontNode, fontWeight: 'bold', lineHeight: 1.25 }];
+  var subsStr = nodeData.subs || '';
+  if (subsStr) {
+    subsStr.split('||').forEach(function(item) {
+      lines.push({ text: item, fontSize: fontSubs, fontWeight: 'normal', lineHeight: 1.3, paddingLeft: 10 });
+    });
+  }
+  return measureNodeHeight(lines, screenW, zoomW);
+}
+
+function applyMobileNodeSizes(data) {
+  if (!useMobileLayout() || !data.headers || data.headers.length < 2) return;
+  var origColGap = data.headers[1].x - data.headers[0].x;
+
+  // Infer vertical gap from original project node spacing (before resizing)
+  var projNodes = (data.nodes || []).filter(function(n) { return n.data && n.data.group === 'Project'; });
+  projNodes.sort(function(a, b) { return a.position.y - b.position.y; });
+  var gapProject = 18;
+  if (projNodes.length >= 2) {
+    gapProject = Math.max(4, Math.round(
+      projNodes[1].position.y - projNodes[0].position.y -
+      (projNodes[0].data.h + projNodes[1].data.h) / 2
+    ));
+  }
+
+  // Compute canvas dimensions and mobile zoom early (needed for measurement)
+  var ga = document.getElementById('graph-area');
+  var W  = ga && ga.clientWidth  > 10 ? ga.clientWidth  : (forceMobile ? previewWidth : window.innerWidth);
+  var H  = ga && ga.clientHeight > 50 ? ga.clientHeight : Math.round(window.innerHeight * 0.70);
+
+  // 20% narrower columns: scale all x-positions once.
+  // Guard against double-scaling if this data object was already transformed.
+  var colScale = data._mobXScaled ? 1 : 0.8;
+  data._mobXScaled = true;
+  (data.nodes || []).forEach(function(n) {
+    if (n.position) n.position.x = Math.round(n.position.x * colScale);
+  });
+  (data.headers || []).forEach(function(h) { h.x = Math.round(h.x * colScale); });
+  var colGap = Math.round(origColGap * colScale);
+  var projectW    = Math.round(colGap * 0.93);
+  var themeSkillW = Math.round(colGap * 0.50);
+
+  // Compute zoomW now that colGap is known (matches fitWithHeaders mobile path: (W-4)/bbW)
+  var bbW   = colGap * 2.5;
+  var zoomW = (W - 4) / bbW;
+
+  // Halve all graph font sizes for mobile starting point
+  fontNode  = Math.round(fontNode  * 0.5 * 10) / 10;
+  fontSubs  = Math.round(fontSubs  * 0.5 * 10) / 10;
+  // Extra 15% reduction on header fonts; extra 12% on small devices
+  fontHdr1  = Math.round(fontHdr1  * 0.5 * 0.85 * 10) / 10;
+  fontHdr2  = Math.round(fontHdr2  * 0.5 * 0.85 * 10) / 10;
+  if (W < 400) {
+    fontNode = Math.round(fontNode * 0.88 * 10) / 10;
+    fontSubs = Math.round(fontSubs * 0.88 * 10) / 10;
+  }
+
+  // Set node widths (heights depend on font, set below)
+  (data.nodes || []).forEach(function(n) {
+    if (!n.data) return;
+    var grp = n.data.group;
+    if (grp === 'Project') { if ((n.data.w || 0) < projectW) n.data.w = projectW; }
+    else if (grp === 'Theme' || grp === 'Skill') { n.data.w = themeSkillW; }
+  });
+
+  // Group nodes by column (sort order preserved across re-stacks)
+  var colNodes = { Theme: [], Project: [], Skill: [] };
+  (data.nodes || []).forEach(function(n) {
+    if (!n.data || !n.position) return;
+    var grp = n.data.group;
+    if (colNodes[grp]) colNodes[grp].push(n);
+  });
+  ['Theme', 'Project', 'Skill'].forEach(function(grp) {
+    colNodes[grp].sort(function(a, b) { return a.position.y - b.position.y; });
+  });
+
+  function remeasureHeights() {
+    (data.nodes || []).forEach(function(n) {
+      if (!n.data) return;
+      var grp = n.data.group;
+      if      (grp === 'Project') n.data.h = measureProjectNodeHeight(n.data, n.data.w, zoomW);
+      else if (grp === 'Theme')   n.data.h = measureThemeNodeHeight(n.data, n.data.w, zoomW);
+      else if (grp === 'Skill')   n.data.h = measureSkillNodeHeight(n.data, n.data.w, zoomW);
+    });
+  }
+
+  function restack(gp, gts) {
+    var colTotals = {};
+    ['Theme', 'Project', 'Skill'].forEach(function(grp) {
+      var nodes = colNodes[grp];
+      if (!nodes.length) { colTotals[grp] = 0; return; }
+      var gap = (grp === 'Project') ? gp : gts;
+      var curY = 0;
+      nodes.forEach(function(n, i) {
+        var h = n.data.h || 46;
+        curY = (i === 0) ? h / 2 : curY + (nodes[i - 1].data.h || 46) / 2 + gap + h / 2;
+        n.position.y = curY;
+      });
+      var last = nodes[nodes.length - 1];
+      colTotals[grp] = last.position.y + (last.data.h || 46) / 2;
+    });
+    var maxH = Math.max(colTotals.Theme || 0, colTotals.Project || 0, colTotals.Skill || 0);
+    ['Theme', 'Project', 'Skill'].forEach(function(grp) {
+      var off = (maxH - (colTotals[grp] || 0)) / 2;
+      if (off > 0) colNodes[grp].forEach(function(n) { n.position.y += off; });
+    });
+    return maxH;
+  }
+
+  function applyHeaderY(gp) {
+    var hdrH = fontHdr1 * 1.2 + fontHdr2 * 1.3;
+    var hdrY = -Math.round(gp + hdrH);
+    data.headers.forEach(function(h) { h.y = hdrY; });
+    return hdrY;
+  }
+
+  // Initial layout
+  remeasureHeights();
+  var gapThemeSkill = gapProject * 2;
+  var maxColH = restack(gapProject, gapThemeSkill);
+  applyHeaderY(gapProject);
+
+  // Scale up to fill available vertical space.
+  // fitWithHeaders() zooms by WIDTH only on mobile: zoomW = (W-4) / bbW
+  // Content occupies (8 + hm*zoom + bb.h*zoom) px from top; we target H-20 at bottom.
+  // → target bb.h = (H - 28) / zoomW - hm  →  scale = targetBBH / currentBBH
+  var hm    = (data.headerMargin) || 70;
+  var targetBBH = (H - 28) / zoomW - hm;
+  var scale = targetBBH / maxColH;
+  if (scale > 1.05) {
+    fontNode  = Math.round(fontNode  * scale * 10) / 10;
+    fontSubs  = Math.round(fontSubs  * scale * 10) / 10;
+    fontHdr1  = Math.round(fontHdr1  * scale * 10) / 10;
+    fontHdr2  = Math.round(fontHdr2  * scale * 10) / 10;
+    gapProject    = Math.max(4, Math.round(gapProject    * scale));
+    gapThemeSkill = gapProject * 2;
+    remeasureHeights();
+    maxColH = restack(gapProject, gapThemeSkill);
+    applyHeaderY(gapProject);
+  }
+}
+
 function initCyGraph(data) {
   lastData = data;
   applyDataGlobals(data);
@@ -1032,6 +1282,7 @@ function initCyGraph(data) {
   applyMobileLayout();
   saveLayoutSnapshot(data);
   autoFitProjectWidth(data);
+  applyMobileNodeSizes(data);
   initAccordions();
   resizeCy();
   cy = cytoscape({
@@ -1084,6 +1335,9 @@ function initCyGraph(data) {
     document.addEventListener('touchend', up);
   });
   positionHeaders(data); drawEdgeOverlay();
+  setTimeout(syncMobileTabs, 300);
+  setTimeout(syncMobileTabs, 1200);
+  if (mobileMode) initSettingsTab();
 }
 
 /* ── Mobile layout toggle ────────────────────────────────────────────────── */
@@ -1112,8 +1366,13 @@ function applyMobileLayout() {
   } else {
     body.classList.remove('mobile-mode');
     body.classList.remove('mobile-preview');
-    if (ga) { ga.style.maxWidth = ''; ga.style.margin = ''; ga.style.borderLeft = ''; ga.style.borderRight = ''; }
+    if (ga) { ga.style.maxWidth = ''; ga.style.margin = ''; ga.style.borderLeft = ''; ga.style.borderRight = ''; ga.style.height = ''; }
   }
+  var handle = document.getElementById('mob-handle');
+  var panel  = document.getElementById('mob-panel');
+  var show = mobileMode ? 'flex' : 'none';
+  if (handle) handle.style.display = show;
+  if (panel)  panel.style.display  = show;
 }
 
 /* ── Shiny Message Handlers ──────────────────────────────────────────────── */
@@ -1137,6 +1396,7 @@ Shiny.addCustomMessageHandler('updateCy', function (data) {
   applyMobileLayout();
   saveLayoutSnapshot(picked);
   autoFitProjectWidth(picked);
+  applyMobileNodeSizes(picked);
   cy.elements().remove(); cy.add(buildElements(picked));
   cy.layout({ name: 'preset' }).run(); positionHeaders(picked);
   if (prevSel) selectNode(prevSel); else drawEdgeOverlay();
@@ -1209,6 +1469,10 @@ function setLanguage(lang) {
   var btnFi = document.getElementById('lang-btn-fi');
   if (btnEn) btnEn.classList.toggle('lang-active', lang === 'en');
   if (btnFi) btnFi.classList.toggle('lang-active', lang === 'fi');
+  var mobBtnEn = document.getElementById('mob-lang-btn-en');
+  var mobBtnFi = document.getElementById('mob-lang-btn-fi');
+  if (mobBtnEn) mobBtnEn.classList.toggle('lang-active', lang === 'en');
+  if (mobBtnFi) mobBtnFi.classList.toggle('lang-active', lang === 'fi');
   applyAccTitles();
   applyDescPanelLang();
   if (cy && lastData) positionHeaders(lastData);
@@ -1283,21 +1547,30 @@ Shiny.addCustomMessageHandler('showDescPanel', function (msg) {
   var dTitle = (currentLang === 'fi' && msg.title_fi) ? msg.title_fi : (msg.title || '');
   var dText  = (currentLang === 'fi' && msg.text_fi)  ? msg.text_fi  : (msg.text  || '');
 
+  // On mobile, append project type in parentheses after title
+  if (grp === 'Project' && msg.nodeId && cy) {
+    var nodeEl = cy.getElementById(String(msg.nodeId));
+    var ptype = nodeEl && !nodeEl.empty() ? (nodeEl.data('ptype') || '') : '';
+    if (ptype) {
+      var ptypeFiMap = { 'Text': 'Teksti', 'Text, long': 'Pitkä teksti', 'Text, short': 'Lyhyt teksti', 'Website': 'Nettisivu' };
+      var ptypeDisp = (currentLang === 'fi' && ptypeFiMap[ptype]) ? ptypeFiMap[ptype] : ptype;
+      dTitle = dTitle + ' (' + ptypeDisp + ')';
+    }
+  }
+
   if (mobileMode) {
-    // Mobile: show bottom sheet in description mode
-    var bs = document.getElementById('mobile-bottom-sheet');
-    var bsTitle = document.getElementById('mobile-bs-title');
-    var bsBody = document.getElementById('mobile-bs-body');
-    var bsClose = document.getElementById('mobile-bs-close');
-    if (!bs || !bsTitle || !bsBody) return;
-    bsTitle.textContent = dTitle;
-    bsBody.innerHTML = mdToHtml(dText);
-    bs.style.borderColor = c; bsTitle.style.color = c;
-    if (bsClose) { bsClose.style.color = c; bsClose.style.borderColor = c; }
-    // Reset sheet height to default when switching content
-    bs.style.maxHeight = '50vh';
+    var mdTitle = document.getElementById('mob-desc-title');
+    var mdBody  = document.getElementById('mob-desc-body');
+    var mdClose = document.getElementById('mob-desc-close');
+    var mdHdr   = document.getElementById('mob-desc-header');
+    if (!mdTitle || !mdBody) return;
+    mdTitle.textContent = dTitle;
+    mdBody.innerHTML = mdToHtml(dText);
+    mdTitle.style.color = c;
+    if (mdClose) { mdClose.style.color = c; mdClose.style.borderColor = c; }
+    if (mdHdr) mdHdr.style.borderBottomColor = c;
     sheetMode = 'desc';
-    showBottomSheet();
+    mobOpenDesc();
   } else {
     // Desktop: show sidebar panel — ensure description accordion is open
     var accDesc = document.getElementById('acc-desc');
@@ -1406,6 +1679,7 @@ window.initStaticApp = function(payload) {
   // Apply layout params then graph data
   if (payload.ptypeLayout && Shiny._handlers['setPtypeLayout'])
     Shiny._handlers['setPtypeLayout'](payload.ptypeLayout);
+  if (payload.edge_width) Shiny._handlers['setEdgeWidth']({ width: payload.edge_width });
   Shiny._handlers['initCy'](payload);
   // Accordion titles + language
   if (payload.sidebar) {
@@ -1439,28 +1713,30 @@ function populateStaticSidebar(p) {
   }
   // About / Intro
   var introEl = document.getElementById('acc-about-body');
-  if (introEl && p.intro_html) {
-    introEl.innerHTML =
-      (p.intro_html.en ? '<div class="en-only" style="' + descStyle + '">' + p.intro_html.en + '</div>' : '') +
-      (p.intro_html.fi ? '<div class="fi-only" style="' + descStyle + '">' + p.intro_html.fi + '</div>' : '');
-  }
+  var aboutHtml = p.intro_html ?
+    (p.intro_html.en ? '<div class="en-only" style="' + descStyle + '">' + p.intro_html.en + '</div>' : '') +
+    (p.intro_html.fi ? '<div class="fi-only" style="' + descStyle + '">' + p.intro_html.fi + '</div>' : '') : '';
+  if (introEl) introEl.innerHTML = aboutHtml;
+  var mobAbout = document.getElementById('mob-content-about');
+  if (mobAbout) mobAbout.innerHTML = aboutHtml;
   // Vote
   var voteEl = document.getElementById('acc-vote-body');
-  if (voteEl && p.vote_html) {
-    voteEl.innerHTML =
-      (p.vote_html.en ? '<div id="vote-section"><div class="en-only" style="' + txtStyle + '">' + p.vote_html.en + '</div>' : '') +
-      (p.vote_html.fi ? '<div class="fi-only" style="' + txtStyle + '">' + p.vote_html.fi + '</div>' : '') +
-      '</div>';
-  }
+  var voteHtml = p.vote_html ?
+    (p.vote_html.en ? '<div id="vote-section"><div class="en-only" style="' + txtStyle + '">' + p.vote_html.en + '</div>' : '') +
+    (p.vote_html.fi ? '<div class="fi-only" style="' + txtStyle + '">' + p.vote_html.fi + '</div>' : '') + '</div>' : '';
+  if (voteEl) voteEl.innerHTML = voteHtml;
+  var mobVote = document.getElementById('mob-content-vote');
+  if (mobVote) mobVote.innerHTML = voteHtml;
   // Funding
   var fundEl = document.getElementById('acc-fund-body');
-  if (fundEl && p.funding_html) {
-    var fh = p.funding_html;
-    fundEl.innerHTML = '<div class="funding-body">' +
-      '<div class="en-only" style="margin-bottom:8px;line-height:1.6;">' + (fh.en_intro || '') + '</div>' +
-      '<div class="fi-only" style="margin-bottom:8px;line-height:1.6;">' + (fh.fi_intro || fh.en_intro || '') + '</div>' +
-      '<div style="line-height:1.7;">' + (fh.items || '') + '</div></div>';
-  }
+  var fh = p.funding_html || {};
+  var fundHtml = '<div class="funding-body">' +
+    '<div class="en-only" style="margin-bottom:8px;line-height:1.6;">' + (fh.en_intro || '') + '</div>' +
+    '<div class="fi-only" style="margin-bottom:8px;line-height:1.6;">' + (fh.fi_intro || fh.en_intro || '') + '</div>' +
+    '<div style="line-height:1.7;">' + (fh.items || '') + '</div></div>';
+  if (fundEl) fundEl.innerHTML = fundHtml;
+  var mobFund = document.getElementById('mob-content-fund');
+  if (mobFund) mobFund.innerHTML = fundHtml;
 }
 
 /* ── DOM Ready ───────────────────────────────────────────────────────────── */
@@ -1483,6 +1759,8 @@ document.addEventListener('DOMContentLoaded', function () {
       cy.zoom({ level: newZoom, renderedPosition: { x: e.clientX - rect.left, y: e.clientY - rect.top } });
     }, { passive: false, capture: true });
   }
+  var sideScroll = document.getElementById('sidebar-scroll');
+  if (sideScroll) sideScroll.addEventListener('scroll', function() { drawNodeConnector(); });
   mobileMode = useMobileLayout();
   applyMobileLayout();
   resizeCy();

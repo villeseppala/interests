@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
   <title>My interests</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icons/7.2.3/css/flag-icons.min.css">
 </head>
 <body>
 
@@ -20,8 +21,8 @@
       </div>
       <div id="controls-row">
         <button id="mode-btn" onclick="toggleLightMode()">&#9728;</button>
-        <button class="lang-btn lang-active" id="lang-btn-en" onclick="setLanguage('en')">&#x1F1EC;&#x1F1E7;</button>
-        <button class="lang-btn" id="lang-btn-fi" onclick="setLanguage('fi')">&#x1F1EB;&#x1F1EE;</button>
+        <button class="lang-btn lang-active" id="lang-btn-en" onclick="setLanguage('en')"><span class="fi fi-gb"></span></button>
+        <button class="lang-btn" id="lang-btn-fi" onclick="setLanguage('fi')"><span class="fi fi-fi"></span></button>
         <a id="github-btn" href="#" target="_blank" title="GitHub">
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
             <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
@@ -80,6 +81,40 @@
 
   <div id="sidebar-resize-handle"></div>
   <div id="graph-area"><div id="cy"></div></div>
+
+  <!-- Mobile drag handle -->
+  <div id="mob-handle"></div>
+
+  <!-- Mobile bottom panel -->
+  <div id="mob-panel">
+    <div id="mob-tab-bar">
+      <button class="mob-tab mob-tab-active" id="mob-tab-about" onclick="mobShowTab('about')">
+        <span class="en-only">About</span><span class="fi-only">Tietoa</span>
+      </button>
+      <button class="mob-tab" id="mob-tab-vote" onclick="mobShowTab('vote')">
+        <span class="en-only">Vote</span><span class="fi-only">&#196;&#228;nest&#228;</span>
+      </button>
+      <button class="mob-tab" id="mob-tab-fund" onclick="mobShowTab('fund')">
+        <span class="en-only">Funding</span><span class="fi-only">Rahoitus</span>
+      </button>
+      <button class="mob-tab" id="mob-tab-settings" onclick="mobShowTab('settings')">
+        <span class="en-only">Settings</span><span class="fi-only">Asetukset</span>
+      </button>
+    </div>
+    <div id="mob-tab-content">
+      <div id="mob-content-about" class="mob-tab-pane mob-tab-pane-active"></div>
+      <div id="mob-content-vote"  class="mob-tab-pane"></div>
+      <div id="mob-content-fund"  class="mob-tab-pane"></div>
+      <div id="mob-content-settings" class="mob-tab-pane"></div>
+    </div>
+    <div id="mob-desc-panel">
+      <div id="mob-desc-header">
+        <div id="mob-desc-title"></div>
+        <button id="mob-desc-close" onclick="mobCloseDesc()">&#215;</button>
+      </div>
+      <div id="mob-desc-body"></div>
+    </div>
+  </div>
 </div>
 
 <!-- Mobile bottom sheet -->

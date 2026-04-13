@@ -288,6 +288,7 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                             col_theme = "#3be37a", col_project = "#ffad33", col_skill = "#78e6e7",
                             light_col_bg = "#f0f4f8", light_col_sidebar_bg = "#e2eaf3",
                             light_col_theme = "#1e7c45", light_col_project = "#c06000", light_col_skill = "#1a7a7b",
+                            light_edge_color = "#555555",
                             hdr_theme_line1   = "Themes",   hdr_theme_line2   = "I want to focus on",
                             hdr_project_line1 = "Projects", hdr_project_line2 = "I\u2019m working on or want to work on",
                             hdr_skill_line1   = "Skills",   hdr_skill_line2   = "I have or want to develop",
@@ -388,10 +389,15 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
     fnp <- node_pos[[fr]]; tnp <- node_pos[[to]]; if (is.null(fnp)||is.null(tnp)) next
     src_node <- nmap[[fr]]; tgt_node <- nmap[[to]]
     if (!is.null(src_node) && identical(src_node$group,"Theme")) {
-      edge_color <- src_node$edgeColor %||% e$color %||% "#ffffff"
+      edge_color      <- src_node$edgeColor      %||% e$color %||% "#ffffff"
+      light_edge_col  <- src_node$lightEdgeColor %||% light_edge_color
     } else if (!is.null(tgt_node) && identical(tgt_node$group,"Skill")) {
-      edge_color <- tgt_node$edgeColor %||% e$color %||% "#ffffff"
-    } else { edge_color <- e$color %||% "#ffffff" }
+      edge_color      <- tgt_node$edgeColor      %||% e$color %||% "#ffffff"
+      light_edge_col  <- tgt_node$lightEdgeColor %||% light_edge_color
+    } else {
+      edge_color     <- e$color %||% "#ffffff"
+      light_edge_col <- light_edge_color
+    }
     ek <- ekey(e)
     if (!is.null(src_dy_map[[ek]])) {
       src_ep <- paste0(round(fnp$w/2),"px ",src_dy_map[[ek]],"px")
@@ -399,7 +405,7 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
     } else { src_ep <- "outside-to-node"; tgt_ep <- "outside-to-node" }
     cy_edges <- c(cy_edges, list(list(data=list(
       id=paste0("e",fr,"_",to), source=fr, target=to,
-      color=edge_color, dashes=isTRUE(e$dashes), srcEp=src_ep, tgtEp=tgt_ep))))
+      color=edge_color, lightColor=light_edge_col, dashes=isTRUE(e$dashes), srcEp=src_ep, tgtEp=tgt_ep))))
   }
   list(nodes=cy_nodes, edges=cy_edges, headers=headers, max_h1=max_h1,
        headerMargin=header_margin_total,
@@ -409,7 +415,8 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
        colBg=col_bg, colSidebarBg=col_sidebar_bg,
        colTheme=col_theme, colProject=col_project, colSkill=col_skill,
        lightColBg=light_col_bg, lightColSidebarBg=light_col_sidebar_bg,
-       lightColTheme=light_col_theme, lightColProject=light_col_project, lightColSkill=light_col_skill)
+       lightColTheme=light_col_theme, lightColProject=light_col_project, lightColSkill=light_col_skill,
+       lightEdgeColor=light_edge_color)
 }
 
 # ── Dual layout builder (desktop + mobile) ───────────────────────────────────
@@ -424,6 +431,7 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                                  col_theme = "#3be37a", col_project = "#ffad33", col_skill = "#78e6e7",
                                  light_col_bg = "#f0f4f8", light_col_sidebar_bg = "#e2eaf3",
                                  light_col_theme = "#1e7c45", light_col_project = "#c06000", light_col_skill = "#1a7a7b",
+                                 light_edge_color = "#555555",
                                  mob_font_mult = 1.5, mob_h_theme_mult = 3.0,
                                  mob_h_proj_mult = 3.0, mob_h_skill_mult = 3.0,
                                  mob_gap_v_mult = 1.0, mob_gap_col_mult = 1.0,
@@ -450,7 +458,8 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                              col_bg=col_bg, col_sidebar_bg=col_sidebar_bg,
                              col_theme=col_theme, col_project=col_project, col_skill=col_skill,
                              light_col_bg=light_col_bg, light_col_sidebar_bg=light_col_sidebar_bg,
-                             light_col_theme=light_col_theme, light_col_project=light_col_project, light_col_skill=light_col_skill), hdr_args))
+                             light_col_theme=light_col_theme, light_col_project=light_col_project, light_col_skill=light_col_skill,
+                             light_edge_color=light_edge_color), hdr_args))
   # Mobile build (multiplied fonts, heights, gaps)
   mobile <- do.call(build_cyto_data, c(list(g=g, gap_v=gap_v*mob_gap_v_mult,
                             gap_col=gap_col*mob_gap_col_mult,
@@ -468,7 +477,8 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                             col_bg=col_bg, col_sidebar_bg=col_sidebar_bg,
                             col_theme=col_theme, col_project=col_project, col_skill=col_skill,
                             light_col_bg=light_col_bg, light_col_sidebar_bg=light_col_sidebar_bg,
-                            light_col_theme=light_col_theme, light_col_project=light_col_project, light_col_skill=light_col_skill), hdr_args))
+                            light_col_theme=light_col_theme, light_col_project=light_col_project, light_col_skill=light_col_skill,
+                            light_edge_color=light_edge_color), hdr_args))
   # Attach mobile as nested field (backward-compatible: top-level = desktop)
   desktop$mobile <- mobile
   desktop
