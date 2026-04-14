@@ -264,10 +264,13 @@ function fitWithHeaders() {
   var zoom  = useMobileLayout() ? zoomW : Math.min(zoomH, zoomW);
   zoom = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), zoom));
   cy.zoom(zoom);
-  // Centre horizontally; top-align so headers have exactly 8px clearance
+  // Centre horizontally; top-align so headers have exactly 8px clearance.
+  // On mobile, applyHeaderY adds fontHdr1*1.2 + fontHdr2*1.3 of extra space above
+  // the header row — shift pan.y down by the same amount so it stays visible.
+  var mobileHdrExtra = useMobileLayout() ? (fontHdr1 * 1.2 + fontHdr2 * 1.3) * zoom : 0;
   cy.pan({
     x: W / 2 - (bb.x1 + bb.w / 2) * zoom,
-    y: 8 + hm * zoom - bb.y1 * zoom
+    y: 8 + hm * zoom - bb.y1 * zoom + mobileHdrExtra
   });
 }
 
@@ -802,11 +805,12 @@ function positionHeaders(data) {
     var hcolor = i === 0 ? colTheme : (i === 1 ? colProject : colSkill);
     div.className = 'col-hdr'; div.id = 'colhdr-' + i; div.style.color = hcolor;
     div.style.transform = 'scale(1)'; div.style.transformOrigin = 'top center';
-    div.innerHTML = '<b style="font-size:' + fontHdr1 + 'px">' + dualLabel(h.line1, h.line1_fi) +
-      '</b><span style="font-size:' + fontHdr2 + 'px">' + dualLabel(h.line2, h.line2_fi) + '</span>';
+    div.innerHTML = '<b style="font-size:' + fontHdr1 + 'px;white-space:nowrap">' + dualLabel(h.line1, h.line1_fi) +
+      '</b><span style="font-size:' + fontHdr2 + 'px;white-space:nowrap">' + dualLabel(h.line2, h.line2_fi) + '</span>';
     div.style.visibility = 'hidden'; div.style.top = '0'; div.style.left = '0';
     area.appendChild(div);
     var natW = div.offsetWidth;
+    div.style.width = natW + 'px';  // lock width before moving left, prevents text-wrap shift
     div.style.transform = 'scale(' + zoom + ')';
     div.style.left = Math.round(sx - natW / 2) + 'px';
     div.style.top = Math.round(sy) + 'px'; div.style.visibility = '';
@@ -1084,53 +1088,63 @@ function autoFitProjectWidth(data) {
   }
 }
 
-function measureNodeHeight(lines, screenWidthPx, zoomW) {
-  // lines: array of {text, fontSize, fontWeight, lineHeight, paddingLeft}
-  // Measures at actual screen-pixel width; returns height in cyto units (px / zoomW)
-  var container = document.createElement('div');
-  container.style.cssText = 'position:absolute;visibility:hidden;left:-9999px;top:0;width:' + screenWidthPx + 'px;';
-  lines.forEach(function(ln) {
-    var el = document.createElement('div');
-    el.style.cssText = 'font-family:Arial,Helvetica,sans-serif;' +
-      'font-size:' + ln.fontSize + 'px;font-weight:' + (ln.fontWeight || 'normal') + ';' +
-      'line-height:' + (ln.lineHeight || 1.25) + ';' +
-      'padding-left:' + (ln.paddingLeft || 0) + 'px;' +
-      'word-wrap:break-word;overflow-wrap:break-word;';
-    el.textContent = ln.text;
-    container.appendChild(el);
-  });
-  document.body.appendChild(container);
-  var hPx = container.scrollHeight;
-  document.body.removeChild(container);
-  // Convert screen pixels back to cyto units; 10px vertical padding (screen) included
-  return Math.max(hPx + 10, 20) / zoomW;
+// Canvas-based text line counter.
+// containerW is in CSS pixels (= cyto units) — the nodeHtmlLabel uses transform:scale(zoom)
+// so word-wrap happens at the full cyto-unit width, not the scaled screen width.
+var _cvsMeasure = document.createElement('canvas');
+function canvasTextLines(text, fontSize, fontWeight, containerW) {
+  if (!text || containerW <= 0) return 1;
+  var ctx = _cvsMeasure.getContext('2d');
+  ctx.font = (fontWeight || 'normal') + ' ' + fontSize + 'px Arial,Helvetica,sans-serif';
+  var words = text.split(' ');
+  var lines = 1, lineW = 0;
+  var spW = ctx.measureText(' ').width;
+  for (var i = 0; i < words.length; i++) {
+    var ww = ctx.measureText(words[i]).width;
+    if (lineW > 0 && lineW + spW + ww > containerW) { lines++; lineW = ww; }
+    else { lineW = lineW > 0 ? lineW + spW + ww : ww; }
+  }
+  return lines;
 }
 
-function measureProjectNodeHeight(nodeData, w, zoomW) {
-  // Project nodeHtml: outer flex has no padding; inner div has padding:4px 9px → 18px horizontal
-  var screenW = Math.max(w * zoomW - 18, 20);
+// Returns node height in cyto units (= CSS px, since nodeHtmlLabel scales via transform).
+// containerW: CSS-pixel width of the text area (node width minus horizontal padding).
+// vPad: total vertical CSS-px padding nodeHtml adds (top+bottom).
+function measureNodeHeight(lines, containerW, vPad) {
+  var hPx = 0;
+  lines.forEach(function(ln) {
+    var usableW = Math.max(containerW - (ln.paddingLeft || 0), 4);
+    var n = canvasTextLines(ln.text, ln.fontSize, ln.fontWeight || 'normal', usableW);
+    hPx += n * ln.fontSize * (ln.lineHeight || 1.25);
+  });
+  return Math.max(hPx + (vPad || 8), 8);
+}
+
+function measureProjectNodeHeight(nodeData, w) {
+  // Project inner div: padding:4px 9px → 8px vertical, 18px horizontal (CSS px = cyto units)
+  var containerW = Math.max(w - 18, 4);
   var label = String(nodeData.label || '');
   var labelFi = String(nodeData.label_fi || '');
   return measureNodeHeight(
     [{ text: labelFi.length > label.length ? labelFi : label, fontSize: fontNode, fontWeight: 'bold', lineHeight: 1.3 }],
-    screenW, zoomW
+    containerW, 8
   );
 }
 
-function measureThemeNodeHeight(nodeData, w, zoomW) {
-  // Theme nodeHtml: outer padding:3px 7px (14px) + span padding-right:14px → 28px horizontal
-  var screenW = Math.max(w * zoomW - 28, 10);
+function measureThemeNodeHeight(nodeData, w) {
+  // Theme outer: padding:3px 7px → 6px vertical; span padding-right:14px → 28px horizontal
+  var containerW = Math.max(w - 28, 4);
   var label = String(nodeData.label || '');
   var labelFi = String(nodeData.label_fi || '');
   return measureNodeHeight(
     [{ text: labelFi.length > label.length ? labelFi : label, fontSize: fontNode, fontWeight: 'bold', lineHeight: 1.25 }],
-    screenW, zoomW
+    containerW, 6
   );
 }
 
-function measureSkillNodeHeight(nodeData, w, zoomW) {
-  // Skill nodeHtml: outer padding:4px 7px → 14px horizontal
-  var screenW = Math.max(w * zoomW - 14, 10);
+function measureSkillNodeHeight(nodeData, w) {
+  // Skill outer: padding:4px 7px → 8px vertical, 14px horizontal
+  var containerW = Math.max(w - 14, 4);
   var label = String(nodeData.label || '');
   var labelFi = String(nodeData.label_fi || '');
   var lines = [{ text: labelFi.length > label.length ? labelFi : label, fontSize: fontNode, fontWeight: 'bold', lineHeight: 1.25 }];
@@ -1140,7 +1154,7 @@ function measureSkillNodeHeight(nodeData, w, zoomW) {
       lines.push({ text: item, fontSize: fontSubs, fontWeight: 'normal', lineHeight: 1.3, paddingLeft: 10 });
     });
   }
-  return measureNodeHeight(lines, screenW, zoomW);
+  return measureNodeHeight(lines, containerW, 8);
 }
 
 function applyMobileNodeSizes(data) {
@@ -1189,6 +1203,9 @@ function applyMobileNodeSizes(data) {
     fontNode = Math.round(fontNode * 0.88 * 10) / 10;
     fontSubs = Math.round(fontSubs * 0.88 * 10) / 10;
   }
+  // Mobile payload fontDesc is scaled up for node layout — cap to readable sidebar size
+  descFontSize = Math.min(descFontSize, 13);
+  applySidebarFonts();
 
   // Set node widths (heights depend on font, set below)
   (data.nodes || []).forEach(function(n) {
@@ -1213,9 +1230,9 @@ function applyMobileNodeSizes(data) {
     (data.nodes || []).forEach(function(n) {
       if (!n.data) return;
       var grp = n.data.group;
-      if      (grp === 'Project') n.data.h = measureProjectNodeHeight(n.data, n.data.w, zoomW);
-      else if (grp === 'Theme')   n.data.h = measureThemeNodeHeight(n.data, n.data.w, zoomW);
-      else if (grp === 'Skill')   n.data.h = measureSkillNodeHeight(n.data, n.data.w, zoomW);
+      if      (grp === 'Project') n.data.h = measureProjectNodeHeight(n.data, n.data.w);
+      else if (grp === 'Theme')   n.data.h = measureThemeNodeHeight(n.data, n.data.w);
+      else if (grp === 'Skill')   n.data.h = measureSkillNodeHeight(n.data, n.data.w);
     });
   }
 
@@ -1244,7 +1261,8 @@ function applyMobileNodeSizes(data) {
 
   function applyHeaderY(gp) {
     var hdrH = fontHdr1 * 1.2 + fontHdr2 * 1.3;
-    var hdrY = -Math.round(gp + hdrH);
+    // Add one title-row above header and one subtitle-row between header and first node
+    var hdrY = -Math.round(gp + fontHdr2 * 1.3 + hdrH + fontHdr1 * 1.2);
     data.headers.forEach(function(h) { h.y = hdrY; });
     return hdrY;
   }
@@ -1255,19 +1273,23 @@ function applyMobileNodeSizes(data) {
   var maxColH = restack(gapProject, gapThemeSkill);
   applyHeaderY(gapProject);
 
-  // Scale up to fill available vertical space.
-  // fitWithHeaders() zooms by WIDTH only on mobile: zoomW = (W-4) / bbW
-  // Content occupies (8 + hm*zoom + bb.h*zoom) px from top; we target H-20 at bottom.
-  // → target bb.h = (H - 28) / zoomW - hm  →  scale = targetBBH / currentBBH
-  var hm    = (data.headerMargin) || 70;
-  var targetBBH = (H - 28) / zoomW - hm;
-  var scale = targetBBH / maxColH;
-  if (scale > 1.05) {
-    fontNode  = Math.round(fontNode  * scale * 10) / 10;
-    fontSubs  = Math.round(fontSubs  * scale * 10) / 10;
+  // Scale fonts/gaps to fill available vertical space (both up and down).
+  // fitWithHeaders() zooms by WIDTH only on mobile: zoomW = (W-4)/bbW
+  // Node heights are in CSS/cyto units (nodeHtmlLabel scales via transform:scale(zoom),
+  // so word-wrap happens at the full cyto-unit width, not screen px).
+  // pan.y is shifted down by extraHdrH*zoomW to reveal the applyHeaderY spacing, so
+  // targetBBH must subtract extraHdrH from the usable vertical space per iteration.
+  var hm = (data.headerMargin) || 70;
+  for (var iter = 0; iter < 6; iter++) {
+    var extraHdrH = fontHdr1 * 1.2 + fontHdr2 * 1.3;
+    var targetBBH = ((H - 28) / zoomW - hm - extraHdrH) * 0.97;
+    var scale = Math.max(0.25, Math.min(4.0, targetBBH / maxColH));
+    if (Math.abs(scale - 1) < 0.02) break;
+    fontNode  = Math.max(5, Math.round(fontNode  * scale * 10) / 10);
+    fontSubs  = Math.max(4, Math.round(fontSubs  * scale * 10) / 10);
     fontHdr1  = Math.round(fontHdr1  * scale * 10) / 10;
     fontHdr2  = Math.round(fontHdr2  * scale * 10) / 10;
-    gapProject    = Math.max(4, Math.round(gapProject    * scale));
+    gapProject    = Math.max(2, Math.round(gapProject * scale));
     gapThemeSkill = gapProject * 2;
     remeasureHeights();
     maxColH = restack(gapProject, gapThemeSkill);

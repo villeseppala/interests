@@ -278,7 +278,8 @@ body.light-mode #mob-panel { background:rgba(220,232,245,0.97); }
 body.light-mode #mob-desc-panel { background:rgba(220,232,245,0.97); }
 body.light-mode .mob-tab { color:rgba(0,0,0,0.45); }
 body.light-mode .mob-tab.mob-tab-active { color:rgba(0,0,0,0.85); }
-body.light-mode .mob-tab-pane { color:rgba(0,0,0,0.8); }
+body.light-mode .mob-tab-pane,
+body.light-mode .mob-tab-pane div { color:rgba(0,0,0,0.8) !important; }
 body.light-mode #mob-desc-body { color:rgba(0,0,0,0.82) !important; }
 body.light-mode #mob-handle { background:rgba(0,0,0,0.12); }
 body.light-mode #mob-handle::after { background:rgba(0,0,0,0.25); }
