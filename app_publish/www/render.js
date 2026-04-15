@@ -79,7 +79,12 @@ document.addEventListener('DOMContentLoaded', function() {
   if (currentLang === 'fi') document.body.classList.add('lang-fi');
 });
 
-function useMobileLayout() { return forceMobile || window.innerWidth <= MOBILE_BREAKPOINT; }
+function useMobileLayout() {
+  if (forceMobile) return true;
+  // Use matchMedia — same engine as CSS, always in sync with @media (max-width:768px).
+  if (window.matchMedia) return window.matchMedia('(max-width:' + MOBILE_BREAKPOINT + 'px)').matches;
+  return (document.documentElement.clientWidth || window.innerWidth) <= MOBILE_BREAKPOINT;
+}
 
 function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -860,10 +865,10 @@ function pickData(payload) {
   mobileMode = useMobileLayout();
   if (mobileMode && payload.mobile) {
     mobileData = payload.mobile;
-    return payload.mobile;
+    return JSON.parse(JSON.stringify(payload.mobile)); // deep clone so mutations don't corrupt rawPayload
   }
   mobileData = payload.mobile || null;
-  return payload;
+  return JSON.parse(JSON.stringify(payload)); // deep clone
 }
 
 function applyDataGlobals(data) {
@@ -919,6 +924,7 @@ function initAccordions() {
 function saveLayoutSnapshot(data) {
   if (!data || !data.nodes) return;
   layoutSnapshot = {
+    isMobile: mobileMode,   // track which mode this snapshot belongs to
     nodes: (data.nodes).map(function(n) {
       return { id: n.data && n.data.id, w: n.data && n.data.w, h: n.data && n.data.h,
                x: n.position && n.position.x, y: n.position && n.position.y };
@@ -928,7 +934,9 @@ function saveLayoutSnapshot(data) {
 }
 
 function restoreLayoutSnapshot(data) {
+  // Don't apply a snapshot from a different layout mode — it would corrupt node geometry.
   if (!layoutSnapshot || !data || !data.nodes) return;
+  if (layoutSnapshot.isMobile !== mobileMode) return;
   var byId = {};
   layoutSnapshot.nodes.forEach(function(s) { if (s.id != null) byId[String(s.id)] = s; });
   data.nodes.forEach(function(n) {
@@ -1175,7 +1183,9 @@ function applyMobileNodeSizes(data) {
   // Compute canvas dimensions and mobile zoom early (needed for measurement)
   var ga = document.getElementById('graph-area');
   var W  = ga && ga.clientWidth  > 10 ? ga.clientWidth  : (forceMobile ? previewWidth : window.innerWidth);
-  var H  = ga && ga.clientHeight > 50 ? ga.clientHeight : Math.round(window.innerHeight * 0.70);
+  var H  = ga && ga.clientHeight > 50 ? ga.clientHeight : Math.round(window.innerHeight * 0.65);
+  lastMobileW = W;
+  console.log('[applyMobileNodeSizes] W:', W, 'H:', H, 'ga.cW:', ga ? ga.clientWidth : 'n/a', 'innerW:', window.innerWidth);
 
   // 20% narrower columns: scale all x-positions once.
   // Guard against double-scaling if this data object was already transformed.
@@ -1404,10 +1414,45 @@ function applyMobileLayout() {
 var rawPayload = null; // store full payload for resize switching
 
 Shiny.addCustomMessageHandler('initCy', function (data) {
+  // Hack: reload once per session so the viewport is fully settled before we init.
+  // Fixes Chrome DevTools phone emulation (and some real mobile browsers) applying
+  // viewport dimensions after the first initCy fires.
+  var rlKey = '_pts_vp_ready';
+  if (!sessionStorage.getItem(rlKey)) {
+    sessionStorage.setItem(rlKey, '1');
+    location.reload();
+    return;
+  }
   rawPayload = data;
+  var ga = document.getElementById('graph-area');
+  console.log('[initCy] hasMobile:', !!(data && data.mobile),
+              'matchMedia:', window.matchMedia ? window.matchMedia('(max-width:768px)').matches : 'n/a',
+              'innerWidth:', window.innerWidth,
+              'ga.clientWidth:', ga ? ga.clientWidth : 'n/a',
+              'mobileMode(pre):', mobileMode);
   var picked = pickData(data);
+  console.log('[initCy] picked mobileMode:', mobileMode, 'firstNodeW:', picked && picked.nodes && picked.nodes[0] && picked.nodes[0].data && picked.nodes[0].data.w);
   if (cy) cy.destroy();
   initCyGraph(picked);
+  // One-shot resize listener: catches DevTools viewport settling after initCy fires
+  // with stale dimensions (e.g. phone emulation not yet applied on first load/switch).
+  if (postInitResizeHandler) window.removeEventListener('resize', postInitResizeHandler);
+  var capturedMM = mobileMode, capturedW = lastMobileW;
+  postInitResizeHandler = function () {
+    window.removeEventListener('resize', postInitResizeHandler);
+    postInitResizeHandler = null;
+    if (!rawPayload) return;
+    var nowMobile = useMobileLayout();
+    var gaEl = document.getElementById('graph-area');
+    var nowW = gaEl ? gaEl.clientWidth : window.innerWidth;
+    if (nowMobile !== capturedMM || (nowMobile && Math.abs(nowW - capturedW) > 20)) {
+      lastMobileState = nowMobile;
+      var p = pickData(rawPayload);
+      if (cy) cy.destroy();
+      initCyGraph(p);
+    }
+  };
+  window.addEventListener('resize', postInitResizeHandler);
 });
 
 Shiny.addCustomMessageHandler('updateCy', function (data) {
@@ -1704,7 +1749,9 @@ window.initStaticApp = function(payload) {
   if (payload.ptypeLayout && Shiny._handlers['setPtypeLayout'])
     Shiny._handlers['setPtypeLayout'](payload.ptypeLayout);
   if (payload.edge_width) Shiny._handlers['setEdgeWidth']({ width: payload.edge_width });
-  Shiny._handlers['initCy'](payload);
+  // Defer graph init to a new macrotask so any pending viewport-settle resize events
+  // are processed first — ensures useMobileLayout() reads the correct dimensions.
+  setTimeout(function() { Shiny._handlers['initCy'](payload); }, 0);
   // Accordion titles + language
   if (payload.sidebar) {
     var sb = payload.sidebar;
@@ -1794,30 +1841,27 @@ document.addEventListener('DOMContentLoaded', function () {
 /* ── Viewport change: reinit if crossing mobile/desktop boundary ─────────── */
 
 var lastMobileState = null;
-var mobileReinitTimer = null;
+var lastMobileW = 0;        // viewport width used in last applyMobileNodeSizes call
+var postInitResizeHandler = null; // one-shot handler registered after each initCy
 window.addEventListener('resize', function () {
   var nowMobile = useMobileLayout();
-  if (nowMobile && rawPayload) {
-    // On mobile: debounce full reinit so phone-model switches in devtools and
-    // orientation changes always recalculate node sizes for the new dimensions.
-    clearTimeout(mobileReinitTimer);
-    mobileReinitTimer = setTimeout(function () {
-      var picked = pickData(rawPayload);
-      if (cy) cy.destroy();
-      initCyGraph(picked);
-      lastMobileState = true;
-    }, 150);
-  } else if (!nowMobile && lastMobileState && rawPayload) {
-    // Crossed from mobile → desktop
-    clearTimeout(mobileReinitTimer);
+  var ga = document.getElementById('graph-area');
+  var nowW = ga ? ga.clientWidth : window.innerWidth;
+  if (rawPayload && lastMobileState !== null && nowMobile !== lastMobileState) {
+    // Crossed mobile/desktop boundary — full reinit
+    lastMobileState = nowMobile;
     var picked = pickData(rawPayload);
     if (cy) cy.destroy();
     initCyGraph(picked);
-    lastMobileState = false;
-    lastMobileWidth  = null;
+  } else if (rawPayload && nowMobile && Math.abs(nowW - lastMobileW) > 30) {
+    // Still mobile but viewport width changed significantly (e.g. phone model switch)
+    lastMobileState = nowMobile;
+    var picked = pickData(rawPayload);
+    if (cy) cy.destroy();
+    initCyGraph(picked);
   } else {
     resizeCy();
     refreshLayout();
-    lastMobileState = nowMobile;
   }
+  lastMobileState = nowMobile;
 });
