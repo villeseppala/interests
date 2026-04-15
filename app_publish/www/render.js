@@ -267,7 +267,7 @@ function fitWithHeaders() {
   // Centre horizontally; top-align so headers have exactly 8px clearance.
   // On mobile, applyHeaderY adds fontHdr1*1.2 + fontHdr2*1.3 of extra space above
   // the header row — shift pan.y down by the same amount so it stays visible.
-  var mobileHdrExtra = useMobileLayout() ? (fontHdr1 * 1.2 + fontHdr2 * 1.3) * zoom : 0;
+  var mobileHdrExtra = useMobileLayout() ? (fontHdr1 * 2.4 + fontHdr2 * 1.3) * zoom : 0;
   cy.pan({
     x: W / 2 - (bb.x1 + bb.w / 2) * zoom,
     y: 8 + hm * zoom - bb.y1 * zoom + mobileHdrExtra
@@ -1307,8 +1307,10 @@ function initCyGraph(data) {
   applyMobileNodeSizes(data);
   initAccordions();
   resizeCy();
+  var cyContainer = document.getElementById('cy');
+  if (cyContainer) cyContainer.innerHTML = ''; // remove stale nodeHtmlLabel overlay from prior instance
   cy = cytoscape({
-    container: document.getElementById('cy'), elements: buildElements(data),
+    container: cyContainer, elements: buildElements(data),
     layout: { name: 'preset' }, style: buildStyle(),
     userZoomingEnabled: true, userPanningEnabled: true,
     boxSelectionEnabled: false, autoungrabify: true,
@@ -1784,6 +1786,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var sideScroll = document.getElementById('sidebar-scroll');
   if (sideScroll) sideScroll.addEventListener('scroll', function() { drawNodeConnector(); });
   mobileMode = useMobileLayout();
+  lastMobileState = mobileMode;  // init so first resize event can detect boundary crossing
   applyMobileLayout();
   resizeCy();
 });
@@ -1791,16 +1794,30 @@ document.addEventListener('DOMContentLoaded', function () {
 /* ── Viewport change: reinit if crossing mobile/desktop boundary ─────────── */
 
 var lastMobileState = null;
+var mobileReinitTimer = null;
 window.addEventListener('resize', function () {
   var nowMobile = useMobileLayout();
-  if (lastMobileState !== null && nowMobile !== lastMobileState && rawPayload) {
-    // Crossed breakpoint — reinitialize with correct data
+  if (nowMobile && rawPayload) {
+    // On mobile: debounce full reinit so phone-model switches in devtools and
+    // orientation changes always recalculate node sizes for the new dimensions.
+    clearTimeout(mobileReinitTimer);
+    mobileReinitTimer = setTimeout(function () {
+      var picked = pickData(rawPayload);
+      if (cy) cy.destroy();
+      initCyGraph(picked);
+      lastMobileState = true;
+    }, 150);
+  } else if (!nowMobile && lastMobileState && rawPayload) {
+    // Crossed from mobile → desktop
+    clearTimeout(mobileReinitTimer);
     var picked = pickData(rawPayload);
     if (cy) cy.destroy();
     initCyGraph(picked);
+    lastMobileState = false;
+    lastMobileWidth  = null;
   } else {
     resizeCy();
     refreshLayout();
+    lastMobileState = nowMobile;
   }
-  lastMobileState = nowMobile;
 });
