@@ -25,7 +25,7 @@ APP_CSS <- paste(readLines("www/style.css", warn = FALSE), collapse = "\n")
 # ── UI ───────────────────────────────────────────────────────────────────────
 ui <- fluidPage(
   tags$head(
-    tags$meta(name = "viewport", content = "width=device-width, initial-scale=1, maximum-scale=5"),
+    tags$meta(name = "viewport", content = "width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover"),
     tags$style(HTML(APP_CSS)),
     tags$link(rel = "stylesheet", href = "https://cdnjs.cloudflare.com/ajax/libs/flag-icons/7.2.3/css/flag-icons.min.css"),
     tags$script(src = "https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"),
