@@ -187,12 +187,13 @@ body.lang-fi span.fi-only, body.lang-fi b.fi-only, body.lang-fi a.fi-only { disp
   .col-spacer { display:none; }
   #info-sidebar { display:none; }
   #sidebar-resize-handle { display:none; }
-  #graph-area { width:100%; flex:none; height:60vh; overflow:hidden; }
+  #graph-area { width:100%; flex:none; height:55vh; overflow:hidden; position:relative; }
   #cy { pointer-events:auto; }
   #mobile-bottom-sheet { display:none !important; }
   #mobile-info-btn { display:none !important; }
   #mob-handle { display:flex; }
-  #mob-panel { display:flex; }
+  #mob-panel { display:flex; padding-bottom:env(safe-area-inset-bottom, 0px); }
+  #mobile-top-zone { position:absolute; top:0; left:0; right:0; height:55px; z-index:20; }
 }
 
 /* ── Mobile split panel ──────────────────────────────────────────────── */

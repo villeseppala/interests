@@ -238,7 +238,7 @@ function resizeCy() {
 function fitWithHeaders() {
   if (!cy) return;
   var container = document.getElementById('graph-area');
-  var W = container ? container.clientWidth  : window.innerWidth;
+  var W = container ? container.clientWidth : window.innerWidth;
   var H = container ? container.clientHeight : window.innerHeight;
   var bb = cy.elements().boundingBox();
   if (!bb || bb.w === 0) { cy.fit(undefined, 20); return; }
@@ -251,7 +251,7 @@ function fitWithHeaders() {
   // height budget. Use the corrected zoomH as a ceiling so content never overflows.
   var extraHdr = useMobileLayout() ? (fontHdr1 * 2.4 + fontHdr2 * 1.3) : 0;
   var zoomH = (H - 28) / (bb.h + hm + extraHdr);
-  var zoomW = useMobileLayout() ? (W - 4) / bb.w : (W - 40) / bb.w;
+  var zoomW = useMobileLayout() ? (W - 14) / bb.w : (W - 40) / bb.w;
   var zoom  = useMobileLayout() ? Math.min(zoomW, zoomH) : Math.min(zoomH, zoomW);
   zoom = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), zoom));
   cy.zoom(zoom);
@@ -1182,7 +1182,7 @@ function applyMobileNodeSizes(data) {
 
   // Compute zoomW now that colGap is known (matches fitWithHeaders mobile path: (W-4)/bbW)
   var bbW   = colGap * 2.5;
-  var zoomW = (W - 4) / bbW;
+  var zoomW = (W - 14) / bbW;
 
   // Halve all graph font sizes for mobile starting point
   fontNode  = Math.round(fontNode  * 0.5 * 10) / 10;
@@ -1287,10 +1287,14 @@ function applyMobileNodeSizes(data) {
     applyHeaderY(gapProject);
   }
   // Equalize node heights within Theme and Skill groups so each column has uniform rows.
+  // Theme nodes get an extra 20% height to improve clickability.
   ['Theme', 'Skill'].forEach(function(grp) {
     var maxH = 0;
     colNodes[grp].forEach(function(n) { maxH = Math.max(maxH, n.data.h || 0); });
-    if (maxH > 0) colNodes[grp].forEach(function(n) { n.data.h = maxH; });
+    if (maxH > 0) {
+      if (grp === 'Theme') maxH = Math.round(maxH * 1.2);
+      colNodes[grp].forEach(function(n) { n.data.h = maxH; });
+    }
   });
   maxColH = restack(gapProject, gapThemeSkill);
   applyHeaderY(gapProject);
@@ -1340,6 +1344,26 @@ function initCyGraph(data) {
       cy.userPanningEnabled(touchY > 55);
     });
     cy.on('touchend touchcancel', function() { cy.userPanningEnabled(true); });
+  // Pull-to-refresh zone: created once, survives cy reinits (lives in #graph-area not #cy)
+  if (!document.getElementById('mobile-top-zone')) {
+    var ptrZone = document.createElement('div');
+    ptrZone.id = 'mobile-top-zone';
+    var ptrGa = document.getElementById('graph-area');
+    if (ptrGa) {
+      ptrGa.appendChild(ptrZone);
+      var ptrStartY = null;
+      ptrZone.addEventListener('touchstart', function(e) {
+        ptrStartY = e.touches[0].clientY;
+      }, { passive: true });
+      ptrZone.addEventListener('touchmove', function(e) {
+        if (ptrStartY !== null && e.touches[0].clientY - ptrStartY > 80) {
+          ptrStartY = null;
+          location.reload();
+        }
+      }, { passive: true });
+      ptrZone.addEventListener('touchend', function() { ptrStartY = null; }, { passive: true });
+    }
+  }
   }
   cy.on('tap', function (evt) { if (evt.target === cy) hideDescPanel(); });
   cy.on('tap', 'node', function (evt) {
@@ -1586,6 +1610,14 @@ Shiny.addCustomMessageHandler('setLanguageData', function(d) {
   applyAccTitles();
 });
 
+/* Convert bare https?:// URLs in already-HTML content (e.g. with &lt;br&gt; tags) to links */
+function linkifyHtml(html) {
+  return String(html).replace(/(https?:\/\/[^\s<>"&]+)/g, function(url) {
+    var s = 'color:inherit;opacity:0.85;text-decoration:underline;cursor:pointer;';
+    return '<a href="' + url + '" target="_blank" rel="noopener" style="' + s + '">' + url + '</a>';
+  });
+}
+
 /* Inline markdown: [label](url) and bare https?:// URLs become clickable links */
 function processInline(text) {
   var re = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(https?:\/\/\S+)/g;
@@ -1593,11 +1625,10 @@ function processInline(text) {
   while ((m = re.exec(text)) !== null) {
     out += esc(text.slice(last, m.index));
     var linkStyle = 'color:inherit;opacity:0.85;text-decoration:underline;cursor:pointer;';
-    var linkClick = 'onclick="var u=this.getAttribute(\'href\');window.open(u,\'_blank\');return false;"';
     if (m[1]) {
-      out += '<a href="' + esc(m[2]) + '" ' + linkClick + ' rel="noopener" style="' + linkStyle + '">' + esc(m[1]) + '</a>';
+      out += '<a href="' + esc(m[2]) + '" target="_blank" rel="noopener" style="' + linkStyle + '">' + esc(m[1]) + '</a>';
     } else {
-      out += '<a href="' + esc(m[3]) + '" ' + linkClick + ' rel="noopener" style="' + linkStyle + '">' + esc(m[3]) + '</a>';
+      out += '<a href="' + esc(m[3]) + '" target="_blank" rel="noopener" style="' + linkStyle + '">' + esc(m[3]) + '</a>';
     }
     last = m.index + m[0].length;
   }
@@ -1808,8 +1839,8 @@ function populateStaticSidebar(p) {
   // Vote
   var voteEl = document.getElementById('acc-vote-body');
   var voteHtml = p.vote_html ?
-    (p.vote_html.en ? '<div id="vote-section"><div class="en-only" style="' + txtStyle + '">' + p.vote_html.en + '</div>' : '') +
-    (p.vote_html.fi ? '<div class="fi-only" style="' + txtStyle + '">' + p.vote_html.fi + '</div>' : '') + '</div>' : '';
+    (p.vote_html.en ? '<div id="vote-section"><div class="en-only" style="' + txtStyle + '">' + linkifyHtml(p.vote_html.en) + '</div>' : '') +
+    (p.vote_html.fi ? '<div class="fi-only" style="' + txtStyle + '">' + linkifyHtml(p.vote_html.fi) + '</div>' : '') + '</div>' : '';
   if (voteEl) voteEl.innerHTML = voteHtml;
   var mobVote = document.getElementById('mob-content-vote');
   if (mobVote) mobVote.innerHTML = voteHtml;
