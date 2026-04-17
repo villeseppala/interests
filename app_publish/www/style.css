@@ -182,12 +182,12 @@ body.lang-fi span.fi-only, body.lang-fi b.fi-only, body.lang-fi a.fi-only { disp
   .col-spacer { display:none; }
 }
 @media (max-width: 768px) {
-  html, body { overflow:hidden; height:100%; }
-  #main-row { flex-direction:column; height:100vh; overflow:hidden; }
+  html, body { overflow:hidden; height:100dvh; }
+  #main-row { flex-direction:column; height:100dvh; overflow:hidden; }
   .col-spacer { display:none; }
   #info-sidebar { display:none; }
   #sidebar-resize-handle { display:none; }
-  #graph-area { width:100%; flex:none; height:55vh; overflow:hidden; position:relative; }
+  #graph-area { width:100%; flex:none; height:55dvh; overflow:hidden; position:relative; }
   #cy { pointer-events:auto; }
   #mobile-bottom-sheet { display:none !important; }
   #mobile-info-btn { display:none !important; }
