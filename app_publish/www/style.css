@@ -187,7 +187,7 @@ body.lang-fi span.fi-only, body.lang-fi b.fi-only, body.lang-fi a.fi-only { disp
   .col-spacer { display:none; }
   #info-sidebar { display:none; }
   #sidebar-resize-handle { display:none; }
-  #graph-area { width:100%; flex:none; height:65vh; overflow:hidden; }
+  #graph-area { width:100%; flex:none; height:60vh; overflow:hidden; }
   #cy { pointer-events:auto; }
   #mobile-bottom-sheet { display:none !important; }
   #mobile-info-btn { display:none !important; }

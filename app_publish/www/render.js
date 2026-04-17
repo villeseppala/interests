@@ -211,26 +211,9 @@ function resizeCy() {
   var w = el.parentElement.clientWidth;
   if (w < 10) return; // not laid out yet
   if (useMobileLayout()) {
-    var data = lastData;
-    if (data && data.nodes && data.nodes.length > 0) {
-      // Compute bounding box from node data to match the zoomW used in fitWithHeaders
-      var bx1 = Infinity, bx2 = -Infinity, by1 = Infinity, by2 = -Infinity;
-      (data.nodes || []).forEach(function(n) {
-        if (!n.data || !n.position) return;
-        var nw = n.data.w || 100, nh = n.data.h || 40;
-        bx1 = Math.min(bx1, n.position.x - nw / 2);
-        bx2 = Math.max(bx2, n.position.x + nw / 2);
-        by1 = Math.min(by1, n.position.y - nh / 2);
-        by2 = Math.max(by2, n.position.y + nh / 2);
-      });
-      var bbW = bx2 - bx1, bbH = by2 - by1;
-      var hm = (data.headerMargin) || 70;
-      var zoom = (w - 40) / bbW; // same zoomW as fitWithHeaders uses
-      var contentH = 8 + (hm + bbH) * zoom + 20;
-      el.style.height = Math.max(contentH, 150) + 'px';
-    } else {
-      el.style.height = (w * (previewHeight / previewWidth)) + 'px';
-    }
+    // Fill the graph-area container exactly — fitWithHeaders handles content placement.
+    var gaH = el.parentElement.clientHeight;
+    el.style.height = (gaH > 10 ? gaH : Math.round(window.innerHeight * 0.60)) + 'px';
   } else {
     var parentH = el.parentElement.clientHeight || window.innerHeight;
     el.style.height = parentH + 'px';
@@ -264,9 +247,12 @@ function fitWithHeaders() {
   // Vertical:   8 + hm*zoom + bb.h*zoom + 20 = H  →  zoom = (H−28)/(bb.h+hm)
   // Horizontal: 20 + bb.w*zoom + 20           = W  →  zoom = (W−40)/bb.w
   var hm = (lastData && lastData.headerMargin) || 70;
-  var zoomH = (H - 28) / (bb.h + hm);
+  // On mobile the pan shifts content down by mobileHdrExtra, so include that in the
+  // height budget. Use the corrected zoomH as a ceiling so content never overflows.
+  var extraHdr = useMobileLayout() ? (fontHdr1 * 2.4 + fontHdr2 * 1.3) : 0;
+  var zoomH = (H - 28) / (bb.h + hm + extraHdr);
   var zoomW = useMobileLayout() ? (W - 4) / bb.w : (W - 40) / bb.w;
-  var zoom  = useMobileLayout() ? zoomW : Math.min(zoomH, zoomW);
+  var zoom  = useMobileLayout() ? Math.min(zoomW, zoomH) : Math.min(zoomH, zoomW);
   zoom = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), zoom));
   cy.zoom(zoom);
   // Centre horizontally; top-align so headers have exactly 8px clearance.
@@ -318,10 +304,10 @@ function buildStyle() {
     }},
     { selector: 'node.selected', style: {
         'background-color': function() { var b = nodeBgSameAsGraph ? colBg : colSidebarBg; return blendWithWhite(b, 0.15); },
-        'border-width': 6, 'shadow-opacity': 0, 'outline-width': 0, 'outline-opacity': 0,
+        'border-width': mobileMode ? 9 : 6, 'shadow-opacity': 0, 'outline-width': 0, 'outline-opacity': 0,
     }},
     { selector: 'node.hovered', style: {
-        'border-width': 6, 'outline-width': 0,
+        'border-width': mobileMode ? 9 : 6, 'outline-width': 0,
     }},
     { selector: 'node.selected.hovered', style: {
         'outline-width': 0, 'outline-opacity': 0,
@@ -654,7 +640,7 @@ function drawEdgeOverlay() {
       isSel: edge.hasClass('selected'), isHov: edge.hasClass('hovered')
     });
   });
-  var strokeW = baseEdgeWidth * zoom;
+  var strokeW = baseEdgeWidth * zoom * (mobileMode ? 1.5 : 1);
   // Pass 1: white glow behind SELECTED edges only (not hovered)
   edgePaths.forEach(function (ep) {
     if (!ep.isSel) return;
@@ -953,21 +939,17 @@ function restoreLayoutSnapshot(data) {
 /* Re-evaluate layout mode with current viewport; rebuild elements if it changed. */
 function refreshLayout() {
   if (!lastData || !cy) return;
-  var prevMode = currentLayoutMode;
   restoreLayoutSnapshot(lastData);
   autoFitProjectWidth(lastData);
-  if (currentLayoutMode === prevMode) {
-    // Mode unchanged — just refit to new viewport size
-    fitWithHeaders();
-    positionHeaders(lastData);
-    drawEdgeOverlay();
-    drawNodeConnector();
-    return;
-  }
-  // Mode changed — rebuild elements with new layout
-  cy.elements().remove();
-  cy.add(buildElements(lastData));
-  cy.layout({ name: 'preset' }).run();
+  // Update node data and positions in-place — avoids zombie nodeHtmlLabel overlays
+  // that occur when elements are removed and re-added.
+  (lastData.nodes || []).forEach(function(n) {
+    if (!n.data || n.data.id == null) return;
+    var ele = cy.getElementById(String(n.data.id));
+    if (ele.empty()) return;
+    ele.data({ w: n.data.w, h: n.data.h });
+    ele.position({ x: n.position.x, y: n.position.y });
+  });
   fitWithHeaders();
   positionHeaders(lastData);
   drawEdgeOverlay();
@@ -1183,9 +1165,8 @@ function applyMobileNodeSizes(data) {
   // Compute canvas dimensions and mobile zoom early (needed for measurement)
   var ga = document.getElementById('graph-area');
   var W  = ga && ga.clientWidth  > 10 ? ga.clientWidth  : (forceMobile ? previewWidth : window.innerWidth);
-  var H  = ga && ga.clientHeight > 50 ? ga.clientHeight : Math.round(window.innerHeight * 0.65);
+  var H  = ga && ga.clientHeight > 50 ? ga.clientHeight : Math.round(window.innerHeight * 0.60);
   lastMobileW = W;
-  console.log('[applyMobileNodeSizes] W:', W, 'H:', H, 'ga.cW:', ga ? ga.clientWidth : 'n/a', 'innerW:', window.innerWidth);
 
   // 20% narrower columns: scale all x-positions once.
   // Guard against double-scaling if this data object was already transformed.
@@ -1291,8 +1272,8 @@ function applyMobileNodeSizes(data) {
   // targetBBH must subtract extraHdrH from the usable vertical space per iteration.
   var hm = (data.headerMargin) || 70;
   for (var iter = 0; iter < 6; iter++) {
-    var extraHdrH = fontHdr1 * 1.2 + fontHdr2 * 1.3;
-    var targetBBH = ((H - 28) / zoomW - hm - extraHdrH) * 0.97;
+    var extraHdrH = fontHdr1 * 2.4 + fontHdr2 * 1.3; // must match mobileHdrExtra in fitWithHeaders
+    var targetBBH = ((H - 28) / zoomW - hm - extraHdrH) * 0.96;
     var scale = Math.max(0.25, Math.min(4.0, targetBBH / maxColH));
     if (Math.abs(scale - 1) < 0.02) break;
     fontNode  = Math.max(5, Math.round(fontNode  * scale * 10) / 10);
@@ -1302,6 +1283,25 @@ function applyMobileNodeSizes(data) {
     gapProject    = Math.max(2, Math.round(gapProject * scale));
     gapThemeSkill = gapProject * 2;
     remeasureHeights();
+    maxColH = restack(gapProject, gapThemeSkill);
+    applyHeaderY(gapProject);
+  }
+  // Equalize node heights within Theme and Skill groups so each column has uniform rows.
+  ['Theme', 'Skill'].forEach(function(grp) {
+    var maxH = 0;
+    colNodes[grp].forEach(function(n) { maxH = Math.max(maxH, n.data.h || 0); });
+    if (maxH > 0) colNodes[grp].forEach(function(n) { n.data.h = maxH; });
+  });
+  maxColH = restack(gapProject, gapThemeSkill);
+  applyHeaderY(gapProject);
+
+  // After iteration: fill remaining vertical slack by expanding gaps only (no font change).
+  // fitWithHeaders' min(zoomW,zoomH) is the safety net against overflow.
+  var slackCyto = (H - 28) / zoomW - hm - extraHdrH - maxColH;
+  if (slackCyto > 5) {
+    var gapScale = (maxColH + slackCyto * 0.92) / maxColH;
+    gapProject    = Math.max(2, Math.round(gapProject * gapScale));
+    gapThemeSkill = gapProject * 2;
     maxColH = restack(gapProject, gapThemeSkill);
     applyHeaderY(gapProject);
   }
@@ -1328,6 +1328,19 @@ function initCyGraph(data) {
   cy.nodeHtmlLabel([{ query: 'node', tpl: function (d) { return nodeHtml(d); } }]);
   fitWithHeaders();
   if (!mobileMode) alignGraphLeft();
+  // On mobile, disable panning for touches starting in the top 55px of the graph
+  // area so the browser's native pull-to-refresh gesture still works.
+  if (mobileMode) {
+    cy.on('touchstart', function(e) {
+      var oe = e.originalEvent;
+      if (!oe || !oe.touches || !oe.touches[0]) return;
+      var ga = document.getElementById('graph-area');
+      if (!ga) return;
+      var touchY = oe.touches[0].clientY - ga.getBoundingClientRect().top;
+      cy.userPanningEnabled(touchY > 55);
+    });
+    cy.on('touchend touchcancel', function() { cy.userPanningEnabled(true); });
+  }
   cy.on('tap', function (evt) { if (evt.target === cy) hideDescPanel(); });
   cy.on('tap', 'node', function (evt) {
     var d = evt.target.data(), g = d.group;
@@ -1414,33 +1427,22 @@ function applyMobileLayout() {
 var rawPayload = null; // store full payload for resize switching
 
 Shiny.addCustomMessageHandler('initCy', function (data) {
-  // Hack: reload once per session so the viewport is fully settled before we init.
-  // Fixes Chrome DevTools phone emulation (and some real mobile browsers) applying
-  // viewport dimensions after the first initCy fires.
-  var rlKey = '_pts_vp_ready';
-  if (!sessionStorage.getItem(rlKey)) {
-    sessionStorage.setItem(rlKey, '1');
-    location.reload();
-    return;
-  }
   rawPayload = data;
-  var ga = document.getElementById('graph-area');
-  console.log('[initCy] hasMobile:', !!(data && data.mobile),
-              'matchMedia:', window.matchMedia ? window.matchMedia('(max-width:768px)').matches : 'n/a',
-              'innerWidth:', window.innerWidth,
-              'ga.clientWidth:', ga ? ga.clientWidth : 'n/a',
-              'mobileMode(pre):', mobileMode);
+  if (postInitResizeHandler) { window.removeEventListener('resize', postInitResizeHandler); postInitResizeHandler = null; }
   var picked = pickData(data);
-  console.log('[initCy] picked mobileMode:', mobileMode, 'firstNodeW:', picked && picked.nodes && picked.nodes[0] && picked.nodes[0].data && picked.nodes[0].data.w);
   if (cy) cy.destroy();
   initCyGraph(picked);
-  // One-shot resize listener: catches DevTools viewport settling after initCy fires
-  // with stale dimensions (e.g. phone emulation not yet applied on first load/switch).
-  if (postInitResizeHandler) window.removeEventListener('resize', postInitResizeHandler);
+  // After init, check once whether the viewport has settled to different dimensions.
+  // Handles DevTools phone emulation (and some mobile browsers) where viewport is
+  // applied after initCy fires. Both a resize-event trigger and a 300ms timeout are
+  // used; a shared flag ensures only the first one reinitialises.
+  // After init, watch for the viewport settling to different dimensions.
+  // Handles Chrome DevTools phone emulation applying dimensions after initCy fires.
+  // Two mechanisms: debounced resize handler (fast, event-driven) + 1500ms fallback.
+  // Whichever fires first cancels the other to avoid double reinit.
   var capturedMM = mobileMode, capturedW = lastMobileW;
-  postInitResizeHandler = function () {
-    window.removeEventListener('resize', postInitResizeHandler);
-    postInitResizeHandler = null;
+  var postInitDebounce = null, postInitFallback = null;
+  function postInitReinit() {
     if (!rawPayload) return;
     var nowMobile = useMobileLayout();
     var gaEl = document.getElementById('graph-area');
@@ -1451,8 +1453,21 @@ Shiny.addCustomMessageHandler('initCy', function (data) {
       if (cy) cy.destroy();
       initCyGraph(p);
     }
+  }
+  postInitResizeHandler = function () {
+    clearTimeout(postInitDebounce);
+    clearTimeout(postInitFallback);
+    postInitDebounce = setTimeout(function () {
+      if (postInitResizeHandler) { window.removeEventListener('resize', postInitResizeHandler); postInitResizeHandler = null; }
+      postInitReinit();
+    }, 200);
   };
   window.addEventListener('resize', postInitResizeHandler);
+  postInitFallback = setTimeout(function () {
+    clearTimeout(postInitDebounce);
+    if (postInitResizeHandler) { window.removeEventListener('resize', postInitResizeHandler); postInitResizeHandler = null; }
+    postInitReinit();
+  }, 1500);
 });
 
 Shiny.addCustomMessageHandler('updateCy', function (data) {
@@ -1845,16 +1860,8 @@ var lastMobileW = 0;        // viewport width used in last applyMobileNodeSizes 
 var postInitResizeHandler = null; // one-shot handler registered after each initCy
 window.addEventListener('resize', function () {
   var nowMobile = useMobileLayout();
-  var ga = document.getElementById('graph-area');
-  var nowW = ga ? ga.clientWidth : window.innerWidth;
   if (rawPayload && lastMobileState !== null && nowMobile !== lastMobileState) {
     // Crossed mobile/desktop boundary — full reinit
-    lastMobileState = nowMobile;
-    var picked = pickData(rawPayload);
-    if (cy) cy.destroy();
-    initCyGraph(picked);
-  } else if (rawPayload && nowMobile && Math.abs(nowW - lastMobileW) > 30) {
-    // Still mobile but viewport width changed significantly (e.g. phone model switch)
     lastMobileState = nowMobile;
     var picked = pickData(rawPayload);
     if (cy) cy.destroy();

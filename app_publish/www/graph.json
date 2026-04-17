@@ -133,7 +133,7 @@
       "group": "Skill",
       "title": "Artificial intelligence",
       "subs": [
-        "ChatGPT etc."
+        "Claude, ChatGPT etc."
       ],
       "edgeColor": "#8D4AC2",
       "title_fi": "Tekoäly",
@@ -144,7 +144,7 @@
       "group": "Skill",
       "title": "Data visualization and graphic design",
       "subs": [
-        "ggplot2 / R",
+        "ggplot2 (R)",
         "Krita, Inkscape etc."
       ],
       "edgeColor": "#CA4572",
@@ -156,8 +156,8 @@
       "group": "Skill",
       "title": "Dashboards and websites",
       "subs": [
-        "Shiny / R",
-        "Quarto / R"
+        "Shiny (R)",
+        "Quarto (R)"
       ],
       "edgeColor": "#4BF7B4",
       "title_fi": "Dashboardit ja nettisivut",
@@ -167,9 +167,7 @@
       "id": 303,
       "group": "Skill",
       "title": "Videos and streaming",
-      "subs": [
-        "DaVinci Resolve"
-      ],
+      "subs": [],
       "edgeColor": "#71EA57",
       "title_fi": "Videot ja striimaus",
       "lightEdgeColor": "#B0C24B"
@@ -556,13 +554,13 @@
     "mob_gap_v_mult": 1,
     "mob_gap_col_mult": 2,
     "col_intro_title": "What is this site about",
-    "col_intro_text": "In this site, I'm presenting some of my current interests on what to pursue in my life. The motivation is to gain feedback, reach possible collaborators and to fing funding/employment avenus. Also, if you are pursuing some of the things presented here, I could be interested in giving you feedback.\n\nDepending on how they are written, some plans for texts can also act as drafts for the text and can be continuously improved until they can be published as finalized texts. Having the plans/drafts public makes me more motivated to focus on them at that stage, since I know they can be seen and to have some kind of impact already. This increased focus increases the probability that the plans/drafts will become final texts at some points. \n\nMy possible interests are not limited to the ones presented here, but I hope they  can be used to give some kind of impression of me in general and what else I could be interested in. \n\n------\nThe site has been vibecoded with Claude. ",
+    "col_intro_text": "In this site, I'm presenting some of my current interests on what to pursue in my life. The motivation is to gain feedback, reach possible collaborators and to fing funding/employment avenus. Also, if you are pursuing some of the things presented here, I could be interested in giving you feedback.\nMy interests are not limited to the ones presented here, but I hope they  give some kind of impression of me in general. \n\n------\nThe site has been vibecoded with Claude. ",
     "details_title": "Descriptions",
     "details_hint": "Click on a topic in the graph to see details here",
     "vote_title": "Influence my focus",
-    "vote_text": "What themes, projects or skills do you think I should pursue? What would be necessary or what would I be good at, for example. \n\nYou can vote here: https://forms.gle/XR1jRv25ng2Ky5SE6\n\nI'll take your opinions into account. Form also has an open field that you can use how you wish. ",
+    "vote_text": "What themes, projects or skills do you think I should pursue? Based on what would be important or what I would be good at, for example. \nYou can vote here: https://forms.gle/XR1jRv25ng2Ky5SE6\nI'll take your opinions into account. Form also has an open field that you can use how you wish. ",
     "funding_title": "Funding/work opportunities",
-    "funding_intro": "Currently I'm pursuing these interests on my own time but I'm also looking for work/funding. Feel free to contact me with suggestions regarding work on these intererests or anything else you think I might be interested in. \n\nHere is my current preference order for different funding sources:",
+    "funding_intro": "Currently I'm pursuing these interests on my own time but I'm also looking for work/funding. Feel free to contact me with suggestions regarding work on these intererests or anything else you think I might be interested in. \nHere is my current preference order for different funding sources:",
     "funding_items": [
       "– Crowdfunding",
       "– Grants",
@@ -575,25 +573,25 @@
       "  – Full time"
     ],
     "hdr_theme_line1": "Themes",
-    "hdr_theme_line2": "I want to focus on",
+    "hdr_theme_line2": "I find important",
     "hdr_project_line1": "Projects",
     "hdr_project_line2": "I want to work on",
     "hdr_skill_line1": "Skills",
     "hdr_skill_line2": "I want to develop",
     "fi_hdr_theme_line1": "Teemat",
-    "fi_hdr_theme_line2": "joihin haluan keskittyä",
+    "fi_hdr_theme_line2": "joita pidän tärkeänä",
     "fi_hdr_project_line1": "Projektit",
     "fi_hdr_project_line2": "joita haluan työstää",
     "fi_hdr_skill_line1": "Taidot",
     "fi_hdr_skill_line2": "joita haluan kehittää",
     "fi_page_title": "Kiinnostukseni",
     "fi_col_intro_title": "Mikä tämä sivu on?",
-    "fi_col_intro_text": "Mikä tämä sivu on?\nTällä sivulla pyrin esittelemään joitain tämänhetkisiä kiinnostuksenkohteitani. Tarkoituksena on saada palautetta siitä mitä mihin minun kannattaisi keskittyä, tavoittaa yhteistyötahoja sekä löytää rahoittajia/työpaikkoja. \n\n",
+    "fi_col_intro_text": "Mikä tämä sivu on?\nTällä sivulla pyrin esittelemään joitain tämänhetkisiä kiinnostuksenkohteitani. Tarkoituksena on saada palautetta siitä mitä mihin minun kannattaisi keskittyä, tavoittaa yhteistyötahoja sekä löytää rahoittajia/työpaikkoja. \nOlen kiinnostunut muistakin asioista kuin sivuilla esitetyistä, mutta toivon että esitetyt asiat antavat minusta yleisemminkin kuvaa.",
     "fi_details_title": "Kuvaukset (englanniksi)",
     "fi_details_hint": "Klikkaa aihetta graafissa nähdäksesi sen kuvauksen tässä",
     "fi_vote_title": "Vaikuta painopisteisiini",
-    "fi_vote_text": "Mihin teemoihin, projekteihin tai taitoihin minun kannattaisi mielestäsi keskittyä? Mihin olisin sopiva tai mikä olisi hyödyllistä? \n\nVoit äänestää linkin takaa: https://forms.gle/XR1jRv25ng2Ky5SE6\n\nOtan äänet huomioon. Lomakkeella myös avoin kenttä, jolla voi viestiä minulle mihin vaan liittyen.",
+    "fi_vote_text": "Mihin teemoihin, projekteihin tai taitoihin minun kannattaisi mielestäsi keskittyä? Mihin olisin sopiva tai mikä olisi hyödyllistä? \nVoit äänestää linkin takaa: https://forms.gle/XR1jRv25ng2Ky5SE6\nOtan äänet huomioon. Lomakkeella myös avoin kenttä, jolla voi viestiä minulle mihin vaan liittyen.",
     "fi_funding_title": "Rahoitus- ja työmahdollisuudet",
-    "fi_funding_intro": "Tällä hetkellä en ole työelämässä ja työstän näitä kiinnostuksenkohteita omalla ajallani, mutta olen hyvin kiinnostunut myös tekemään töitä niiden parissa.\n\nOta yhteyttä, mikäli sinulla on vinkkejä potentiaalisista rahoitus - tai työvaihtoehdoista, jotka voisivat sopia minulle, vaikka ne eivät suoraan liittyisikään kiinnostuksiini. \n\nTässä on jonkinlainen löyhä preferenssijärjestys sille, miten haluaisin tulla rahoitetuksi:"
+    "fi_funding_intro": "Tällä hetkellä en ole työelämässä ja työstän näitä kiinnostuksenkohteita omalla ajallani, mutta olen hyvin kiinnostunut myös tekemään töitä niiden parissa.\nOta yhteyttä, mikäli sinulla on vinkkejä potentiaalisista rahoitus - tai työvaihtoehdoista, jotka voisivat sopia minulle, vaikka ne eivät suoraan liittyisikään kiinnostuksiini. \nTässä on jonkinlainen löyhä preferenssijärjestys sille, miten haluaisin tulla rahoitetuksi:"
   }
 }
