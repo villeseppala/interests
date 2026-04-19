@@ -56,18 +56,21 @@ var watermarkSize = 10;
 var descFontSize = 11.5;
 var colBg = '#0b3552';
 var colSidebarBg = '#081626';
+var colNodeBg = '#081626';
 var colTheme = '#3be37a';
 var colProject = '#ffad33';
 var colSkill = '#78e6e7';
 var lightMode = false;
 var lightColBg = '#f0f4f8';
 var lightColSidebarBg = '#e2eaf3';
+var lightColNodeBg = '#e2eaf3';
 var lightColTheme = '#1e7c45';
 var lightColProject = '#c06000';
 var lightColSkill = '#1a7a7b';
 var lightEdgeColor = '#555555';
 var darkColBg = '#0b3552';
 var darkColSidebarBg = '#081626';
+var darkColNodeBg = '#081626';
 var darkColTheme = '#3be37a';
 var darkColProject = '#ffad33';
 var darkColSkill = '#78e6e7';
@@ -156,11 +159,9 @@ function applyColors() {
   var ga = document.getElementById('graph-area');
   var cy_el = document.getElementById('cy');
   var sb = document.getElementById('info-sidebar');
-  var dp = document.getElementById('desc-panel');
   if (ga) ga.style.background = colBg;
   if (cy_el) cy_el.style.background = colBg;
   if (sb) sb.style.background = colSidebarBg;
-  if (dp) dp.style.background = colSidebarBg;
   var ph = document.getElementById('page-title');
   if (ph) ph.style.background = colBg;
   document.querySelectorAll('.col-spacer').forEach(function(el) { el.style.background = colBg; });
@@ -293,7 +294,7 @@ function buildStyle() {
     { selector: 'node', style: {
         shape: 'rectangle', width: 'data(w)', height: 'data(h)',
         'background-fill': 'flat',
-        'background-color': function() { return nodeBgSameAsGraph ? colBg : colSidebarBg; },
+        'background-color': function() { return nodeBgSameAsGraph ? colBg : colNodeBg; },
         'border-width': 2,
         'border-color': borderColor, 'border-style': 'solid', label: '',
         'shadow-opacity': 0, 'outline-width': 0, 'outline-opacity': 0, 'underlay-opacity': 0, 'overlay-opacity': 0,
@@ -303,7 +304,7 @@ function buildStyle() {
         },
     }},
     { selector: 'node.selected', style: {
-        'background-color': function() { var b = nodeBgSameAsGraph ? colBg : colSidebarBg; return blendWithWhite(b, 0.15); },
+        'background-color': function() { var b = nodeBgSameAsGraph ? colBg : colNodeBg; return blendWithWhite(b, 0.15); },
         'border-width': mobileMode ? 9 : 6, 'shadow-opacity': 0, 'outline-width': 0, 'outline-opacity': 0,
     }},
     { selector: 'node.hovered', style: {
@@ -399,6 +400,7 @@ function hideDescPanel() {
   lastDescMsg = null;
   // Desktop: hide sidebar panel
   var p = document.getElementById('desc-panel'); if (p) p.style.display = 'none';
+  var accDescEl = document.getElementById('acc-desc'); if (accDescEl) accDescEl.classList.remove('desc-visible');
   // Mobile: hide bottom sheet
   hideBottomSheet();
   // Restore hint text
@@ -568,12 +570,12 @@ function toggleLightMode() {
   var btn = document.getElementById('mode-btn');
   var mobBtn = document.getElementById('mob-mode-btn');
   if (lightMode) {
-    colBg = lightColBg; colSidebarBg = lightColSidebarBg;
+    colBg = lightColBg; colSidebarBg = lightColSidebarBg; colNodeBg = lightColNodeBg;
     colTheme = lightColTheme; colProject = lightColProject; colSkill = lightColSkill;
     if (btn) btn.textContent = '\u263d'; // crescent for "go dark"
     if (mobBtn) mobBtn.textContent = '\u263d';
   } else {
-    colBg = darkColBg; colSidebarBg = darkColSidebarBg;
+    colBg = darkColBg; colSidebarBg = darkColSidebarBg; colNodeBg = darkColNodeBg;
     colTheme = darkColTheme; colProject = darkColProject; colSkill = darkColSkill;
     if (btn) btn.textContent = '\u2600'; // sun for "go light"
     if (mobBtn) mobBtn.textContent = '\u2600';
@@ -871,21 +873,23 @@ function applyDataGlobals(data) {
   // Store dark and light color sets
   darkColBg         = data.colBg         || darkColBg;
   darkColSidebarBg  = data.colSidebarBg  || darkColSidebarBg;
+  darkColNodeBg     = data.colNodeBg     || darkColNodeBg;
   darkColTheme      = data.colTheme      || darkColTheme;
   darkColProject    = data.colProject    || darkColProject;
   darkColSkill      = data.colSkill      || darkColSkill;
   if (data.lightColBg)         lightColBg         = data.lightColBg;
   if (data.lightColSidebarBg)  lightColSidebarBg  = data.lightColSidebarBg;
+  if (data.lightColNodeBg)     lightColNodeBg      = data.lightColNodeBg;
   if (data.lightColTheme)      lightColTheme       = data.lightColTheme;
   if (data.lightColProject)    lightColProject     = data.lightColProject;
   if (data.lightColSkill)      lightColSkill       = data.lightColSkill;
   if (data.lightEdgeColor)     lightEdgeColor      = data.lightEdgeColor;
   // Apply active color set
   if (lightMode) {
-    colBg = lightColBg; colSidebarBg = lightColSidebarBg;
+    colBg = lightColBg; colSidebarBg = lightColSidebarBg; colNodeBg = lightColNodeBg;
     colTheme = lightColTheme; colProject = lightColProject; colSkill = lightColSkill;
   } else {
-    colBg = darkColBg; colSidebarBg = darkColSidebarBg;
+    colBg = darkColBg; colSidebarBg = darkColSidebarBg; colNodeBg = darkColNodeBg;
     colTheme = darkColTheme; colProject = darkColProject; colSkill = darkColSkill;
   }
 }
@@ -1286,9 +1290,9 @@ function applyMobileNodeSizes(data) {
     maxColH = restack(gapProject, gapThemeSkill);
     applyHeaderY(gapProject);
   }
-  // Equalize node heights within Theme and Skill groups so each column has uniform rows.
+  // Equalize node heights within each group so columns have uniform rows.
   // Theme nodes get an extra 20% height to improve clickability.
-  ['Theme', 'Skill'].forEach(function(grp) {
+  ['Theme', 'Project', 'Skill'].forEach(function(grp) {
     var maxH = 0;
     colNodes[grp].forEach(function(n) { maxH = Math.max(maxH, n.data.h || 0); });
     if (maxH > 0) {
@@ -1703,6 +1707,7 @@ Shiny.addCustomMessageHandler('showDescPanel', function (msg) {
     panel.style.borderColor = c; title.style.color = c;
     if (close) { close.style.color = c; close.style.borderColor = c; }
     panel.style.display = 'flex';
+    if (accDesc) accDesc.classList.add('desc-visible');
     // Hide hint text while description is showing
     var hint = document.getElementById('sidebar-hint'); if (hint) hint.style.display = 'none';
   }
@@ -1721,8 +1726,8 @@ Shiny.addCustomMessageHandler('triggerDownload', function (msg) {
   document.body.removeChild(a);
 });
 
-var colorPickerIds = ['col_bg','col_sidebar_bg','col_theme','col_project','col_skill',
-                      'light_col_bg','light_col_sidebar_bg','light_col_theme','light_col_project','light_col_skill'];
+var colorPickerIds = ['col_bg','col_sidebar_bg','col_node_bg','col_theme','col_project','col_skill',
+                      'light_col_bg','light_col_sidebar_bg','light_col_node_bg','light_col_theme','light_col_project','light_col_skill'];
 
 function bindColorPickers() {
   colorPickerIds.forEach(function(id) {

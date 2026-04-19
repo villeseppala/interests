@@ -4,49 +4,49 @@
       "id": 106,
       "group": "Theme",
       "title": "Russia/Ukraine",
-      "edgeColor": "#B47238",
+      "edgeColor": "#3736CA",
       "title_fi": "Venäjä/Ukraina",
-      "lightEdgeColor": "#2D51F1"
+      "lightEdgeColor": "#75A91C"
     },
     {
       "id": 101,
       "group": "Theme",
       "title": "Existential and catastropic risks",
-      "edgeColor": "#DE53C9",
+      "edgeColor": "#43FAAB",
       "title_fi": "Eksistentiaaliset riskit",
-      "lightEdgeColor": "#91B63A"
+      "lightEdgeColor": "#3349C4"
     },
     {
       "id": 104,
       "group": "Theme",
       "title": "Climate Change",
-      "edgeColor": "#CDCC44",
+      "edgeColor": "#53DF4C",
       "title_fi": "Ilmastonmuutos",
-      "lightEdgeColor": "#D420C7"
+      "lightEdgeColor": "#AD2994"
     },
     {
       "id": 105,
       "group": "Theme",
       "title": "Electricity markets",
-      "edgeColor": "#54E07E",
+      "edgeColor": "#EF33B8",
       "title_fi": "Sähkömarkkinat",
-      "lightEdgeColor": "#C62163"
+      "lightEdgeColor": "#B52C21"
     },
     {
       "id": 103,
       "group": "Theme",
       "title": "European Union",
-      "edgeColor": "#4D64CC",
+      "edgeColor": "#D17D45",
       "title_fi": "Euroopan Unioni",
-      "lightEdgeColor": "#C2C521"
+      "lightEdgeColor": "#CA7F36"
     },
     {
       "id": 102,
       "group": "Theme",
       "title": "Global harmony",
-      "edgeColor": "#7BD349",
+      "edgeColor": "#DEE735",
       "title_fi": "Globaali harmonia",
-      "lightEdgeColor": "#6CA531"
+      "lightEdgeColor": "#5FAD24"
     },
     {
       "id": 202,
@@ -135,9 +135,9 @@
       "subs": [
         "Claude, ChatGPT etc."
       ],
-      "edgeColor": "#8D4AC2",
+      "edgeColor": "#93CC59",
       "title_fi": "Tekoäly",
-      "lightEdgeColor": "#59B9D9"
+      "lightEdgeColor": "#1F48B7"
     },
     {
       "id": 301,
@@ -147,9 +147,9 @@
         "ggplot2 (R)",
         "Krita, Inkscape etc."
       ],
-      "edgeColor": "#CA4572",
+      "edgeColor": "#5AD9DD",
       "title_fi": "Datavisualisointi ja graafinen suunnittelu",
-      "lightEdgeColor": "#359BAC"
+      "lightEdgeColor": "#1DCB8F"
     },
     {
       "id": 302,
@@ -159,27 +159,27 @@
         "Shiny (R)",
         "Quarto (R)"
       ],
-      "edgeColor": "#4BF7B4",
+      "edgeColor": "#CF8645",
       "title_fi": "Dashboardit ja nettisivut",
-      "lightEdgeColor": "#DC1D43"
+      "lightEdgeColor": "#B0156B"
     },
     {
       "id": 303,
       "group": "Skill",
       "title": "Videos and streaming",
       "subs": [],
-      "edgeColor": "#71EA57",
+      "edgeColor": "#D94AE4",
       "title_fi": "Videot ja striimaus",
-      "lightEdgeColor": "#B0C24B"
+      "lightEdgeColor": "#CEA71A"
     },
     {
       "id": 305,
       "group": "Skill",
       "title": "Social media",
-      "edgeColor": "#C461DE",
+      "edgeColor": "#DBA34F",
       "title_fi": "Sosiaalinen media",
       "subs": [],
-      "lightEdgeColor": "#30E33E"
+      "lightEdgeColor": "#C62372"
     },
     {
       "id": 205.5,
@@ -226,98 +226,98 @@
     {
       "from": 101,
       "to": 201,
-      "color": "#DE53C9",
+      "color": "#43FAAB",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 202,
-      "color": "#DE53C9",
+      "color": "#43FAAB",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 204,
-      "color": "#DE53C9",
+      "color": "#43FAAB",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 203,
-      "color": "#7BD349",
+      "color": "#DEE735",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 204,
-      "color": "#7BD349",
+      "color": "#DEE735",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 203,
-      "color": "#4D64CC",
+      "color": "#D17D45",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 207,
-      "color": "#4D64CC",
+      "color": "#D17D45",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 208,
-      "color": "#4D64CC",
+      "color": "#D17D45",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 205,
-      "color": "#CDCC44",
+      "color": "#53DF4C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206,
-      "color": "#CDCC44",
+      "color": "#53DF4C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 207,
-      "color": "#CDCC44",
+      "color": "#53DF4C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 208,
-      "color": "#CDCC44",
+      "color": "#53DF4C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 207,
-      "color": "#54E07E",
+      "color": "#EF33B8",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 208,
-      "color": "#54E07E",
+      "color": "#EF33B8",
       "dashes": false,
       "hidden": false
     },
@@ -380,35 +380,35 @@
     {
       "from": 103,
       "to": 205,
-      "color": "#4D64CC",
+      "color": "#D17D45",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 205.5,
-      "color": "#7BD349",
+      "color": "#DEE735",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 205.5,
-      "color": "#CDCC44",
+      "color": "#53DF4C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 201,
-      "color": "#CDCC44",
+      "color": "#53DF4C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 204,
-      "color": "#CDCC44",
+      "color": "#53DF4C",
       "dashes": false,
       "hidden": false
     },
@@ -429,21 +429,21 @@
     {
       "from": 102,
       "to": 204.3,
-      "color": "#7BD349",
+      "color": "#DEE735",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206.5,
-      "color": "#CDCC44",
+      "color": "#53DF4C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 206.5,
-      "color": "#54E07E",
+      "color": "#EF33B8",
       "dashes": false,
       "hidden": false
     },
@@ -536,16 +536,18 @@
     "edge_width": 5,
     "watermark_text": "",
     "watermark_size": 10,
-    "col_bg": "#293047",
-    "col_sidebar_bg": "#262d42",
-    "col_theme": "#E79DFD",
-    "col_project": "#FBCCA0",
-    "col_skill": "#98FAB6",
-    "light_col_bg": "#CBCCD0",
-    "light_col_sidebar_bg": "#EDE7E7",
-    "light_col_theme": "#99641E",
-    "light_col_project": "#18903D",
-    "light_col_skill": "#3C178F",
+    "col_bg": "#2F3743",
+    "col_sidebar_bg": "#38312E",
+    "col_node_bg": "#20262d",
+    "col_theme": "#D086F3",
+    "col_project": "#83C2E9",
+    "col_skill": "#F28D98",
+    "light_col_bg": "#CFD3CF",
+    "light_col_sidebar_bg": "#C1CED2",
+    "light_col_node_bg": "#F1F1F1",
+    "light_col_theme": "#15B430",
+    "light_col_project": "#162FAD",
+    "light_col_skill": "#AF7D13",
     "light_edge_color": "#555555",
     "mob_font_mult": 3,
     "mob_h_theme_mult": 1,
@@ -560,7 +562,7 @@
     "vote_title": "Influence my focus",
     "vote_text": "What themes, projects or skills do you think I should pursue? Based on what would be important or what I would be good at, for example. \nYou can vote here: https://forms.gle/XR1jRv25ng2Ky5SE6\nI'll take your opinions into account. Form also has an open field that you can use how you wish. ",
     "funding_title": "Funding/work opportunities",
-    "funding_intro": "Currently I'm pursuing these interests on my own time but I'm also looking for work/funding. Feel free to contact me with suggestions regarding work on these intererests or anything else you think I might be interested in. \nHere is my current preference order for different funding sources:",
+    "funding_intro": "Currently I'm pursuing these interests on my own time but I'm also looking for work/funding. Feel free to contact me with suggestions regarding work on these intererests or anything else you think I might be interested in. \n\nYou can check my CV here: https://villeseppala.wordpress.com/cv/\n\nHere is my current preference order for different funding sources:",
     "funding_items": [
       "– Crowdfunding",
       "– Grants",
@@ -592,6 +594,6 @@
     "fi_vote_title": "Vaikuta painopisteisiini",
     "fi_vote_text": "Mihin teemoihin, projekteihin tai taitoihin minun kannattaisi mielestäsi keskittyä? Mihin olisin sopiva tai mikä olisi hyödyllistä? \nVoit äänestää linkin takaa: https://forms.gle/XR1jRv25ng2Ky5SE6\nOtan äänet huomioon. Lomakkeella myös avoin kenttä, jolla voi viestiä minulle mihin vaan liittyen.",
     "fi_funding_title": "Rahoitus- ja työmahdollisuudet",
-    "fi_funding_intro": "Tällä hetkellä en ole työelämässä ja työstän näitä kiinnostuksenkohteita omalla ajallani, mutta olen hyvin kiinnostunut myös tekemään töitä niiden parissa.\nOta yhteyttä, mikäli sinulla on vinkkejä potentiaalisista rahoitus - tai työvaihtoehdoista, jotka voisivat sopia minulle, vaikka ne eivät suoraan liittyisikään kiinnostuksiini. \nTässä on jonkinlainen löyhä preferenssijärjestys sille, miten haluaisin tulla rahoitetuksi:"
+    "fi_funding_intro": "Tällä hetkellä en ole työelämässä ja työstän näitä kiinnostuksenkohteita omalla ajallani, mutta olen hyvin kiinnostunut myös tekemään töitä niiden parissa.\nOta yhteyttä, mikäli sinulla on vinkkejä potentiaalisista rahoitus - tai työvaihtoehdoista, jotka voisivat sopia minulle, vaikka ne eivät suoraan liittyisikään kiinnostuksiini. \n\nCV:ni on täällä: https://villeseppala.wordpress.com/cv/\n\nTässä on jonkinlainen löyhä preferenssijärjestys sille, miten haluaisin tulla rahoitetuksi:"
   }
 }

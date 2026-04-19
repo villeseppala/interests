@@ -35,12 +35,13 @@ html, body { height:100%; margin:0; background:#1e1b2e; overflow:hidden; }
 #desc-panel {
   display:none; flex-direction:column;
   flex:1; min-height:0;
-  border:1.5px solid var(--col-project, #ffad33); background:rgba(10,25,42,0.95); }
+  border:1.5px solid var(--col-project, #ffad33); }
 #acc-desc > .acc-body {
   max-height:none !important; height:0; overflow:hidden !important;
   display:flex !important; flex-direction:column;
   transition:height 0.3s ease,opacity 0.22s ease,padding 0.22s ease; }
-#acc-desc.acc-open > .acc-body { height:min(60vh,500px); }
+#acc-desc.acc-open > .acc-body { height:30vh; padding:4px 5px 5px !important; }
+#acc-desc.desc-visible.acc-open > .acc-body { height:60vh; }
 #desc-header {
   display:flex; justify-content:space-between; align-items:flex-start;
   padding:9px 11px 5px 11px; flex-shrink:0;
