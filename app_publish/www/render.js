@@ -248,12 +248,13 @@ function fitWithHeaders() {
   // Vertical:   8 + hm*zoom + bb.h*zoom + 20 = H  →  zoom = (H−28)/(bb.h+hm)
   // Horizontal: 20 + bb.w*zoom + 20           = W  →  zoom = (W−40)/bb.w
   var hm = (lastData && lastData.headerMargin) || 70;
-  // On mobile the pan shifts content down by mobileHdrExtra, so include that in the
-  // height budget. Use the corrected zoomH as a ceiling so content never overflows.
+  // On mobile use zoomW (fill width) — the graph is typically taller than wide, so
+  // height-constraining the zoom leaves side margins. Users can pan vertically.
+  // On desktop use min(zoomH, zoomW) so nothing overflows.
   var extraHdr = useMobileLayout() ? (fontHdr1 * 2.4 + fontHdr2 * 1.3) : 0;
   var zoomH = (H - 28) / (bb.h + hm + extraHdr);
   var zoomW = useMobileLayout() ? (W - 14) / bb.w : (W - 40) / bb.w;
-  var zoom  = useMobileLayout() ? Math.min(zoomW, zoomH) : Math.min(zoomH, zoomW);
+  var zoom  = useMobileLayout() ? zoomW : Math.min(zoomH, zoomW);
   zoom = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), zoom));
   cy.zoom(zoom);
   // Centre horizontally; top-align so headers have exactly 8px clearance.
