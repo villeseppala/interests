@@ -1,4 +1,4 @@
-﻿# app_publish/app.R — Public viewer (no authoring UI)
+# app_publish/app.R — Public viewer (no authoring UI)
 # Sources shared layout engine; JS in www/render.js
 
 library(shiny)
@@ -40,7 +40,7 @@ ui <- fluidPage(
       # ── Info sidebar (desktop) ──
       div(id = "info-sidebar",
           div(id = "page-title",
-              div(span(class = "en-only", id = "page-title-en", "My interests"),
+              div(span(class = "en-only", id = "page-title-en", "My interests - Ville Sepp\u00e4l\u00e4"),
                   span(class = "fi-only", id = "page-title-fi", "")),
               div(id = "controls-row",
                   tags$button(id = "mode-btn", onclick = "toggleLightMode()", "\u2600"),
@@ -186,11 +186,13 @@ server <- function(input, output, session) {
                              watermark_size = ly$watermark_size %||% 10,
                              col_bg = ly$col_bg %||% "#0b3552",
                              col_sidebar_bg = ly$col_sidebar_bg %||% "#081626",
+                             col_node_bg = ly$col_node_bg %||% "#081626",
                              col_theme = ly$col_theme %||% "#3be37a",
                              col_project = ly$col_project %||% "#ffad33",
                              col_skill = ly$col_skill %||% "#78e6e7",
                              light_col_bg = ly$light_col_bg %||% "#f0f4f8",
                              light_col_sidebar_bg = ly$light_col_sidebar_bg %||% "#e2eaf3",
+                             light_col_node_bg = ly$light_col_node_bg %||% "#e2eaf3",
                              light_col_theme = ly$light_col_theme %||% "#1e7c45",
                              light_col_project = ly$light_col_project %||% "#c06000",
                              light_col_skill = ly$light_col_skill %||% "#1a7a7b",
@@ -228,7 +230,7 @@ server <- function(input, output, session) {
       vote_title = vote_title, fund_title = fund_title
     ))
     session$sendCustomMessage("setLanguageData", list(
-      page_title_en = "My interests",
+      page_title_en = "My interests - Ville Sepp\u00e4l\u00e4",
       page_title_fi = fi_page_title,
       details_title_fi = fi_details_title,
       intro_title_fi   = fi_intro_title,

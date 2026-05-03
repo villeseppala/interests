@@ -11,16 +11,17 @@ html, body { height:100%; margin:0; background:#1e1b2e; overflow:hidden; }
 .col-spacer { width:calc(100vw / 60); flex-shrink:0; }
 
 #info-sidebar {
-  width:27.5%; min-width:308px; max-width:616px; flex-shrink:0; height:100vh;
+  width:28.4%; min-width:319px; max-width:739px; flex-shrink:0; height:100vh;
   display:flex; flex-direction:column;
   background:rgba(8,22,38,0.97);
   overflow:hidden; }
 #page-title {
   flex-shrink:0; background:#1e1b2e; color:rgba(255,255,255,0.9);
-  font-family:Arial,Helvetica,sans-serif; font-weight:bold; font-size:22px;
+  font-family:Arial,Helvetica,sans-serif; font-weight:bold; font-size:9px;
   padding:10px 14px 8px; letter-spacing:0.01em;
   border-bottom:1px solid rgba(255,255,255,0.08);
   display:flex; flex-direction:column; gap:6px; }
+#page-title > div:first-child { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #controls-row { display:flex; gap:6px; align-items:center; }
 #sidebar-scroll {
   flex:1; min-height:0; overflow-y:auto;
@@ -28,10 +29,10 @@ html, body { height:100%; margin:0; background:#1e1b2e; overflow:hidden; }
 #sidebar-hint {
   flex:1; min-height:0;
   color:rgba(150,150,150,0.35); font-family:Arial,Helvetica,sans-serif;
-  font-size:5vh; font-weight:bold; line-height:1.25;
+  font-size:2.5vh; font-weight:bold; line-height:1.25;
   display:flex; align-items:center;
   justify-content:center; text-align:center;
-  padding:20px; box-sizing:border-box; margin-bottom:0; }
+  padding:8px; box-sizing:border-box; margin-bottom:0; }
 #desc-panel {
   display:none; flex-direction:column;
   flex:1; min-height:0;
@@ -40,7 +41,7 @@ html, body { height:100%; margin:0; background:#1e1b2e; overflow:hidden; }
   max-height:none !important; height:0; overflow:hidden !important;
   display:flex !important; flex-direction:column;
   transition:height 0.3s ease,opacity 0.22s ease,padding 0.22s ease; }
-#acc-desc.acc-open > .acc-body { height:30vh; padding:4px 5px 5px !important; }
+#acc-desc.acc-open > .acc-body { height:13vh; padding:4px 5px 5px !important; }
 #acc-desc.desc-visible.acc-open > .acc-body { height:60vh; }
 #desc-header {
   display:flex; justify-content:space-between; align-items:flex-start;

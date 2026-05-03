@@ -325,11 +325,14 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
   skill_y <- shift_y(skill_y_raw, (max_h1-(skill_ext[2]-skill_ext[1]))/2 - skill_ext[1])
   
   header_margin_total <- HEADER_MARGIN + round((h_project + gap_v) / 2)
-  row1_header_y <- -header_margin_total
+  proj_top  <- (max_h1 - (proj_ext[2]  - proj_ext[1]))  / 2
+  theme_top <- (max_h1 - (theme_ext[2] - theme_ext[1])) / 2
+  skill_top <- (max_h1 - (skill_ext[2] - skill_ext[1])) / 2
+  gap_to_top <- proj_top + header_margin_total
   headers <- list(
-    list(x=col_x[["Theme"]],   y=row1_header_y, color=col_theme,   line1=hdr_theme_line1,   line1_fi=fi_hdr_theme_line1,   line2=hdr_theme_line2,   line2_fi=fi_hdr_theme_line2),
-    list(x=col_x[["Project"]], y=row1_header_y, color=col_project, line1=hdr_project_line1, line1_fi=fi_hdr_project_line1, line2=hdr_project_line2, line2_fi=fi_hdr_project_line2),
-    list(x=col_x[["Skill"]],   y=row1_header_y, color=col_skill,   line1=hdr_skill_line1,   line1_fi=fi_hdr_skill_line1,   line2=hdr_skill_line2,   line2_fi=fi_hdr_skill_line2)
+    list(x=col_x[["Theme"]],   y=round(theme_top - gap_to_top), color=col_theme,   line1=hdr_theme_line1,   line1_fi=fi_hdr_theme_line1,   line2=hdr_theme_line2,   line2_fi=fi_hdr_theme_line2),
+    list(x=col_x[["Project"]], y=round(proj_top  - gap_to_top), color=col_project, line1=hdr_project_line1, line1_fi=fi_hdr_project_line1, line2=hdr_project_line2, line2_fi=fi_hdr_project_line2),
+    list(x=col_x[["Skill"]],   y=round(skill_top - gap_to_top), color=col_skill,   line1=hdr_skill_line1,   line1_fi=fi_hdr_skill_line1,   line2=hdr_skill_line2,   line2_fi=fi_hdr_skill_line2)
   )
   
   node_pos <- list()

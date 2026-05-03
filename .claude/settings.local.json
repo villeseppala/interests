@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import json; d=json.load\\(open\\(''c:/Users/ville/sandbox/pts/app_publish/www/graph.json''\\)\\); ly=d.get\\(''layout'',{}\\); print\\({k:v for k,v in ly.items\\(\\) if ''mob'' in k}\\)\")",
+      "Bash(node -e \"const d=require\\(''./app_publish/www/graph.json''\\); const ly=d.layout||{}; const keys=Object.keys\\(ly\\).filter\\(k=>k.includes\\(''mob''\\)\\); const out={}; keys.forEach\\(k=>out[k]=ly[k]\\); console.log\\(JSON.stringify\\(out,null,2\\)\\)\")",
+      "Bash(head -20 echo \"---\" grep -n \"graph-area\\\\|mob-panel\\\\|55dvh\\\\|70vh\\\\|45dvh\" \"c:/Users/ville/sandbox/pts/app_author/app.R\")"
+    ]
+  }
+}

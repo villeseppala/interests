@@ -35,6 +35,8 @@ var layoutSnapshot = null;    // node geometry before autoFitProjectWidth modifi
 var currentLayoutMode = null; // 'single' | 'two' — last chosen mode
 var baseEdgeWidth = 2.5;
 var nodeBgSameAsGraph = false;
+var nodeGradients = {};      // nodeId → {side:'left'|'right'|'both', color:rgbaStr}
+var nodeHoverGradients = {}; // same, for hovered node's neighbours
 var projectNodeWidth = 444;
 var ptypePct = 10;
 var mobileData = null;
@@ -335,6 +337,28 @@ function dualLabel(en, fi) {
   return '<span class="en-only">' + en_esc + '</span><span class="fi-only">' + fi_esc + '</span>';
 }
 
+function hexRgba(hex, a) {
+  var r = parseInt(hex.slice(1,3),16)||0, g = parseInt(hex.slice(3,5),16)||0, b = parseInt(hex.slice(5,7),16)||0;
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+}
+function gradientOverlay(id, pct) {
+  var sel = nodeGradients[id], hov = nodeHoverGradients[id];
+  if (!sel && !hov) return '';
+  var w = (pct || 10) + '%';
+  var base = 'position:absolute;top:0;width:' + w + ';height:100%;pointer-events:none;z-index:5;';
+  var out = '';
+  function addEntry(entry) {
+    var side = entry.side, col = entry.color;
+    if (side === 'left'  || side === 'both')
+      out += '<div style="' + base + 'left:0;background:linear-gradient(to right,' + col + ',transparent);"></div>';
+    if (side === 'right' || side === 'both')
+      out += '<div style="' + base + 'right:0;background:linear-gradient(to left,' + col + ',transparent);"></div>';
+  }
+  if (hov) addEntry(hov);
+  if (sel) addEntry(sel);
+  return out;
+}
+
 function nodeHtml(data) {
   var g = data.group;
   var label = dualLabel(data.label, data.label_fi);
@@ -345,7 +369,8 @@ function nodeHtml(data) {
     return '<div style="width:100%;height:100%;box-sizing:border-box;position:relative;' +
       'display:flex;align-items:center;justify-content:flex-end;padding:3px 7px;overflow:hidden;">' +
       '<span style="color:' + colTheme + ';font-family:Arial,Helvetica,sans-serif;font-size:' + fn + ';' +
-      'font-weight:bold;text-align:right;line-height:1.25;padding-right:14px;' + wrap + '">' + label + '</span></div>';
+      'font-weight:bold;text-align:right;line-height:1.25;padding-right:14px;' + wrap + '">' + label + '</span>' +
+      gradientOverlay(data.id, 20) + '</div>';
   }
   if (g === 'Skill') {
     var html = '<div style="width:100%;height:100%;box-sizing:border-box;position:relative;' +
@@ -359,7 +384,7 @@ function nodeHtml(data) {
         html += '<div style="color:' + colSkill + ';opacity:0.7;font-family:Arial,Helvetica,sans-serif;' +
           'font-size:' + fs + ';line-height:1.3;padding-left:10px;' + wrap + '">' + esc(items[i]) + '</div>';
     }
-    return html + '</div>';
+    return html + gradientOverlay(data.id, 20) + '</div>';
   }
   if (g === 'Funding') {
     return '<div style="width:100%;height:100%;box-sizing:border-box;position:relative;' +
@@ -390,7 +415,7 @@ function nodeHtml(data) {
       'text-align:center;overflow:hidden;">' +
       '<div style="color:' + colProject + ';font-family:Arial,Helvetica,sans-serif;font-size:' + fn + ';' +
       'font-weight:bold;line-height:1.3;' + wrap + '">' + label + '</div></div>' +
-      typeCol + '</div>';
+      typeCol + gradientOverlay(data.id) + '</div>';
   }
   return '';
 }
@@ -401,7 +426,11 @@ function hideDescPanel() {
   lastDescMsg = null;
   // Desktop: hide sidebar panel
   var p = document.getElementById('desc-panel'); if (p) p.style.display = 'none';
-  var accDescEl = document.getElementById('acc-desc'); if (accDescEl) accDescEl.classList.remove('desc-visible');
+  var accDescEl = document.getElementById('acc-desc');
+  if (accDescEl) {
+    accDescEl.classList.remove('desc-visible');
+    var ab = accDescEl.querySelector('.acc-body'); if (ab) ab.style.height = '';
+  }
   // Mobile: hide bottom sheet
   hideBottomSheet();
   // Restore hint text
@@ -551,14 +580,55 @@ function applyHighlightState() {
   if (!cy) return;
   cy.elements('.selected').removeClass('selected');
   cy.elements('.hovered').removeClass('hovered');
+  nodeGradients = {};
+  nodeHoverGradients = {};
+  function gradSide(srcGrp, dstGrp) {
+    if (srcGrp === 'Theme'   && dstGrp === 'Project') return 'left';
+    if (srcGrp === 'Skill'   && dstGrp === 'Project') return 'right';
+    if (srcGrp === 'Project' && dstGrp === 'Theme')   return 'right';
+    if (srcGrp === 'Project' && dstGrp === 'Skill')   return 'left';
+    return null;
+  }
+  function oppSide(s) { return s === 'left' ? 'right' : 'left'; }
+  function mergeHovGrad(map, id, side, color) {
+    var cur = map[id];
+    if (!cur) { map[id] = { side: side, color: color }; return; }
+    if (cur.side !== side) cur.side = 'both';
+  }
   if (selectedNodeId) {
     var sn = cy.getElementById(String(selectedNodeId));
-    if (sn && !sn.empty()) { sn.addClass('selected'); sn.connectedEdges().addClass('selected'); }
+    if (sn && !sn.empty()) {
+      sn.addClass('selected');
+      sn.connectedEdges().addClass('selected');
+      var selGrp = sn.data('group');
+      sn.connectedEdges().forEach(function(edge) {
+        var otherId = edge.data('source') === String(selectedNodeId) ? edge.data('target') : edge.data('source');
+        var on = cy.getElementById(otherId); if (!on || on.empty()) return;
+        var side = gradSide(selGrp, on.data('group'));
+        if (side) nodeGradients[otherId] = { side: side, color: 'rgba(255,255,255,0.28)' };
+      });
+    }
   }
   if (hoveredNodeId) {
     var hn = cy.getElementById(String(hoveredNodeId));
-    if (hn && !hn.empty()) { hn.addClass('hovered'); hn.connectedEdges().addClass('hovered'); }
+    if (hn && !hn.empty()) {
+      hn.addClass('hovered');
+      hn.connectedEdges().addClass('hovered');
+      var hovGrp = hn.data('group');
+      hn.connectedEdges().forEach(function(edge) {
+        var otherId = edge.data('source') === String(hoveredNodeId) ? edge.data('target') : edge.data('source');
+        var on2 = cy.getElementById(otherId); if (!on2 || on2.empty()) return;
+        var og2 = on2.data('group');
+        var side2 = gradSide(hovGrp, og2);
+        if (!side2) return;
+        var edgeCol = hexRgba(edge.data('color') || '#ffffff', 0.45);
+        var selfCol = hovGrp === 'Project' ? hexRgba(colProject, 0.45) : edgeCol;
+        mergeHovGrad(nodeHoverGradients, otherId, side2, edgeCol);
+        mergeHovGrad(nodeHoverGradients, String(hoveredNodeId), oppSide(side2), selfCol);
+      });
+    }
   }
+  cy.forceRender();
   drawEdgeOverlay();
   drawNodeConnector();
 }
@@ -693,68 +763,71 @@ function drawNodeConnector() {
   document.body.appendChild(svg);
   var sw = baseEdgeWidth * zoom * 0.75;
   var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  var d, nx_start, dx_fb;
+  var d, nx_start;
 
-  if (grp === 'Theme') {
-    // Simple bezier from left edge — no snake
-    nx_start = (pos.x - nw / 2) * zoom + pan.x + ctr.left;
-    dx_fb = px - nx_start;
-    d = 'M' + nx_start.toFixed(1) + ',' + ny.toFixed(1) +
-      ' C' + (nx_start + dx_fb * 0.4).toFixed(1) + ',' + ny.toFixed(1) +
-      ' ' + (px - dx_fb * 0.4).toFixed(1) + ',' + py.toFixed(1) +
-      ' ' + px.toFixed(1) + ',' + py.toFixed(1);
-  } else {
-    // Routing lane: just below col-hdr labels
+  // Compute the routing lane Y: below all column headers AND above all nodes
+  // in columns the horizontal segment will cross.
+  function computeRouteY(groupsInPath) {
     var hdrs = document.querySelectorAll('.col-hdr');
-    var route_y = ctr.top + 20;
+    var ry = ctr.top + 20;
     for (var i = 0; i < hdrs.length; i++) {
       var hb = hdrs[i].getBoundingClientRect();
-      if (hb.bottom > route_y) route_y = hb.bottom;
+      if (hb.bottom > ry) ry = hb.bottom;
     }
-    route_y += 14;
-    // Skill: route above topmost project node (not bounded by panel top)
-    // Project: route bounded by panel top so line doesn't overshoot
-    if (grp === 'Skill') {
-      var projMinTop = Infinity;
-      cy.nodes().forEach(function (n) {
-        if (n.data('group') !== 'Project') return;
-        var nh2 = n.data('h') || 66;
-        var top = (n.position().y - nh2 / 2) * zoom + pan.y + ctr.top;
-        if (top < projMinTop) projMinTop = top;
-      });
-      if (projMinTop < Infinity && projMinTop > route_y + 8)
-        route_y = projMinTop - 8;
-    } else {
-      route_y = Math.max(route_y, py); // Project: don't route higher than panel top
-    }
+    ry += 14;
+    var minNodeTop = Infinity;
+    cy.nodes().forEach(function(n) {
+      if (groupsInPath.indexOf(n.data('group')) < 0) return;
+      var nh2 = n.data('h') || 46;
+      var top = (n.position().y - nh2 / 2) * zoom + pan.y + ctr.top;
+      if (top < minNodeTop) minNodeTop = top;
+    });
+    if (isFinite(minNodeTop)) ry = Math.min(ry, minNodeTop - 8);
+    return ry;
+  }
 
-    if (ny > route_y + 4) {
-      var bend = Math.min(18, (ny - route_y) / 2);
-      var t = Math.min((ny - route_y) * 0.3, 45);
-      // Final segment: drop to py only if route_y is meaningfully above it
-      var d_end = (py > route_y + bend)
-        ? ' Q' + px.toFixed(1) + ',' + route_y.toFixed(1) +
-          ' ' + px.toFixed(1) + ',' + (route_y + bend).toFixed(1) +
+  function snakePath(nx_s, ny_s, route_y_s) {
+    if (ny_s > route_y_s + 4) {
+      var bend = Math.min(18, (ny_s - route_y_s) / 2);
+      var t = Math.min((ny_s - route_y_s) * 0.3, 45);
+      var d_end = (py > route_y_s + bend)
+        ? ' Q' + px.toFixed(1) + ',' + route_y_s.toFixed(1) +
+          ' ' + px.toFixed(1) + ',' + (route_y_s + bend).toFixed(1) +
           ' L' + px.toFixed(1) + ',' + py.toFixed(1)
         : ' L' + px.toFixed(1) + ',' + py.toFixed(1);
-
-      nx_start = (pos.x - nw / 2) * zoom + pan.x + ctr.left;
-      var p3x = Math.max(nx_start - t - bend, px + bend * 2);
-      d = 'M' + nx_start.toFixed(1) + ',' + ny.toFixed(1) +
-        ' C' + (nx_start - t).toFixed(1) + ',' + (ny + t * 0.5).toFixed(1) +
-        ' ' + (nx_start - t).toFixed(1) + ',' + route_y.toFixed(1) +
-        ' ' + p3x.toFixed(1) + ',' + route_y.toFixed(1) +
-        ' L' + (px + bend).toFixed(1) + ',' + route_y.toFixed(1) +
+      var p3x = Math.max(nx_s - t - bend, px + bend * 2);
+      return 'M' + nx_s.toFixed(1) + ',' + ny_s.toFixed(1) +
+        ' C' + (nx_s - t).toFixed(1) + ',' + (ny_s + t * 0.5).toFixed(1) +
+        ' ' + (nx_s - t).toFixed(1) + ',' + route_y_s.toFixed(1) +
+        ' ' + p3x.toFixed(1) + ',' + route_y_s.toFixed(1) +
+        ' L' + (px + bend).toFixed(1) + ',' + route_y_s.toFixed(1) +
         d_end;
     } else {
-      // Node near/above routing lane — fallback bezier
-      nx_start = (pos.x - nw / 2) * zoom + pan.x + ctr.left;
-      dx_fb = px - nx_start;
-      d = 'M' + nx_start.toFixed(1) + ',' + ny.toFixed(1) +
-        ' C' + (nx_start + dx_fb * 0.4).toFixed(1) + ',' + ny.toFixed(1) +
-        ' ' + (px - dx_fb * 0.4).toFixed(1) + ',' + py.toFixed(1) +
+      var dxfb = px - nx_s;
+      return 'M' + nx_s.toFixed(1) + ',' + ny_s.toFixed(1) +
+        ' C' + (nx_s + dxfb * 0.4).toFixed(1) + ',' + ny_s.toFixed(1) +
+        ' ' + (px - dxfb * 0.4).toFixed(1) + ',' + py.toFixed(1) +
         ' ' + px.toFixed(1) + ',' + py.toFixed(1);
     }
+  }
+
+  nx_start = (pos.x - nw / 2) * zoom + pan.x + ctr.left;
+
+  if (grp === 'Theme') {
+    // Simple bezier — Theme column is leftmost, same side as panel, no nodes to cross
+    var dxfb_th = px - nx_start;
+    d = 'M' + nx_start.toFixed(1) + ',' + ny.toFixed(1) +
+      ' C' + (nx_start + dxfb_th * 0.4).toFixed(1) + ',' + ny.toFixed(1) +
+      ' ' + (px - dxfb_th * 0.4).toFixed(1) + ',' + py.toFixed(1) +
+      ' ' + px.toFixed(1) + ',' + py.toFixed(1);
+  } else if (grp === 'Skill') {
+    // Route above Theme and Project nodes
+    var ry_skill = computeRouteY(['Theme', 'Project']);
+    d = snakePath(nx_start, ny, ry_skill);
+  } else {
+    // Project: route above Theme nodes; don't go higher than panel top
+    var ry_proj = Math.max(computeRouteY(['Theme']), py);
+    d = snakePath(nx_start, ny, ry_proj);
   }
 
   // Glow pass (behind main path)
@@ -1077,9 +1150,20 @@ function autoFitProjectWidth(data) {
       var shift = projCenter - (cy1 + cy2) / 2;
       if (Math.abs(shift) > 1) col.forEach(function(n) { n.position.y += shift; });
     });
-    // Move all column headers above the new (taller) project column top
-    var newHeaderY = newProjTop - hm;
-    (data.headers || []).forEach(function(h) { h.y = newHeaderY; });
+    // Per-column header Y: same gap (hm) above each column's topmost node
+    var projHdrY = newProjTop - hm;
+    function colTopY(nodes) {
+      var t = Infinity;
+      nodes.forEach(function(n) { t = Math.min(t, n.position.y - (n.data.h||46)/2); });
+      return isFinite(t) ? t : newProjTop;
+    }
+    var themeHdrY = colTopY(themeNodes) - hm;
+    var skillHdrY = colTopY(skillNodes) - hm;
+    (data.headers || []).forEach(function(h, i) {
+      if (i === 0) h.y = themeHdrY;
+      else if (i === 1) h.y = projHdrY;
+      else if (i === 2) h.y = skillHdrY;
+    });
   }
 }
 
@@ -1429,6 +1513,7 @@ function applyMobileLayout() {
       body.classList.add('mobile-preview');
       if (ga) {
         ga.style.maxWidth = previewWidth + 'px';
+        ga.style.height = previewHeight + 'px';
         ga.style.margin = '0 auto';
         ga.style.borderLeft = '2px solid rgba(255,255,255,0.15)';
         ga.style.borderRight = '2px solid rgba(255,255,255,0.15)';
@@ -1437,7 +1522,7 @@ function applyMobileLayout() {
       // Real mobile viewport
       body.classList.add('mobile-mode');
       body.classList.remove('mobile-preview');
-      if (ga) { ga.style.maxWidth = ''; ga.style.margin = ''; ga.style.borderLeft = ''; ga.style.borderRight = ''; }
+      if (ga) { ga.style.maxWidth = ''; ga.style.height = ''; ga.style.margin = ''; ga.style.borderLeft = ''; ga.style.borderRight = ''; }
     }
   } else {
     body.classList.remove('mobile-mode');
@@ -1708,7 +1793,18 @@ Shiny.addCustomMessageHandler('showDescPanel', function (msg) {
     panel.style.borderColor = c; title.style.color = c;
     if (close) { close.style.color = c; close.style.borderColor = c; }
     panel.style.display = 'flex';
-    if (accDesc) accDesc.classList.add('desc-visible');
+    if (accDesc) {
+      accDesc.classList.add('desc-visible');
+      var accBody = accDesc.querySelector('.acc-body');
+      if (accBody) {
+        accBody.style.height = 'auto'; // lift constraint so flex:1 child fills content
+        void accBody.offsetHeight;     // force synchronous reflow
+        var contentH = accBody.scrollHeight;
+        var minH = window.innerHeight * 0.4;
+        var maxH = window.innerHeight * 0.6;
+        accBody.style.height = Math.min(maxH, Math.max(minH, contentH)) + 'px';
+      }
+    }
     // Hide hint text while description is showing
     var hint = document.getElementById('sidebar-hint'); if (hint) hint.style.display = 'none';
   }
