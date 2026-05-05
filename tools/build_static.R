@@ -32,11 +32,13 @@ cd <- build_dual_cyto_data(g,
   watermark_size   = ly$watermark_size   %||% 10,
   col_bg           = ly$col_bg           %||% "#0b3552",
   col_sidebar_bg   = ly$col_sidebar_bg   %||% "#081626",
+  col_node_bg      = ly$col_node_bg      %||% "#081626",
   col_theme        = ly$col_theme        %||% "#3be37a",
   col_project      = ly$col_project      %||% "#ffad33",
   col_skill        = ly$col_skill        %||% "#78e6e7",
   light_col_bg         = ly$light_col_bg         %||% "#f0f4f8",
   light_col_sidebar_bg = ly$light_col_sidebar_bg %||% "#e2eaf3",
+  light_col_node_bg    = ly$light_col_node_bg    %||% "#e2eaf3",
   light_col_theme      = ly$light_col_theme      %||% "#1e7c45",
   light_col_project    = ly$light_col_project    %||% "#c06000",
   light_col_skill      = ly$light_col_skill      %||% "#1a7a7b",
@@ -82,7 +84,7 @@ for (n in g$nodes) {
 nl2br <- function(s) gsub("\n", "<br>", s %||% "", fixed = TRUE)
 
 sidebar <- list(
-  page_title_en    = "My interests",
+  page_title_en    = ly$page_title_en %||% "My interests",
   page_title_fi    = ly$fi_page_title      %||% "",
   details_title    = ly$details_title      %||% "Details",
   details_hint     = ly$details_hint       %||% "Click on an item to show description",

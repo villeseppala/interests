@@ -4,7 +4,7 @@
       "id": 106,
       "group": "Theme",
       "title": "Russia/Ukraine",
-      "edgeColor": "#BF583E",
+      "edgeColor": "#4401ED",
       "title_fi": "Venäjä/Ukraina",
       "lightEdgeColor": "#75A91C"
     },
@@ -12,7 +12,7 @@
       "id": 101,
       "group": "Theme",
       "title": "Existential and catastropic risks",
-      "edgeColor": "#E058C7",
+      "edgeColor": "#D64978",
       "title_fi": "Eksistentiaaliset riskit",
       "lightEdgeColor": "#3349C4"
     },
@@ -20,7 +20,7 @@
       "id": 104,
       "group": "Theme",
       "title": "Climate Change",
-      "edgeColor": "#DBD79A",
+      "edgeColor": "#EBDE35",
       "title_fi": "Ilmastonmuutos",
       "lightEdgeColor": "#AD2994"
     },
@@ -28,7 +28,7 @@
       "id": 105,
       "group": "Theme",
       "title": "Electricity markets",
-      "edgeColor": "#5C4FBF",
+      "edgeColor": "#5AD70B",
       "title_fi": "Sähkömarkkinat",
       "lightEdgeColor": "#B52C21"
     },
@@ -36,7 +36,7 @@
       "id": 103,
       "group": "Theme",
       "title": "European Union",
-      "edgeColor": "#52C860",
+      "edgeColor": "#B844C2",
       "title_fi": "Euroopan Unioni",
       "lightEdgeColor": "#CA7F36"
     },
@@ -44,7 +44,7 @@
       "id": 102,
       "group": "Theme",
       "title": "Global harmony",
-      "edgeColor": "#DD9B1E",
+      "edgeColor": "#5CE07C",
       "title_fi": "Globaali harmonia",
       "lightEdgeColor": "#5FAD24"
     },
@@ -62,15 +62,7 @@
       "title": "Tool for demonstrating existential risk",
       "ptype": "Website",
       "pnum": 201,
-      "title_fi": "Työkalu ihmiskuntaa uhkaavien rkien hahmottamiseen"
-    },
-    {
-      "id": 205,
-      "group": "Project",
-      "title": "Tool for demonstrating possible national EU emission goals",
-      "ptype": "Website",
-      "pnum": 205,
-      "title_fi": "Työkalu EU:n kansallisten päästötavoitteiden havainnointiin"
+      "title_fi": "Työkalu ihmiskuntaa uhkaavien riskien hahmottamiseen"
     },
     {
       "id": 209,
@@ -135,7 +127,7 @@
       "subs": [
         "Claude, ChatGPT etc."
       ],
-      "edgeColor": "#D3C168",
+      "edgeColor": "#CF31CB",
       "title_fi": "Tekoäly",
       "lightEdgeColor": "#1F48B7"
     },
@@ -147,7 +139,7 @@
         "ggplot2 (R)",
         "Krita, Inkscape etc."
       ],
-      "edgeColor": "#EE4E91",
+      "edgeColor": "#3685EE",
       "title_fi": "Datavisualisointi ja graafinen suunnittelu",
       "lightEdgeColor": "#1DCB8F"
     },
@@ -159,7 +151,7 @@
         "Shiny (R)",
         "Quarto (R)"
       ],
-      "edgeColor": "#4AA9EE",
+      "edgeColor": "#BFE176",
       "title_fi": "Dashboardit ja nettisivut",
       "lightEdgeColor": "#B0156B"
     },
@@ -168,7 +160,7 @@
       "group": "Skill",
       "title": "Videos and streaming",
       "subs": [],
-      "edgeColor": "#8D35CC",
+      "edgeColor": "#E86A1E",
       "title_fi": "Videot ja striimaus",
       "lightEdgeColor": "#CEA71A"
     },
@@ -176,7 +168,7 @@
       "id": 305,
       "group": "Skill",
       "title": "Social media",
-      "edgeColor": "#D9063B",
+      "edgeColor": "#C927E5",
       "title_fi": "Sosiaalinen media",
       "subs": [],
       "lightEdgeColor": "#C62372"
@@ -192,10 +184,10 @@
     {
       "id": 204.3,
       "group": "Project",
-      "title": "For centrism in politics",
+      "title": "How to reduce polarization in politics",
       "ptype": "Text",
       "pnum": 999,
-      "title_fi": "Poliittisen sentrismin puolesta"
+      "title_fi": "Miten vähentää polarisaatiota politiikassa"
     },
     {
       "id": 211,
@@ -226,98 +218,84 @@
     {
       "from": 101,
       "to": 201,
-      "color": "#E058C7",
+      "color": "#D64978",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 202,
-      "color": "#E058C7",
+      "color": "#D64978",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 204,
-      "color": "#E058C7",
+      "color": "#D64978",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 203,
-      "color": "#DD9B1E",
+      "color": "#5CE07C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 204,
-      "color": "#DD9B1E",
+      "color": "#5CE07C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 203,
-      "color": "#52C860",
+      "color": "#B844C2",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 207,
-      "color": "#52C860",
-      "dashes": false,
-      "hidden": false
-    },
-    {
-      "from": 103,
-      "to": 208,
-      "color": "#52C860",
-      "dashes": false,
-      "hidden": false
-    },
-    {
-      "from": 104,
-      "to": 205,
-      "color": "#DBD79A",
+      "color": "#B844C2",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206,
-      "color": "#DBD79A",
+      "color": "#EBDE35",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 207,
-      "color": "#DBD79A",
+      "color": "#EBDE35",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 208,
-      "color": "#DBD79A",
+      "color": "#EBDE35",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 207,
-      "color": "#5C4FBF",
+      "color": "#5AD70B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 208,
-      "color": "#5C4FBF",
+      "color": "#5AD70B",
       "dashes": false,
       "hidden": false
     },
@@ -343,20 +321,6 @@
       "hidden": false
     },
     {
-      "from": 205,
-      "to": 302,
-      "color": "#5a83d6",
-      "dashes": false,
-      "hidden": false
-    },
-    {
-      "from": 205,
-      "to": 301,
-      "color": "#e43f97",
-      "dashes": false,
-      "hidden": false
-    },
-    {
       "from": 209,
       "to": 301,
       "color": "#e43f97",
@@ -378,37 +342,23 @@
       "hidden": false
     },
     {
-      "from": 103,
-      "to": 205,
-      "color": "#52C860",
-      "dashes": false,
-      "hidden": false
-    },
-    {
       "from": 102,
       "to": 205.5,
-      "color": "#DD9B1E",
+      "color": "#5CE07C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 205.5,
-      "color": "#DBD79A",
-      "dashes": false,
-      "hidden": false
-    },
-    {
-      "from": 104,
-      "to": 201,
-      "color": "#DBD79A",
+      "color": "#EBDE35",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 204,
-      "color": "#DBD79A",
+      "color": "#EBDE35",
       "dashes": false,
       "hidden": false
     },
@@ -429,21 +379,21 @@
     {
       "from": 102,
       "to": 204.3,
-      "color": "#DD9B1E",
+      "color": "#5CE07C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206.5,
-      "color": "#DBD79A",
+      "color": "#EBDE35",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 206.5,
-      "color": "#5C4FBF",
+      "color": "#5AD70B",
       "dashes": false,
       "hidden": false
     },
@@ -481,6 +431,20 @@
       "color": "#d17bb7",
       "dashes": false,
       "hidden": false
+    },
+    {
+      "from": 104,
+      "to": 203,
+      "color": "#EBDE35",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 102,
+      "to": 201,
+      "color": "#5CE07C",
+      "dashes": false,
+      "hidden": false
     }
   ],
   "order": {
@@ -498,7 +462,6 @@
       203,
       204,
       204.3,
-      205,
       205.5,
       206,
       206.5,
@@ -538,16 +501,16 @@
     "watermark_size": 10,
     "col_bg": "#242B3D",
     "col_sidebar_bg": "#373e48",
-    "col_node_bg": "#2a2c3c",
+    "col_node_bg": "#2e2c3a",
     "col_theme": "#4DD3DD",
     "col_project": "#E7924F",
     "col_skill": "#55E374",
     "light_col_bg": "#C5C1C6",
     "light_col_sidebar_bg": "#E5E5E1",
-    "light_col_node_bg": "#FBF5F9",
-    "light_col_theme": "#3856C0",
-    "light_col_project": "#BD3D98",
-    "light_col_skill": "#904CA3",
+    "light_col_node_bg": "#e3e3e3",
+    "light_col_theme": "#337F08",
+    "light_col_project": "#0B347B",
+    "light_col_skill": "#AB1F6F",
     "light_edge_color": "#555555",
     "mob_font_mult": 3,
     "mob_h_theme_mult": 1,

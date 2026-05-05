@@ -37,6 +37,7 @@ var baseEdgeWidth = 2.5;
 var nodeBgSameAsGraph = false;
 var nodeGradients = {};      // nodeId → {side:'left'|'right'|'both', color:rgbaStr}
 var nodeHoverGradients = {}; // same, for hovered node's neighbours
+var nodeBaseGradients = {};  // persistent edge-color gradients for Theme/Skill nodes
 var projectNodeWidth = 444;
 var ptypePct = 10;
 var mobileData = null;
@@ -341,21 +342,38 @@ function hexRgba(hex, a) {
   var r = parseInt(hex.slice(1,3),16)||0, g = parseInt(hex.slice(3,5),16)||0, b = parseInt(hex.slice(5,7),16)||0;
   return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
 }
+function buildBaseGradients() {
+  nodeBaseGradients = {};
+  if (!cy) return;
+  cy.nodes().forEach(function(n) {
+    var grp = n.data('group');
+    if (grp !== 'Theme' && grp !== 'Skill') return;
+    var side = grp === 'Theme' ? 'right' : 'left';
+    n.connectedEdges().forEach(function(edge) {
+      if (nodeBaseGradients[n.id()]) return; // first edge color only (consistent with hover behavior)
+      var edgeCol = hexRgba(edge.data('color') || '#ffffff', 0.45);
+      nodeBaseGradients[n.id()] = { side: side, color: edgeCol };
+    });
+  });
+}
+
 function gradientOverlay(id, pct) {
-  var sel = nodeGradients[id], hov = nodeHoverGradients[id];
-  if (!sel && !hov) return '';
-  var w = (pct || 10) + '%';
-  var base = 'position:absolute;top:0;width:' + w + ';height:100%;pointer-events:none;z-index:5;';
+  var sel = nodeGradients[id], hov = nodeHoverGradients[id], base = nodeBaseGradients[id];
+  if (!sel && !hov && !base) return '';
+  var sty = 'position:absolute;top:0;height:100%;pointer-events:none;z-index:5;';
   var out = '';
-  function addEntry(entry) {
-    var side = entry.side, col = entry.color;
+  function addDiv(side, col, w) {
+    var ws = w + '%';
     if (side === 'left'  || side === 'both')
-      out += '<div style="' + base + 'left:0;background:linear-gradient(to right,' + col + ',transparent);"></div>';
+      out += '<div style="' + sty + 'width:' + ws + ';left:0;background:linear-gradient(to right,' + col + ',transparent);"></div>';
     if (side === 'right' || side === 'both')
-      out += '<div style="' + base + 'right:0;background:linear-gradient(to left,' + col + ',transparent);"></div>';
+      out += '<div style="' + sty + 'width:' + ws + ';right:0;background:linear-gradient(to left,' + col + ',transparent);"></div>';
   }
-  if (hov) addEntry(hov);
-  if (sel) addEntry(sel);
+  // Edge-color gradient: hover replaces base (keeps specific edge color); wider when hovered
+  var edgeGrad = hov || base;
+  if (edgeGrad) addDiv(edgeGrad.side, edgeGrad.color, hov ? Math.round((pct || 10) * 2) : (pct || 10));
+  // Selection gradient (white/black) always at base width
+  if (sel) addDiv(sel.side, sel.color, pct || 10);
   return out;
 }
 
@@ -369,20 +387,20 @@ function nodeHtml(data) {
     return '<div style="width:100%;height:100%;box-sizing:border-box;position:relative;' +
       'display:flex;align-items:center;justify-content:flex-end;padding:3px 7px;overflow:hidden;">' +
       '<span style="color:' + colTheme + ';font-family:Arial,Helvetica,sans-serif;font-size:' + fn + ';' +
-      'font-weight:bold;text-align:right;line-height:1.25;padding-right:14px;' + wrap + '">' + label + '</span>' +
+      'font-weight:bold;text-align:right;line-height:1.25;padding-right:14px;position:relative;z-index:6;' + wrap + '">' + label + '</span>' +
       gradientOverlay(data.id, 20) + '</div>';
   }
   if (g === 'Skill') {
     var html = '<div style="width:100%;height:100%;box-sizing:border-box;position:relative;' +
       'display:flex;flex-direction:column;justify-content:center;padding:4px 7px;overflow:hidden;">' +
       '<div style="color:' + colSkill + ';font-family:Arial,Helvetica,sans-serif;font-size:' + fn + ';' +
-      'font-weight:bold;line-height:1.25;' + wrap + '">' + label + '</div>';
+      'font-weight:bold;line-height:1.25;position:relative;z-index:6;' + wrap + '">' + label + '</div>';
     var subs = data.subs || '';
     if (subs) {
       var items = subs.split('||');
       for (var i = 0; i < items.length; i++)
         html += '<div style="color:' + colSkill + ';opacity:0.7;font-family:Arial,Helvetica,sans-serif;' +
-          'font-size:' + fs + ';line-height:1.3;padding-left:10px;' + wrap + '">' + esc(items[i]) + '</div>';
+          'font-size:' + fs + ';line-height:1.3;padding-left:10px;position:relative;z-index:6;' + wrap + '">' + esc(items[i]) + '</div>';
     }
     return html + gradientOverlay(data.id, 20) + '</div>';
   }
@@ -407,12 +425,12 @@ function nodeHtml(data) {
       ? '<div style="width:' + Math.round((data.w || projectNodeWidth) * ptypePct / 100) + 'px;flex-shrink:0;border-left:1.1px solid ' + colProject + ';' +
         'display:flex;align-items:center;justify-content:center;padding:0 5px;' +
         'color:' + colProject + ';font-family:Arial,Helvetica,sans-serif;font-size:' + ptypeFontSize + ';' +
-        'font-weight:bold;text-align:center;line-height:1.25;">' + ptypeLabel + '</div>'
+        'font-weight:bold;text-align:center;line-height:1.25;position:relative;z-index:6;">' + ptypeLabel + '</div>'
       : '';
     return '<div style="width:100%;height:100%;box-sizing:border-box;position:relative;overflow:hidden;' +
       'display:flex;align-items:stretch;">' +
       '<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:4px 9px;' +
-      'text-align:center;overflow:hidden;">' +
+      'text-align:center;overflow:hidden;position:relative;z-index:6;">' +
       '<div style="color:' + colProject + ';font-family:Arial,Helvetica,sans-serif;font-size:' + fn + ';' +
       'font-weight:bold;line-height:1.3;' + wrap + '">' + label + '</div></div>' +
       typeCol + gradientOverlay(data.id) + '</div>';
@@ -601,11 +619,13 @@ function applyHighlightState() {
       sn.addClass('selected');
       sn.connectedEdges().addClass('selected');
       var selGrp = sn.data('group');
+      var selColor = lightMode ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.28)';
+      if (selGrp === 'Project') nodeGradients[String(selectedNodeId)] = { side: 'both', color: selColor };
       sn.connectedEdges().forEach(function(edge) {
         var otherId = edge.data('source') === String(selectedNodeId) ? edge.data('target') : edge.data('source');
         var on = cy.getElementById(otherId); if (!on || on.empty()) return;
         var side = gradSide(selGrp, on.data('group'));
-        if (side) nodeGradients[otherId] = { side: side, color: 'rgba(255,255,255,0.28)' };
+        if (side) nodeGradients[otherId] = { side: side, color: selColor };
       });
     }
   }
@@ -1418,6 +1438,7 @@ function initCyGraph(data) {
     userZoomingEnabled: true, userPanningEnabled: true,
     boxSelectionEnabled: false, autoungrabify: true,
   });
+  buildBaseGradients();
   cy.nodeHtmlLabel([{ query: 'node', tpl: function (d) { return nodeHtml(d); } }]);
   fitWithHeaders();
   if (!mobileMode) alignGraphLeft();
@@ -1673,6 +1694,8 @@ function setLanguage(lang) {
   if (mobBtnFi) mobBtnFi.classList.toggle('lang-active', lang === 'fi');
   applyAccTitles();
   applyDescPanelLang();
+  var titleStr = (lang === 'fi' ? langData.page_title_fi : langData.page_title_en) || langData.page_title_en;
+  if (titleStr) document.title = titleStr;
   if (cy && lastData) positionHeaders(lastData);
 }
 
@@ -1912,6 +1935,8 @@ window.initStaticApp = function(payload) {
         intro_title_fi: sb.intro_title_fi, vote_title_fi: sb.vote_title_fi,
         fund_title_fi: sb.fund_title_fi });
     document.title = sb.page_title_en || 'My interests';
+    var titleEnEl = document.getElementById('page-title-en');
+    if (titleEnEl && sb.page_title_en) titleEnEl.textContent = sb.page_title_en;
   }
   populateStaticSidebar(payload);
   // Honour ?lang= query param

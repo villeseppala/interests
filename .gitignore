@@ -21,9 +21,14 @@ vignettes/*.pdf
 po/*~
 rsconnect/
 
+# Claude Code
+CLAUDE.md
+.claude/
+
 # Project-specific
 descriptions.qmd
 app_author/
+tools/test_build.R
 
 # Static site generated outputs (rebuilt by GitHub Actions)
 site/payload.json
