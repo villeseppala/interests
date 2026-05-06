@@ -896,12 +896,20 @@ function positionHeaders(data) {
   var pan = cy.pan(), zoom = cy.zoom();
   // On mobile, derive header x from actual node positions so layout shifts are reflected
   if (mobileMode && cy) {
-    var groupXs = { Theme: [], Project: [], Skill: [] };
-    cy.nodes().forEach(function(n) { var g = n.data('group'); if (groupXs[g]) groupXs[g].push(n.position('x')); });
+    var groupData = {};
+    ['Theme','Project','Skill'].forEach(function(g) { groupData[g] = { xs: [], minY: Infinity }; });
+    cy.nodes().forEach(function(n) {
+      var g = n.data('group'); if (!groupData[g]) return;
+      groupData[g].xs.push(n.position('x'));
+      var top = n.position('y') - (n.data('h') || 46) / 2;
+      if (top < groupData[g].minY) groupData[g].minY = top;
+    });
     var grpOrder = ['Theme', 'Project', 'Skill'];
     data.headers.forEach(function(h, i) {
-      var xs = groupXs[grpOrder[i]];
-      if (xs && xs.length) h.x = xs.reduce(function(a, b) { return a + b; }, 0) / xs.length;
+      var gd = groupData[grpOrder[i]];
+      if (gd.xs.length) h.x = gd.xs.reduce(function(a, b) { return a + b; }, 0) / gd.xs.length;
+      if (gd.minY !== Infinity)
+        h.y = gd.minY - (fontHdr1 + fontHdr2) * 1.25 - 6 / zoom;
     });
   }
   data.headers.forEach(function (h, i) {
