@@ -107,10 +107,10 @@
     {
       "id": 204,
       "group": "Project",
-      "title": "Manifesto on us being the most important generations in history",
+      "title": "Why we may be the most important generations in history",
       "ptype": "Text",
       "pnum": 204,
-      "title_fi": "Manifesti siitä miten olemmme historian tärkeimmät sukupolvet"
+      "title_fi": "Miksi saatamme olla historian tärkeimmät sukupolvet"
     },
     {
       "id": 203,
@@ -124,9 +124,7 @@
       "id": 304,
       "group": "Skill",
       "title": "Artificial intelligence",
-      "subs": [
-        "Claude, ChatGPT etc."
-      ],
+      "subs": [],
       "edgeColor": "#CF31CB",
       "title_fi": "Tekoäly",
       "lightEdgeColor": "#1F48B7"
@@ -135,10 +133,7 @@
       "id": 301,
       "group": "Skill",
       "title": "Data visualization and graphic design",
-      "subs": [
-        "ggplot2 (R)",
-        "Krita, Inkscape etc."
-      ],
+      "subs": [],
       "edgeColor": "#3685EE",
       "title_fi": "Datavisualisointi ja graafinen suunnittelu",
       "lightEdgeColor": "#1DCB8F"
@@ -147,10 +142,7 @@
       "id": 302,
       "group": "Skill",
       "title": "Dashboards and websites",
-      "subs": [
-        "Shiny (R)",
-        "Quarto (R)"
-      ],
+      "subs": [],
       "edgeColor": "#BFE176",
       "title_fi": "Dashboardit ja nettisivut",
       "lightEdgeColor": "#B0156B"
@@ -184,10 +176,10 @@
     {
       "id": 204.3,
       "group": "Project",
-      "title": "How to reduce polarization in politics",
+      "title": "Reducing polarization in politics",
       "ptype": "Text",
       "pnum": 999,
-      "title_fi": "Miten vähentää polarisaatiota politiikassa"
+      "title_fi": "Politiikan polarisaation vähentäminen"
     },
     {
       "id": 211,
@@ -519,7 +511,7 @@
     "mob_gap_v_mult": 1,
     "mob_gap_col_mult": 2,
     "col_intro_title": "What is this site about",
-    "col_intro_text": "TRY SITE AT: villeseppala.github.io/interests\n\nIn this site, I'm presenting some of my current interests on what to pursue in my life. The motivation is to gain feedback, reach possible collaborators and to find funding/employment avenues.\nMy interests are not limited to the ones presented here, but I hope they  give some kind of impression of me in general.\n\nAlso, if you are pursuing some of the things presented here, I could be interested in helping you.",
+    "col_intro_text": "In this site, I'm presenting some of my current interests on what to pursue in my life. The motivation is to gain feedback, reach possible collaborators and to find funding/employment avenues.\nMy interests are not limited to the ones presented here, but I hope they  give some kind of impression of me in general.\n\nAlso, if you are pursuing some of the things presented here, I could be interested in helping you.",
     "details_title": "Descriptions",
     "details_hint": "Click on a topic in the graph to see details here",
     "vote_title": "Influence my focus",

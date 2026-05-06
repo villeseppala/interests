@@ -87,8 +87,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function useMobileLayout() {
   if (forceMobile) return true;
-  // Use matchMedia — same engine as CSS, always in sync with @media (max-width:768px).
-  if (window.matchMedia) return window.matchMedia('(max-width:' + MOBILE_BREAKPOINT + 'px)').matches;
+  if (window.matchMedia) {
+    if (window.matchMedia('(max-width:' + MOBILE_BREAKPOINT + 'px)').matches) return true;
+    // Landscape phone: narrow height, not a tablet
+    if (window.matchMedia('(max-height:500px) and (max-width:1100px)').matches) return true;
+    return false;
+  }
   return (document.documentElement.clientWidth || window.innerWidth) <= MOBILE_BREAKPOINT;
 }
 
@@ -351,7 +355,8 @@ function buildBaseGradients() {
     var side = grp === 'Theme' ? 'right' : 'left';
     n.connectedEdges().forEach(function(edge) {
       if (nodeBaseGradients[n.id()]) return; // first edge color only (consistent with hover behavior)
-      var edgeCol = hexRgba(edge.data('color') || '#ffffff', 0.45);
+      var raw = (lightMode ? edge.data('lightColor') : edge.data('color')) || (lightMode ? '#000000' : '#ffffff');
+      var edgeCol = hexRgba(raw, 0.45);
       nodeBaseGradients[n.id()] = { side: side, color: edgeCol };
     });
   });
@@ -641,7 +646,8 @@ function applyHighlightState() {
         var og2 = on2.data('group');
         var side2 = gradSide(hovGrp, og2);
         if (!side2) return;
-        var edgeCol = hexRgba(edge.data('color') || '#ffffff', 0.45);
+        var rawHov = (lightMode ? edge.data('lightColor') : edge.data('color')) || (lightMode ? '#000000' : '#ffffff');
+        var edgeCol = hexRgba(rawHov, 0.45);
         var selfCol = hovGrp === 'Project' ? hexRgba(colProject, 0.45) : edgeCol;
         mergeHovGrad(nodeHoverGradients, otherId, side2, edgeCol);
         mergeHovGrad(nodeHoverGradients, String(hoveredNodeId), oppSide(side2), selfCol);
@@ -672,7 +678,7 @@ function toggleLightMode() {
     if (mobBtn) mobBtn.textContent = '\u2600';
   }
   applyColors();
-  if (cy) { cy.style(buildStyle()); if (lastData) positionHeaders(lastData); }
+  if (cy) { cy.style(buildStyle()); if (lastData) positionHeaders(lastData); buildBaseGradients(); drawEdgeOverlay(); cy.trigger('render'); }
   // Re-apply description panel accent color with updated globals
   if (lastDescMsg) {
     var grp = lastDescMsg.group || 'Project';
@@ -771,7 +777,19 @@ function drawNodeConnector() {
   var nodeColor = grp === 'Theme' ? colTheme : grp === 'Project' ? colProject : colSkill;
 
   var pr = panel.getBoundingClientRect();
-  var px = pr.right, py = pr.top + 8;  // attach to top of panel
+
+  // Hide entirely if desc-panel has scrolled out of the sidebar-scroll viewport
+  var sideScroll = document.getElementById('sidebar-scroll');
+  if (sideScroll) {
+    var sr = sideScroll.getBoundingClientRect();
+    if (pr.bottom < sr.top || pr.top > sr.bottom) return;
+  }
+
+  var px = pr.right;
+  // Clamp attachment point so it never floats above the page-title bar
+  var pageTitleEl = document.getElementById('page-title');
+  var minPy = pageTitleEl ? pageTitleEl.getBoundingClientRect().bottom + 4 : 0;
+  var py = Math.max(pr.top + 8, minPy);
   // Project/Skill: start 1/3 down (above center, clear of edge attachment); Theme: center
   var ny = (grp === 'Project' || grp === 'Skill')
     ? (pos.y - nh / 6) * zoom + pan.y + ctr.top
