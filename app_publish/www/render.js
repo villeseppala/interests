@@ -265,12 +265,10 @@ function fitWithHeaders() {
   zoom = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), zoom));
   cy.zoom(zoom);
   // Centre horizontally; top-align so headers have exactly 8px clearance.
-  // On mobile, applyHeaderY adds fontHdr1*1.2 + fontHdr2*1.3 of extra space above
-  // the header row — shift pan.y down by the same amount so it stays visible.
   var mobileHdrExtra = useMobileLayout() ? (fontHdr1 * 2.4 + fontHdr2 * 1.3) * zoom : 0;
   cy.pan({
     x: W / 2 - (bb.x1 + bb.w / 2) * zoom,
-    y: 8 + hm * zoom - bb.y1 * zoom + mobileHdrExtra
+    y: 8 + hm * zoom - bb.y1 * zoom + mobileHdrExtra / 2
   });
 }
 
