@@ -511,7 +511,7 @@
     "mob_gap_v_mult": 1,
     "mob_gap_col_mult": 2,
     "col_intro_title": "What is this site about",
-    "col_intro_text": "In this site, I'm presenting some of my current interests on what to pursue in my life. The motivation is to gain feedback, reach possible collaborators and to find funding/employment avenues. \nClick on a node in graph for description.\nMy interests are not limited to the ones presented here, but I hope these  give some kind of impression of me in general.\n\nAlso, if you are pursuing some of the things presented here, I could be interested in helping you.",
+    "col_intro_text": "In this site, I'm presenting some of my current interests on what to pursue in my life. The motivation is to gain feedback, reach possible collaborators and to find funding/employment avenues. \nClick on a node in graph for description.\n\nMy interests are not limited to the ones presented here, but I hope these  give some kind of impression of me in general.",
     "details_title": "Descriptions",
     "details_hint": "Click on a topic in the graph to see details here",
     "vote_title": "Influence my focus",
