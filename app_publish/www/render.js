@@ -375,8 +375,7 @@ function gradientOverlay(id, pct) {
   // Edge-color gradient: hover replaces base (keeps specific edge color); wider when hovered
   var edgeGrad = hov || base;
   if (edgeGrad) addDiv(edgeGrad.side, edgeGrad.color, hov ? Math.round((pct || 10) * 2) : (pct || 10));
-  // Selection gradient (white/black) always at base width
-  if (sel) addDiv(sel.side, sel.color, pct || 10);
+  if (sel) addDiv(sel.side, sel.color, (pct || 10) * (sel.widthMult || 1));
   return out;
 }
 
@@ -628,7 +627,7 @@ function applyHighlightState() {
         var otherId = edge.data('source') === String(selectedNodeId) ? edge.data('target') : edge.data('source');
         var on = cy.getElementById(otherId); if (!on || on.empty()) return;
         var side = gradSide(selGrp, on.data('group'));
-        if (side) nodeGradients[otherId] = { side: side, color: selColor };
+        if (side) nodeGradients[otherId] = { side: side, color: selColor, widthMult: 2 };
       });
     }
   }
