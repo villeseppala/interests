@@ -1588,7 +1588,7 @@ Shiny.addCustomMessageHandler('initCy', function (data) {
   rawPayload = data;
   if (postInitResizeHandler) { window.removeEventListener('resize', postInitResizeHandler); postInitResizeHandler = null; }
   var picked = pickData(data);
-  if (cy) cy.destroy();
+  if (cy) { cy.destroy(); cy = null; }
   initCyGraph(picked);
   // After init, check once whether the viewport has settled to different dimensions.
   // Handles DevTools phone emulation (and some mobile browsers) where viewport is
@@ -1608,7 +1608,7 @@ Shiny.addCustomMessageHandler('initCy', function (data) {
     if (nowMobile !== capturedMM || (nowMobile && Math.abs(nowW - capturedW) > 20)) {
       lastMobileState = nowMobile;
       var p = pickData(rawPayload);
-      if (cy) cy.destroy();
+      if (cy) { cy.destroy(); cy = null; }
       initCyGraph(p);
     }
   }
@@ -1915,7 +1915,7 @@ Shiny.addCustomMessageHandler('setForceMobile', function (msg) {
   if (!newVal) hideBottomSheet();
   if (changed && rawPayload) {
     var picked = pickData(rawPayload);
-    if (cy) cy.destroy();
+    if (cy) { cy.destroy(); cy = null; }
     initCyGraph(picked);
   }
 });
@@ -2039,17 +2039,52 @@ document.addEventListener('DOMContentLoaded', function () {
 var lastMobileState = null;
 var lastMobileW = 0;        // viewport width used in last applyMobileNodeSizes call
 var postInitResizeHandler = null; // one-shot handler registered after each initCy
+var resizeDebounce = null;
 window.addEventListener('resize', function () {
   var nowMobile = useMobileLayout();
+  var ga = document.getElementById('graph-area');
+  var nowW = ga ? ga.clientWidth : window.innerWidth;
+  var mobileWidthChanged = nowMobile && lastMobileW > 0 && Math.abs(nowW - lastMobileW) > 5;
   if (rawPayload && lastMobileState !== null && nowMobile !== lastMobileState) {
-    // Crossed mobile/desktop boundary — full reinit
+    // Crossed mobile/desktop boundary — full reinit immediately
     lastMobileState = nowMobile;
+    clearTimeout(resizeDebounce);
     var picked = pickData(rawPayload);
-    if (cy) cy.destroy();
+    if (cy) { cy.destroy(); cy = null; }
     initCyGraph(picked);
+  } else if (mobileWidthChanged) {
+    // Mobile viewport width changed — debounce to let DOM settle, then reinit
+    lastMobileState = nowMobile;
+    clearTimeout(resizeDebounce);
+    resizeDebounce = setTimeout(function () {
+      requestAnimationFrame(function () {
+        var picked = pickData(rawPayload);
+        if (cy) { cy.destroy(); cy = null; }
+        initCyGraph(picked);
+      });
+    }, 300);
   } else {
     resizeCy();
     refreshLayout();
   }
   lastMobileState = nowMobile;
+});
+
+// Re-layout after orientation change — dimensions settle ~300ms after the event
+window.addEventListener('orientationchange', function () {
+  clearTimeout(resizeDebounce);
+  resizeDebounce = setTimeout(function () {
+    var nowMobile = useMobileLayout();
+    var picked = pickData(rawPayload);
+    lastMobileState = nowMobile;
+    if (cy) { cy.destroy(); cy = null; }
+    initCyGraph(picked);
+  }, 350);
+});
+
+// Re-layout when page is restored from bfcache (back/forward navigation)
+window.addEventListener('pageshow', function (e) {
+  if (e.persisted && cy) {
+    setTimeout(function () { resizeCy(); refreshLayout(); }, 100);
+  }
 });
