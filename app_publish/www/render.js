@@ -1958,9 +1958,9 @@ window.initStaticApp = function(payload) {
         page_title_fi: sb.page_title_fi, details_title_fi: sb.details_title_fi,
         intro_title_fi: sb.intro_title_fi, vote_title_fi: sb.vote_title_fi,
         fund_title_fi: sb.fund_title_fi });
-    document.title = sb.page_title_en || 'My interests';
     var titleEnEl = document.getElementById('page-title-en');
-    if (titleEnEl && sb.page_title_en) titleEnEl.textContent = sb.page_title_en;
+    var enTitle = sb.page_title_en || (titleEnEl && titleEnEl.textContent) || 'My interests';
+    document.title = enTitle;
   }
   populateStaticSidebar(payload);
   // Honour ?lang= query param
