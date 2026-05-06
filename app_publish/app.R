@@ -71,7 +71,7 @@ ui <- fluidPage(
                   )
               ),
               # Accordion 2 — About (collapsed)
-              div(class = "acc-section", id = "acc-about",
+              div(class = "acc-section acc-open", id = "acc-about",
                   div(class = "acc-header", onclick = "toggleAcc(this)",
                       span(class = "acc-title", id = "acc-title-about"),
                       span(class = "acc-arrow", HTML("&#9660;"))
