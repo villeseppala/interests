@@ -379,6 +379,14 @@ function gradientOverlay(id, pct) {
   return out;
 }
 
+var _measureCanvas = null;
+function measureTextPx(text, sizePx) {
+  if (!_measureCanvas) _measureCanvas = document.createElement('canvas');
+  var ctx = _measureCanvas.getContext('2d');
+  ctx.font = 'bold ' + sizePx + 'px Arial,Helvetica,sans-serif';
+  return ctx.measureText(text).width;
+}
+
 function nodeHtml(data) {
   var g = data.group;
   var label = dualLabel(data.label, data.label_fi);
@@ -423,8 +431,19 @@ function nodeHtml(data) {
     var ptypeFi = { 'Text': 'Teksti', 'Text, long': 'Pitkä teksti', 'Text, short': 'Lyhyt teksti', 'Website': 'Nettisivu' };
     var ptypeLabel = dualLabel(ptypeRaw, ptypeFi[ptypeRaw] || ptypeRaw);
     var ptypeFontSize = (fontPtype + 2) + 'px';
+    var nodeW = data.w || projectNodeWidth;
+    var ptypeColW = (!mobileMode && ptypeRaw) ? Math.round(nodeW * ptypePct / 100) : 0;
+    var availW = nodeW - ptypeColW - 18; // 9px padding each side
+    var enText = data.label || '';
+    var fiText = data.label_fi || enText;
+    var enOneLine = measureTextPx(enText, fontNode) <= availW;
+    var projFn = fontNode;
+    if (enOneLine && currentLang === 'fi' && fiText !== enText) {
+      var fiW = measureTextPx(fiText, fontNode);
+      if (fiW > availW) projFn = Math.max(10, Math.floor(fontNode * availW / fiW));
+    }
     var typeCol = (!mobileMode && ptypeRaw)
-      ? '<div style="width:' + Math.round((data.w || projectNodeWidth) * ptypePct / 100) + 'px;flex-shrink:0;border-left:1.1px solid ' + colProject + ';' +
+      ? '<div style="width:' + ptypeColW + 'px;flex-shrink:0;border-left:1.1px solid ' + colProject + ';' +
         'display:flex;align-items:center;justify-content:center;padding:0 5px;' +
         'color:' + colProject + ';font-family:Arial,Helvetica,sans-serif;font-size:' + ptypeFontSize + ';' +
         'font-weight:bold;text-align:center;line-height:1.25;position:relative;z-index:6;">' + ptypeLabel + '</div>'
@@ -433,8 +452,8 @@ function nodeHtml(data) {
       'display:flex;align-items:stretch;">' +
       '<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:4px 9px;' +
       'text-align:center;overflow:hidden;position:relative;z-index:6;">' +
-      '<div style="color:' + colProject + ';font-family:Arial,Helvetica,sans-serif;font-size:' + fn + ';' +
-      'font-weight:bold;line-height:1.3;' + wrap + '">' + label + '</div></div>' +
+      '<div style="color:' + colProject + ';font-family:Arial,Helvetica,sans-serif;font-size:' + projFn + 'px;' +
+      'font-weight:bold;line-height:1.3;white-space:' + (enOneLine ? 'nowrap' : 'normal') + ';' + wrap + '">' + label + '</div></div>' +
       typeCol + gradientOverlay(data.id) + '</div>';
   }
   return '';
@@ -2084,7 +2103,13 @@ window.addEventListener('orientationchange', function () {
 
 // Re-layout when page is restored from bfcache (back/forward navigation)
 window.addEventListener('pageshow', function (e) {
-  if (e.persisted && cy) {
-    setTimeout(function () { resizeCy(); refreshLayout(); }, 100);
+  if (e.persisted && rawPayload) {
+    setTimeout(function () {
+      var nowMobile = useMobileLayout();
+      var picked = pickData(rawPayload);
+      lastMobileState = nowMobile;
+      if (cy) { cy.destroy(); cy = null; }
+      initCyGraph(picked);
+    }, 150);
   }
 });

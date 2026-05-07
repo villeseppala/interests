@@ -8,7 +8,7 @@ html, body { height:100%; margin:0; background:#1e1b2e; overflow:hidden; }
 .container-fluid { padding:0 !important; margin:0 !important; }
 #main-row { display:flex; height:100vh; overflow:hidden; }
 
-.col-spacer { width:4px; flex-shrink:0; }
+.col-spacer { width:3vw; flex-shrink:0; }
 
 #info-sidebar {
   width:28.4%; min-width:319px; max-width:739px; flex-shrink:0; height:100vh;
