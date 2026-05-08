@@ -272,6 +272,7 @@ body.light-mode .lang-btn { border-color:rgba(0,0,0,0.2) !important; color:rgba(
 body.light-mode .lang-btn.lang-active { color:rgba(0,0,0,0.85) !important; border-color:rgba(0,0,0,0.55) !important; background:rgba(0,0,0,0.07) !important; }
 body.light-mode #mode-btn { border-color:rgba(0,0,0,0.2) !important; color:rgba(0,0,0,0.55) !important; }
 body.light-mode #mode-btn:hover { background:rgba(0,0,0,0.07) !important; }
+body.light-mode #site-url-label { color:rgba(0,0,0,0.8) !important; }
 body.light-mode #github-btn { border-color:rgba(0,0,0,0.2) !important; color:rgba(0,0,0,0.4) !important; }
 body.light-mode #github-btn:hover { background:rgba(0,0,0,0.07) !important; color:rgba(0,0,0,0.7) !important; }
 body.light-mode #sidebar-resize-handle { background:rgba(0,0,0,0.15); }
