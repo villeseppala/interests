@@ -4,49 +4,49 @@
       "id": 106,
       "group": "Theme",
       "title": "Russia/Ukraine",
-      "edgeColor": "#4401ED",
+      "edgeColor": "#E082C2",
       "title_fi": "Venäjä/Ukraina",
-      "lightEdgeColor": "#75A91C"
+      "lightEdgeColor": "#C97802"
     },
     {
       "id": 101,
       "group": "Theme",
       "title": "Existential and catastropic risks",
-      "edgeColor": "#D64978",
+      "edgeColor": "#6ACA6A",
       "title_fi": "Eksistentiaaliset riskit",
-      "lightEdgeColor": "#3349C4"
+      "lightEdgeColor": "#CAC512"
     },
     {
       "id": 104,
       "group": "Theme",
       "title": "Climate Change",
-      "edgeColor": "#EBDE35",
+      "edgeColor": "#E13551",
       "title_fi": "Ilmastonmuutos",
-      "lightEdgeColor": "#AD2994"
+      "lightEdgeColor": "#C7640F"
     },
     {
       "id": 105,
       "group": "Theme",
       "title": "Electricity markets",
-      "edgeColor": "#5AD70B",
+      "edgeColor": "#7044DB",
       "title_fi": "Sähkömarkkinat",
-      "lightEdgeColor": "#B52C21"
+      "lightEdgeColor": "#0DA1BC"
     },
     {
       "id": 103,
       "group": "Theme",
       "title": "European Union",
-      "edgeColor": "#B844C2",
+      "edgeColor": "#DBEC97",
       "title_fi": "Euroopan Unioni",
-      "lightEdgeColor": "#CA7F36"
+      "lightEdgeColor": "#10C08B"
     },
     {
       "id": 102,
       "group": "Theme",
       "title": "Global harmony",
-      "edgeColor": "#5CE07C",
+      "edgeColor": "#D54CEC",
       "title_fi": "Globaali harmonia",
-      "lightEdgeColor": "#5FAD24"
+      "lightEdgeColor": "#BD1138"
     },
     {
       "id": 202,
@@ -59,10 +59,10 @@
     {
       "id": 201,
       "group": "Project",
-      "title": "Tool for demonstrating existential risk",
+      "title": "Probabilities of the end of the world",
       "ptype": "Website",
       "pnum": 201,
-      "title_fi": "Työkalu ihmiskuntaa uhkaavien riskien hahmottamiseen"
+      "title_fi": "Maailmanlopun todennäköisyydet"
     },
     {
       "id": 209,
@@ -125,45 +125,45 @@
       "group": "Skill",
       "title": "Artificial intelligence",
       "subs": [],
-      "edgeColor": "#CF31CB",
+      "edgeColor": "#BA1D25",
       "title_fi": "Tekoäly",
-      "lightEdgeColor": "#1F48B7"
+      "lightEdgeColor": "#C00910"
     },
     {
       "id": 301,
       "group": "Skill",
       "title": "Data visualization and graphic design",
       "subs": [],
-      "edgeColor": "#3685EE",
+      "edgeColor": "#BB23A9",
       "title_fi": "Datavisualisointi ja graafinen suunnittelu",
-      "lightEdgeColor": "#1DCB8F"
+      "lightEdgeColor": "#0F62C4"
     },
     {
       "id": 302,
       "group": "Skill",
       "title": "Dashboards and websites",
       "subs": [],
-      "edgeColor": "#BFE176",
+      "edgeColor": "#BE9207",
       "title_fi": "Dashboardit ja nettisivut",
-      "lightEdgeColor": "#B0156B"
+      "lightEdgeColor": "#C87504"
     },
     {
       "id": 303,
       "group": "Skill",
       "title": "Videos and streaming",
       "subs": [],
-      "edgeColor": "#E86A1E",
+      "edgeColor": "#7035C8",
       "title_fi": "Videot ja striimaus",
-      "lightEdgeColor": "#CEA71A"
+      "lightEdgeColor": "#9712C8"
     },
     {
       "id": 305,
       "group": "Skill",
       "title": "Social media",
-      "edgeColor": "#C927E5",
+      "edgeColor": "#53EDDB",
       "title_fi": "Sosiaalinen media",
       "subs": [],
-      "lightEdgeColor": "#C62372"
+      "lightEdgeColor": "#15D3CD"
     },
     {
       "id": 205.5,
@@ -204,90 +204,123 @@
       "ptype": "Website",
       "pnum": 999,
       "title_fi": "Graafipankki"
+    },
+    {
+      "id": 106.1,
+      "group": "Theme",
+      "title": "Finnish economy",
+      "title_fi": "Suomen talous",
+      "edgeColor": "#E6C764",
+      "lightEdgeColor": "#19B10C"
+    },
+    {
+      "id": 209.6,
+      "group": "Project",
+      "title": "List of savings measures for Finnish economy",
+      "ptype": "Text",
+      "pnum": 209,
+      "title_fi": "Lista säästökohteista Suomen talouteen"
+    },
+    {
+      "id": 209.55,
+      "group": "Project",
+      "title": "How to get Russia to end its offensive",
+      "ptype": "Text",
+      "pnum": 209,
+      "title_fi": "Mitä saada Venäjä lopettamaan hyökkäyksensä"
+    },
+    {
+      "id": 303.5,
+      "group": "Skill",
+      "title": "Economics",
+      "edgeColor": "#58A0EA",
+      "lightEdgeColor": "#0BC1C3",
+      "title_fi": "Taloustiede",
+      "subs": []
     }
   ],
   "edges": [
     {
       "from": 101,
       "to": 201,
-      "color": "#D64978",
+      "color": "#6ACA6A",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 202,
-      "color": "#D64978",
+      "color": "#6ACA6A",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 204,
-      "color": "#D64978",
+      "color": "#6ACA6A",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 203,
-      "color": "#5CE07C",
+      "color": "#D54CEC",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 204,
-      "color": "#5CE07C",
+      "color": "#D54CEC",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 203,
-      "color": "#B844C2",
+      "color": "#DBEC97",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 207,
-      "color": "#B844C2",
+      "color": "#DBEC97",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206,
-      "color": "#EBDE35",
+      "color": "#E13551",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 207,
-      "color": "#EBDE35",
+      "color": "#E13551",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 208,
-      "color": "#EBDE35",
+      "color": "#E13551",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 207,
-      "color": "#5AD70B",
+      "color": "#7044DB",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 208,
-      "color": "#5AD70B",
+      "color": "#7044DB",
       "dashes": false,
       "hidden": false
     },
@@ -336,21 +369,21 @@
     {
       "from": 102,
       "to": 205.5,
-      "color": "#5CE07C",
+      "color": "#D54CEC",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 205.5,
-      "color": "#EBDE35",
+      "color": "#E13551",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 204,
-      "color": "#EBDE35",
+      "color": "#E13551",
       "dashes": false,
       "hidden": false
     },
@@ -371,21 +404,21 @@
     {
       "from": 102,
       "to": 204.3,
-      "color": "#5CE07C",
+      "color": "#D54CEC",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206.5,
-      "color": "#EBDE35",
+      "color": "#E13551",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 206.5,
-      "color": "#5AD70B",
+      "color": "#7044DB",
       "dashes": false,
       "hidden": false
     },
@@ -427,14 +460,77 @@
     {
       "from": 104,
       "to": 203,
-      "color": "#EBDE35",
+      "color": "#E13551",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 201,
-      "color": "#5CE07C",
+      "color": "#D54CEC",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 106.1,
+      "to": 209.6,
+      "color": "#E6C764",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 106,
+      "to": 209.55,
+      "color": "#E082C2",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 203,
+      "to": 303.5,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 205.5,
+      "to": 303.5,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 206,
+      "to": 303.5,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 207,
+      "to": 303.5,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 208,
+      "to": 303.5,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 209.55,
+      "to": 303.5,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 209.6,
+      "to": 303.5,
+      "color": "#d17bb7",
       "dashes": false,
       "hidden": false
     }
@@ -446,7 +542,8 @@
       103,
       104,
       105,
-      106
+      106,
+      106.1
     ],
     "Project": [
       201,
@@ -461,6 +558,8 @@
       208,
       209,
       209.5,
+      209.55,
+      209.6,
       210,
       211
     ],
@@ -468,6 +567,7 @@
       301,
       302,
       303,
+      303.5,
       304,
       305
     ],
@@ -488,7 +588,7 @@
     "h_skill": 94,
     "w_project": 444,
     "ptype_pct": 18,
-    "edge_width": 5,
+    "edge_width": 6.5,
     "watermark_text": "",
     "watermark_size": 10,
     "col_bg": "#242B3D",
@@ -497,12 +597,12 @@
     "col_theme": "#4DD3DD",
     "col_project": "#E7924F",
     "col_skill": "#55E374",
-    "light_col_bg": "#C5C1C6",
-    "light_col_sidebar_bg": "#E5E5E1",
-    "light_col_node_bg": "#e3e3e3",
-    "light_col_theme": "#337F08",
-    "light_col_project": "#0B347B",
-    "light_col_skill": "#AB1F6F",
+    "light_col_bg": "#ffffff",
+    "light_col_sidebar_bg": "#ffffff",
+    "light_col_node_bg": "#ffffff",
+    "light_col_theme": "#4302CD",
+    "light_col_project": "#a1080d",
+    "light_col_skill": "#01892a",
     "light_edge_color": "#555555",
     "mob_font_mult": 3,
     "mob_h_theme_mult": 1,

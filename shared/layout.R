@@ -350,7 +350,8 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
     sid <- as.character(as.numeric(n$id)); np <- node_pos[[sid]]; if (is.null(np)) next
     subs_str <- paste(as.character(unlist(n$subs %||% list())), collapse="||")
     cy_nodes <- c(cy_nodes, list(list(
-      data=list(id=sid, label=n$title%||%"", label_fi=n$title_fi%||%"", group=np$group, ptype=n$ptype%||%"", w=np$w, h=np$h, subs=subs_str),
+      data=list(id=sid, label=n$title%||%"", label_fi=n$title_fi%||%"", group=np$group, ptype=n$ptype%||%"", w=np$w, h=np$h, subs=subs_str,
+                edgeColor=n$edgeColor%||%"", lightEdgeColor=n$lightEdgeColor%||%""),
       position=list(x=np$x, y=np$y))))
   }
   

@@ -77,12 +77,14 @@ var darkColNodeBg = '#081626';
 var darkColTheme = '#3be37a';
 var darkColProject = '#ffad33';
 var darkColSkill = '#78e6e7';
-var currentLang = (new URLSearchParams(window.location.search)).get('lang') === 'fi' ? 'fi' : 'en';
+var currentLang  = (new URLSearchParams(window.location.search)).get('lang')   === 'fi' ? 'fi' : 'en';
+var isExportMode = (new URLSearchParams(window.location.search)).get('export') === '1';
 var accTitleData = {};
 var langData = {};
 var lastDescMsg = null;
 document.addEventListener('DOMContentLoaded', function() {
   if (currentLang === 'fi') document.body.classList.add('lang-fi');
+  if (isExportMode) document.documentElement.classList.add('export-mode');
 });
 
 function useMobileLayout() {
@@ -292,16 +294,17 @@ function alignGraphLeft() {
 function buildStyle() {
   var borderColor = function (e) {
     var g = e.data('group');
-    if (g === 'Theme') return colTheme; if (g === 'Project') return colProject;
+    if (g === 'Project') return colProject;
     if (g === 'Funding') return '#78c4e8'; if (g === 'Vote') return '#e8c478';
-    return colSkill;
+    var bc = lightMode ? e.data('_borderColLight') : e.data('_borderColDark');
+    return bc || (g === 'Theme' ? colTheme : colSkill);
   };
   return [
     { selector: 'node', style: {
         shape: 'rectangle', width: 'data(w)', height: 'data(h)',
         'background-fill': 'flat',
         'background-color': function() { return nodeBgSameAsGraph ? colBg : colNodeBg; },
-        'border-width': 2,
+        'border-width': 3,
         'border-color': borderColor, 'border-style': 'solid', label: '',
         'shadow-opacity': 0, 'outline-width': 0, 'outline-opacity': 0, 'underlay-opacity': 0, 'overlay-opacity': 0,
         cursor: function (e) {
@@ -309,12 +312,15 @@ function buildStyle() {
           return (g === 'Project' || g === 'Theme' || g === 'Skill') ? 'pointer' : 'default';
         },
     }},
+    { selector: 'node.nbr-hi', style: {
+        'border-width': mobileMode ? 12 : 8, 'outline-width': 0,
+    }},
     { selector: 'node.selected', style: {
         'background-color': function() { var b = nodeBgSameAsGraph ? colBg : colNodeBg; return blendWithWhite(b, 0.15); },
-        'border-width': mobileMode ? 9 : 6, 'shadow-opacity': 0, 'outline-width': 0, 'outline-opacity': 0,
+        'border-width': mobileMode ? 14 : 9, 'shadow-opacity': 0, 'outline-width': 0, 'outline-opacity': 0,
     }},
     { selector: 'node.hovered', style: {
-        'border-width': mobileMode ? 9 : 6, 'outline-width': 0,
+        'border-width': mobileMode ? 14 : 9, 'outline-width': 0,
     }},
     { selector: 'node.selected.hovered', style: {
         'outline-width': 0, 'outline-opacity': 0,
@@ -357,6 +363,29 @@ function buildBaseGradients() {
       var edgeCol = hexRgba(raw, 0.45);
       nodeBaseGradients[n.id()] = { side: side, color: edgeCol };
     });
+    // Edgeless nodes still get gradient using their own edgeColor (or group color as last resort)
+    if (!nodeBaseGradients[n.id()]) {
+      var rawFb = lightMode ? (n.data('lightEdgeColor') || n.data('edgeColor')) : n.data('edgeColor');
+      var fallback = rawFb || (grp === 'Theme' ? colTheme : colSkill);
+      nodeBaseGradients[n.id()] = { side: side, color: hexRgba(fallback, 0.45) };
+    }
+  });
+}
+
+function applyNodeBorderColors() {
+  if (!cy) return;
+  cy.nodes().forEach(function(n) {
+    var grp = n.data('group');
+    if (grp !== 'Theme' && grp !== 'Skill') return;
+    var edges = n.connectedEdges();
+    if (edges.length === 0) {
+      n.data('_borderColDark',  n.data('edgeColor')      || (grp === 'Theme' ? colTheme : colSkill));
+      n.data('_borderColLight', n.data('lightEdgeColor') || n.data('edgeColor') || (grp === 'Theme' ? colTheme : colSkill));
+      return;
+    }
+    var edge = edges[0];
+    n.data('_borderColDark',  edge.data('color')      || '#ffffff');
+    n.data('_borderColLight', edge.data('lightColor') || '#000000');
   });
 }
 
@@ -619,6 +648,7 @@ function applyHighlightState() {
   if (!cy) return;
   cy.elements('.selected').removeClass('selected');
   cy.elements('.hovered').removeClass('hovered');
+  cy.elements('.nbr-hi').removeClass('nbr-hi');
   nodeGradients = {};
   nodeHoverGradients = {};
   function gradSide(srcGrp, dstGrp) {
@@ -640,13 +670,18 @@ function applyHighlightState() {
       sn.addClass('selected');
       sn.connectedEdges().addClass('selected');
       var selGrp = sn.data('group');
-      var selColor = lightMode ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.28)';
-      if (selGrp === 'Project') nodeGradients[String(selectedNodeId)] = { side: 'both', color: selColor };
+      // Selected project lights up in its own group color (both walls); Theme/Skill keep their base colored gradient
+      if (selGrp === 'Project')
+        nodeGradients[String(selectedNodeId)] = { side: 'both', color: hexRgba(colProject, 0.5) };
       sn.connectedEdges().forEach(function(edge) {
         var otherId = edge.data('source') === String(selectedNodeId) ? edge.data('target') : edge.data('source');
         var on = cy.getElementById(otherId); if (!on || on.empty()) return;
+        on.addClass('nbr-hi');
         var side = gradSide(selGrp, on.data('group'));
-        if (side) nodeGradients[otherId] = { side: side, color: selColor, widthMult: 2 };
+        if (!side) return;
+        // Connected node lights up in the connecting edge's source color (stronger + wider than its base gradient)
+        var rawSel = (lightMode ? edge.data('lightColor') : edge.data('color')) || (lightMode ? '#000000' : '#ffffff');
+        nodeGradients[otherId] = { side: side, color: hexRgba(rawSel, 0.6), widthMult: 2 };
       });
     }
   }
@@ -659,6 +694,7 @@ function applyHighlightState() {
       hn.connectedEdges().forEach(function(edge) {
         var otherId = edge.data('source') === String(hoveredNodeId) ? edge.data('target') : edge.data('source');
         var on2 = cy.getElementById(otherId); if (!on2 || on2.empty()) return;
+        on2.addClass('nbr-hi');
         var og2 = on2.data('group');
         var side2 = gradSide(hovGrp, og2);
         if (!side2) return;
@@ -680,6 +716,8 @@ function clearSelection() { selectedNodeId = null; applyHighlightState(); }
 
 function toggleLightMode() {
   lightMode = !lightMode;
+  if (typeof Shiny !== 'undefined' && !Shiny._isStatic)
+    Shiny.setInputValue('light_mode_active', lightMode, {priority: 'event'});
   var btn = document.getElementById('mode-btn');
   var mobBtn = document.getElementById('mob-mode-btn');
   if (lightMode) {
@@ -731,7 +769,8 @@ function drawEdgeOverlay() {
   svg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:5;overflow:visible;';
   area.insertBefore(svg, document.getElementById('cy'));
 
-  var edgePaths = [];
+  // Pass 1: collect raw endpoint data for each edge (in cyto units for Y, screen px for X)
+  var rawEdges = [];
   cy.edges().forEach(function (edge) {
     var d = edge.data();
     var src = cy.getElementById(d.source), tgt = cy.getElementById(d.target);
@@ -739,42 +778,102 @@ function drawEdgeOverlay() {
     var sp = src.position(), tp = tgt.position();
     var sw = src.data('w') || 160, tw = tgt.data('w') || 160;
     var srcEp = d.srcEp || '', tgtEp = d.tgtEp || '';
-    var sx, sy, tx, ty;
-    if (srcEp.indexOf('px') >= 0) {
-      var sp2 = srcEp.split(/\s+/); sx = sp.x + sw / 2; sy = sp.y + parseFloat(sp2[1] || '0');
-    } else { sx = sp.x + sw / 2; sy = sp.y; }
-    if (tgtEp.indexOf('px') >= 0) {
-      var tp2 = tgtEp.split(/\s+/); tx = tp.x - tw / 2; ty = tp.y + parseFloat(tp2[1] || '0');
-    } else { tx = tp.x - tw / 2; ty = tp.y; }
-    var x1 = sx * zoom + pan.x, y1 = sy * zoom + pan.y;
-    var x2 = tx * zoom + pan.x, y2 = ty * zoom + pan.y;
+    var syBase = sp.y, tyBase = tp.y;
+    if (srcEp.indexOf('px') >= 0) { var sp2 = srcEp.split(/\s+/); syBase = sp.y + parseFloat(sp2[1] || '0'); }
+    if (tgtEp.indexOf('px') >= 0) { var tp2 = tgtEp.split(/\s+/); tyBase = tp.y + parseFloat(tp2[1] || '0'); }
+    rawEdges.push({
+      d: d, edge: edge,
+      sx: (sp.x + sw / 2) * zoom + pan.x,
+      tx: (tp.x - tw / 2) * zoom + pan.x,
+      syBase: syBase, tyBase: tyBase,
+      syOff: 0, tyOff: 0
+    });
+  });
+
+  // Pass 2: spread endpoints that share a node wall, sorted by other-end Y.
+  // Center-to-center spacing = line width + 5px clear gap, so there's always 5px of
+  // whitespace BETWEEN lines regardless of their width. Hover is ignored here so edges
+  // don't shift (and cause hover flicker) when the pointer moves over them.
+  var clearGapCyto = 3 / zoom;                              // 3 screen-px of whitespace between lines
+  var baseWCyto = baseEdgeWidth * (mobileMode ? 1.5 : 1);   // cyto-unit stroke width (strokeW = this * zoom)
+  function spacingWCyto(re) { return baseWCyto * (re.edge.hasClass('selected') ? 1.4 : 1); }
+  var wallGroups = {};
+  rawEdges.forEach(function(re, i) {
+    var w = spacingWCyto(re);
+    var kr = re.d.source + ':r', kl = re.d.target + ':l';
+    if (!wallGroups[kr]) wallGroups[kr] = [];
+    if (!wallGroups[kl]) wallGroups[kl] = [];
+    wallGroups[kr].push({ i: i, baseY: re.syBase, otherY: re.tyBase, isRight: true,  w: w });
+    wallGroups[kl].push({ i: i, baseY: re.tyBase, otherY: re.syBase, isRight: false, w: w });
+  });
+  Object.keys(wallGroups).forEach(function(key) {
+    var grp = wallGroups[key];
+    if (grp.length < 2) return;
+    grp.sort(function(a, b) { return a.otherY - b.otherY; });
+    var n = grp.length;
+    var maxW = grp.reduce(function(m, g) { return Math.max(m, g.w); }, 0);
+    var stepCyto = maxW + clearGapCyto;                     // center-to-center spacing
+    var totalSpan = (n - 1) * stepCyto;
+    var centerY = grp.reduce(function(s, g) { return s + g.baseY; }, 0) / n;
+    grp.forEach(function(g, idx) {
+      var delta = (centerY - totalSpan / 2 + idx * stepCyto) - g.baseY;
+      if (g.isRight) rawEdges[g.i].syOff += delta;
+      else           rawEdges[g.i].tyOff += delta;
+    });
+  });
+
+  // Pass 3: build path strings with spread-adjusted Y values
+  var edgePaths = [];
+  rawEdges.forEach(function(re) {
+    var x1 = re.sx, y1 = (re.syBase + re.syOff) * zoom + pan.y;
+    var x2 = re.tx, y2 = (re.tyBase + re.tyOff) * zoom + pan.y;
     var cx1 = x1 + (x2 - x1) * 0.45, cx2 = x2 - (x2 - x1) * 0.45;
     edgePaths.push({
       pathD: 'M' + x1 + ',' + y1 + ' C' + cx1 + ',' + y1 + ' ' + cx2 + ',' + y2 + ' ' + x2 + ',' + y2,
-      color: d.color || '#ffffff', lightColor: d.lightColor || lightEdgeColor, dashes: d.dashes,
-      isSel: edge.hasClass('selected'), isHov: edge.hasClass('hovered')
+      color: re.d.color || '#ffffff', lightColor: re.d.lightColor || lightEdgeColor, dashes: re.d.dashes,
+      isSel: re.edge.hasClass('selected'), isHov: re.edge.hasClass('hovered')
     });
   });
   var strokeW = baseEdgeWidth * zoom * (mobileMode ? 1.5 : 1);
-  // Pass 1: white glow behind SELECTED edges only (not hovered)
-  edgePaths.forEach(function (ep) {
-    if (!ep.isSel) return;
-    var glow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    glow.setAttribute('d', ep.pathD); glow.setAttribute('fill', 'none');
-    glow.setAttribute('stroke', lightMode ? '#000000' : '#ffffff');
-    glow.setAttribute('stroke-width', strokeW * 2.5);
-    svg.appendChild(glow);
-  });
-  // Pass 2: all colored edges — hovered edges 3× width, others normal
-  edgePaths.forEach(function (ep) {
-    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', ep.pathD); path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', lightMode ? ep.lightColor : ep.color);
-    path.setAttribute('stroke-width', (ep.isHov && !ep.isSel) ? strokeW * 3 : strokeW);
-    path.setAttribute('opacity', '0.85');
-    if (ep.dashes) path.setAttribute('stroke-dasharray', (5 * zoom) + ',' + (3 * zoom));
-    svg.appendChild(path);
-  });
+  function makePath(d, stroke, width, opacity, dashes) {
+    var p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', d); p.setAttribute('fill', 'none');
+    p.setAttribute('stroke', stroke); p.setAttribute('stroke-width', width);
+    if (opacity != null) p.setAttribute('opacity', opacity);
+    if (dashes) p.setAttribute('stroke-dasharray', (5 * zoom) + ',' + (3 * zoom));
+    return p;
+  }
+  var anySel = edgePaths.some(function (ep) { return ep.isSel; });
+  var DIM_OP = lightMode ? 0.5 : 0.7;  // faded context when a node is selected (lighter dim in dark mode)
+  var NORM_OP = 0.85;  // default edge opacity
+  if (anySel) {
+    // Focus mode: dim everything, then emphasize the selected path on top
+    // Bottom: non-selected, non-hovered edges — faded to quiet context
+    edgePaths.forEach(function (ep) {
+      if (ep.isSel || ep.isHov) return;
+      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW, DIM_OP, ep.dashes));
+    });
+    // Hovered (not selected) — keep hover preview working during a selection
+    edgePaths.forEach(function (ep) {
+      if (!ep.isHov || ep.isSel) return;
+      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW * 2.25, NORM_OP, ep.dashes));
+    });
+    // Top: selected edges — full color, fully opaque, slightly thicker
+    edgePaths.forEach(function (ep) {
+      if (!ep.isSel) return;
+      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW * 1.4, 1, ep.dashes));
+    });
+  } else {
+    // No selection: hovered edge sits below normal edges so other connections stay visible
+    edgePaths.forEach(function (ep) {
+      if (!ep.isHov) return;
+      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW * 2.25, NORM_OP, ep.dashes));
+    });
+    edgePaths.forEach(function (ep) {
+      if (ep.isHov) return;
+      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW, NORM_OP, ep.dashes));
+    });
+  }
 }
 
 /* ── Node-to-panel connector line ────────────────────────────────────────── */
@@ -1481,6 +1580,8 @@ function initCyGraph(data) {
     boxSelectionEnabled: false, autoungrabify: true,
   });
   buildBaseGradients();
+  applyNodeBorderColors();
+  cy.style(buildStyle());
   cy.nodeHtmlLabel([{ query: 'node', tpl: function (d) { return nodeHtml(d); } }]);
   fitWithHeaders();
   if (!mobileMode) alignGraphLeft();
@@ -1609,6 +1710,13 @@ Shiny.addCustomMessageHandler('initCy', function (data) {
   var picked = pickData(data);
   if (cy) { cy.destroy(); cy = null; }
   initCyGraph(picked);
+  if (isExportMode) {
+    setTimeout(function() {
+      var r = document.createElement('div');
+      r.id = 'export-ready'; r.style.display = 'none';
+      document.body.appendChild(r);
+    }, 1200);
+  }
   // After init, check once whether the viewport has settled to different dimensions.
   // Handles DevTools phone emulation (and some mobile browsers) where viewport is
   // applied after initCy fires. Both a resize-event trigger and a 300ms timeout are
@@ -1659,6 +1767,7 @@ Shiny.addCustomMessageHandler('updateCy', function (data) {
   autoFitProjectWidth(picked);
   applyMobileNodeSizes(picked);
   cy.elements().remove(); cy.add(buildElements(picked));
+  buildBaseGradients(); applyNodeBorderColors(); cy.style(buildStyle());
   cy.layout({ name: 'preset' }).run(); positionHeaders(picked);
   if (prevSel) selectNode(prevSel); else drawEdgeOverlay();
 });
