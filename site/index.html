@@ -11,10 +11,13 @@
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="https://villeseppala.github.io/interests/preview.png">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=1784218690">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icons/7.2.3/css/flag-icons.min.css">
 </head>
 <body>
+
+<!-- Shared site nav bar (populated by site-nav.js from articles.json) -->
+<div id="site-nav"></div>
 
 <div id="main-row">
   <div class="col-spacer"></div>
@@ -95,25 +98,14 @@
 
   <!-- Mobile bottom panel -->
   <div id="mob-panel">
+    <!-- Site info now lives in the "About" nodes in the graph; only Settings remains as a tab. -->
     <div id="mob-tab-bar">
-      <button class="mob-tab mob-tab-active" id="mob-tab-about" onclick="mobShowTab('about')">
-        <span class="en-only">About</span><span class="fi-only">Tietoa</span>
-      </button>
-      <button class="mob-tab" id="mob-tab-vote" onclick="mobShowTab('vote')">
-        <span class="en-only">Vote</span><span class="fi-only">&#196;&#228;nest&#228;</span>
-      </button>
-      <button class="mob-tab" id="mob-tab-fund" onclick="mobShowTab('fund')">
-        <span class="en-only">Funding</span><span class="fi-only">Rahoitus</span>
-      </button>
-      <button class="mob-tab" id="mob-tab-settings" onclick="mobShowTab('settings')">
+      <button class="mob-tab mob-tab-active" id="mob-tab-settings" onclick="mobShowTab('settings')">
         <span class="en-only">Settings</span><span class="fi-only">Asetukset</span>
       </button>
     </div>
     <div id="mob-tab-content">
-      <div id="mob-content-about" class="mob-tab-pane mob-tab-pane-active"></div>
-      <div id="mob-content-vote"  class="mob-tab-pane"></div>
-      <div id="mob-content-fund"  class="mob-tab-pane"></div>
-      <div id="mob-content-settings" class="mob-tab-pane"></div>
+      <div id="mob-content-settings" class="mob-tab-pane mob-tab-pane-active"></div>
     </div>
     <div id="mob-desc-panel">
       <div id="mob-desc-header">
@@ -138,10 +130,11 @@
 <button id="mobile-info-btn" onclick="showInfoSheet()">Info</button>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
-<script src="render.js"></script>
+<script src="site-nav.js"></script>
+<script src="render.js?v=1784218690"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    fetch('payload.json')
+    fetch('payload.json?v=1784218690')
       .then(function (r) { return r.json(); })
       .then(function (payload) { window.initStaticApp(payload); })
       .catch(function (e) { console.error('Failed to load payload.json:', e); });

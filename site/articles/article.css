@@ -1,0 +1,43 @@
+/* Article page styling — layered on top of Quarto's `darkly` theme.
+ * Only styles the shared nav bar and the back-to-node footer; the theme handles body typography. */
+
+/* Match the interest-graph site colours a little more closely. */
+body { background: #0b3552; }
+a { color: #78e6e7; }
+
+/* ── Shared top nav bar (kept in sync with style.css + articles.html) ── */
+#site-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  height: 46px;
+  padding: 0 20px;
+  margin: -1px 0 8px;
+  background: #081626;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-family: Arial, Helvetica, sans-serif;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+#site-nav a { color: #e8eef4; text-decoration: none; }
+#site-nav .nav-brand { font-weight: 700; font-size: 16px; letter-spacing: 0.02em; }
+#site-nav .nav-dropdown { position: relative; }
+#site-nav .nav-dropdown > a { font-size: 14px; opacity: 0.92; }
+#site-nav .nav-caret { font-size: 10px; margin-left: 4px; opacity: 0.7; }
+#site-nav .nav-menu {
+  position: absolute; top: 100%; left: 0; min-width: 260px; background: #081626;
+  border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); padding: 6px 0; display: none;
+  max-height: 70vh; overflow-y: auto;
+}
+#site-nav .nav-dropdown:hover .nav-menu, #site-nav .nav-menu:hover { display: block; }
+#site-nav .nav-menu a { display: block; padding: 7px 16px; font-size: 13.5px; white-space: nowrap; color: #e8eef4; }
+#site-nav .nav-menu a:hover { background: rgba(255, 255, 255, 0.08); }
+#site-nav .nav-menu .nav-menu-empty { padding: 7px 16px; font-size: 13px; color: rgba(232,238,244,0.7); font-style: italic; }
+
+/* ── Back-to-node footer ── */
+hr.article-foot-sep { border: none; border-top: 1px solid rgba(255, 255, 255, 0.18); margin: 40px 0 18px; }
+.article-back { text-align: left; font-family: Arial, Helvetica, sans-serif; }
+.article-back a { color: #78e6e7; font-size: 15px; text-decoration: none; }
+.article-back a:hover { text-decoration: underline; }

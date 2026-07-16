@@ -7,13 +7,66 @@ library(jsonlite)
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
-ALL_GROUPS   <- c("Theme", "Project", "Skill", "Funding", "Vote")
-GROUP_PREFIX <- list(Theme = "t", Project = "p", Skill = "s")
+ALL_GROUPS   <- c("Theme", "Project", "Skill", "About")
+GROUP_PREFIX <- list(Theme = "t", Project = "p", Skill = "s", About = "a")
 
-NODE_H <- list(Theme = 46, Project = 66, Funding = 44, Vote = 44)
-NODE_W <- list(Theme = 195, Project = 444, Skill = 225, Funding = 255, Vote = 255)
+NODE_H <- list(Theme = 46, Project = 66, Skill = 46, About = 46)
+NODE_W <- list(Theme = 195, Project = 444, Skill = 225, About = 255)
 
 HEADER_MARGIN <- 70L
+
+# Vertical gap between the bottom of the Theme block and the "About" section (reserves
+# room for the "About" sub-header that sits above the first About node in the Theme column).
+ABOUT_HEADER_GAP <- 64L
+
+# ── Articles (full-text) manifest ─────────────────────────────────────────────
+# Pull the YAML `title:` and the first body paragraph (preview) from a .qmd source.
+parse_qmd_meta <- function(path) {
+  lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
+  title <- ""; preview <- ""
+  fences <- which(grepl("^---\\s*$", lines))   # YAML front matter = first two `---` lines
+  body_start <- 1L
+  if (length(fences) >= 2) {
+    yaml_lines <- lines[(fences[1] + 1):(fences[2] - 1)]
+    body_start <- fences[2] + 1L
+    tm <- grep("^title\\s*:", yaml_lines, value = TRUE)
+    if (length(tm)) {
+      title <- sub("^title\\s*:\\s*", "", tm[1])
+      title <- gsub('^["\']|["\']$', "", trimws(title))
+    }
+  }
+  body <- if (body_start <= length(lines)) lines[body_start:length(lines)] else character(0)
+  for (ln in body) {
+    t <- trimws(ln)
+    # Skip blanks, headings, list markers ("- "/"* "/"+ "), blockquotes, tables, code fences, images.
+    if (t == "" || grepl("^#", t) || grepl("^([-*+] |>|:|\\||`)", t) || grepl("^!\\[", t)) next
+    t <- gsub("[*_`]", "", t)                       # drop emphasis / code markers
+    t <- gsub("\\[([^]]+)\\]\\([^)]*\\)", "\\1", t)  # links -> their text
+    preview <- t; break
+  }
+  if (nchar(preview) > 220) preview <- paste0(substr(preview, 1, 217), "...")
+  list(title = title, preview = preview)
+}
+
+# Scan an articles/ folder of <id>.qmd files -> list(manifest = [{id,title,preview,url}], ids = chr).
+scan_articles <- function(articles_dir) {
+  manifest <- list(); ids <- character(0)
+  if (dir.exists(articles_dir)) {
+    for (qf in list.files(articles_dir, pattern = "\\.qmd$", full.names = TRUE)) {
+      id <- sub("\\.qmd$", "", basename(qf))
+      if (grepl("^_", id)) next                     # skip _quarto.yml-style partials
+      meta <- parse_qmd_meta(qf)
+      ids <- c(ids, id)
+      manifest[[length(manifest) + 1]] <- list(
+        id      = id,
+        title   = if (nzchar(meta$title)) meta$title else paste("Article", id),
+        preview = meta$preview,
+        url     = paste0("articles/", id, ".html")
+      )
+    }
+  }
+  list(manifest = manifest, ids = ids)
+}
 
 # ── Mobile layout defaults ───────────────────────────────────────────────────
 
@@ -30,8 +83,7 @@ GROUP_COLORS <- list(
   Theme   = "#3be37a",
   Project = "#ffad33",
   Skill   = "#78e6e7",
-  Funding = "#78c4e8",
-  Vote    = "#e8c478"
+  About   = "#9fb0bf"
 )
 
 # ── Funding preference text (rendered in sidebar) ────────────────────────────
@@ -279,10 +331,10 @@ stack_extent <- function(y_map, seq_list) {
 shift_y <- function(y_map, delta) lapply(y_map, function(v) v + delta)
 
 build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
-                            font_node = 12, font_ptype = 12, font_subs = 15, font_desc = 11.5,
+                            font_node = 12, font_ptype = 12, font_subs = 15, font_desc = 18,
                             font_hdr1 = 22, font_hdr2 = 15,
                             h_theme = 46, h_project = 66, h_skill = 46,
-                            w_project = NODE_W$Project,
+                            w_project = NODE_W$Project, inline_mode = FALSE,
                             watermark_text = "", watermark_size = 10,
                             col_bg = "#0b3552", col_sidebar_bg = "#081626", col_node_bg = "#081626",
                             col_theme = "#3be37a", col_project = "#ffad33", col_skill = "#78e6e7",
@@ -292,26 +344,35 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                             hdr_theme_line1   = "Themes",   hdr_theme_line2   = "I want to focus on",
                             hdr_project_line1 = "Projects", hdr_project_line2 = "I\u2019m working on or want to work on",
                             hdr_skill_line1   = "Skills",   hdr_skill_line2   = "I have or want to develop",
+                            hdr_about_line1   = "About",
+                            col_about = "#9fb0bf", fi_hdr_about_line1 = "",
                             fi_hdr_theme_line1   = "", fi_hdr_theme_line2   = "",
                             fi_hdr_project_line1 = "", fi_hdr_project_line2 = "",
                             fi_hdr_skill_line1   = "", fi_hdr_skill_line2   = "") {
   nodes_list <- g$nodes; edges_list <- g$edges; order_map <- g$order %||% list()
   nmap <- list(); for (n in nodes_list) nmap[[as.character(as.numeric(n$id))]] <- n
-  col_x <- list(Theme = 0, Project = gap_col, Skill = gap_col * 2)
-  
+  # Inline UI mode: Theme/Skill are as wide as Project, and columns spread out (sidebar space freed)
+  inline <- isTRUE(inline_mode)
+  node_w_for <- function(grp) if (grp == "Project" || inline) w_project else (NODE_W[[grp]] %||% 200)
+  col_gap <- if (inline) max(gap_col, w_project + 90) else gap_col
+  col_x <- list(Theme = 0, Project = col_gap, Skill = col_gap * 2, About = col_gap * 2)
+
   # Use custom node heights
-  node_h_map <- list(Theme = h_theme, Project = h_project)
+  node_h_map <- list(Theme = h_theme, Project = h_project, About = NODE_H[["About"]] %||% 46)
   
   theme_ids <- make_ordered_ids(order_map, nodes_list, "Theme")
   proj_ids  <- make_ordered_ids(order_map, nodes_list, "Project")
   skill_ids <- make_ordered_ids(order_map, nodes_list, "Skill")
+  about_ids <- make_ordered_ids(order_map, nodes_list, "About")
+  h_about   <- NODE_H[["About"]] %||% 46
   theme_seq <- lapply(theme_ids, function(id) list(id = id, group = "Theme", h = h_theme))
   proj_seq  <- lapply(proj_ids,  function(id) list(id = id, group = "Project", h = h_project))
   skill_seq <- lapply(skill_ids, function(id) {
     nd <- nmap[[as.character(id)]]; h <- if (!is.null(nd)) skill_node_height(nd, h_skill) else h_skill
     list(id = id, group = "Skill", h = h)
   })
-  
+  about_seq <- lapply(about_ids, function(id) list(id = id, group = "About", h = h_about))
+
   theme_y_raw <- y_positions(theme_seq, gap_v)
   proj_y_raw  <- y_positions(proj_seq,  gap_v)
   skill_y_raw <- y_positions(skill_seq, gap_v)
@@ -319,39 +380,61 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
   proj_ext  <- stack_extent(proj_y_raw,  proj_seq)
   skill_ext <- stack_extent(skill_y_raw, skill_seq)
   max_h1 <- max(theme_ext[2]-theme_ext[1], proj_ext[2]-proj_ext[1], skill_ext[2]-skill_ext[1])
-  
-  theme_y <- shift_y(theme_y_raw, (max_h1-(theme_ext[2]-theme_ext[1]))/2 - theme_ext[1])
-  proj_y  <- shift_y(proj_y_raw,  (max_h1-(proj_ext[2]-proj_ext[1]))/2  - proj_ext[1])
-  skill_y <- shift_y(skill_y_raw, (max_h1-(skill_ext[2]-skill_ext[1]))/2 - skill_ext[1])
-  
-  header_margin_total <- HEADER_MARGIN + round((h_project + gap_v) / 2)
+
   proj_top  <- (max_h1 - (proj_ext[2]  - proj_ext[1]))  / 2
-  theme_top <- (max_h1 - (theme_ext[2] - theme_ext[1])) / 2
-  skill_top <- (max_h1 - (skill_ext[2] - skill_ext[1])) / 2
+  # Inline UI: top-align Theme/Skill with the Project column instead of vertically centering them.
+  theme_top <- if (inline) proj_top else (max_h1 - (theme_ext[2] - theme_ext[1])) / 2
+  skill_top <- if (inline) proj_top else (max_h1 - (skill_ext[2] - skill_ext[1])) / 2
+
+  theme_y <- shift_y(theme_y_raw, theme_top - theme_ext[1])
+  proj_y  <- shift_y(proj_y_raw,  proj_top  - proj_ext[1])
+  skill_y <- shift_y(skill_y_raw, skill_top - skill_ext[1])
+
+  # About section: stacks in the Skill column, below the skill block, separated by a gap that
+  # reserves room for the "About" sub-header. Empty when no About nodes exist.
+  about_y <- list()
+  if (length(about_seq) > 0) {
+    skill_bottom <- if (length(skill_seq) > 0) (skill_top + (skill_ext[2] - skill_ext[1])) else skill_top
+    about_y_raw  <- y_positions(about_seq, gap_v)
+    about_ext    <- stack_extent(about_y_raw, about_seq)
+    about_top    <- skill_bottom + gap_v + ABOUT_HEADER_GAP
+    about_y      <- shift_y(about_y_raw, about_top - about_ext[1])
+  }
+
+  header_margin_total <- HEADER_MARGIN + round((h_project + gap_v) / 2)
   gap_to_top <- proj_top + header_margin_total
   headers <- list(
     list(x=col_x[["Theme"]],   y=round(theme_top - gap_to_top), color=col_theme,   line1=hdr_theme_line1,   line1_fi=fi_hdr_theme_line1,   line2=hdr_theme_line2,   line2_fi=fi_hdr_theme_line2),
     list(x=col_x[["Project"]], y=round(proj_top  - gap_to_top), color=col_project, line1=hdr_project_line1, line1_fi=fi_hdr_project_line1, line2=hdr_project_line2, line2_fi=fi_hdr_project_line2),
     list(x=col_x[["Skill"]],   y=round(skill_top - gap_to_top), color=col_skill,   line1=hdr_skill_line1,   line1_fi=fi_hdr_skill_line1,   line2=hdr_skill_line2,   line2_fi=fi_hdr_skill_line2)
   )
-  
+  # "About" sub-header: not a top-of-column header — positioned by render.js relative to its
+  # anchor (the first About node), so it tracks scroll/expansion of the Theme column.
+  if (length(about_seq) > 0) {
+    headers <- c(headers, list(list(
+      x=col_x[["About"]], y=round(about_top - gap_to_top), color=col_about,
+      line1=hdr_about_line1, line1_fi=fi_hdr_about_line1, line2="", line2_fi="",
+      sub=TRUE, anchorId=as.character(about_ids[[1]])
+    )))
+  }
+
   node_pos <- list()
   for (n in nodes_list) {
     id <- as.numeric(n$id); sid <- as.character(id); grp <- n$group %||% "Theme"
-    if (!(grp %in% c("Theme","Project","Skill"))) next
+    if (!(grp %in% c("Theme","Project","Skill","About"))) next
     node_h <- if (grp=="Skill") skill_node_height(n, h_skill) else (node_h_map[[grp]] %||% 46)
-    y_val <- switch(grp, Theme=theme_y[[sid]], Project=proj_y[[sid]], Skill=skill_y[[sid]], NULL) %||% 0
-    node_pos[[sid]] <- list(x=col_x[[grp]]%||%0, y=y_val, w=(if(grp=="Project") w_project else NODE_W[[grp]])%||%200, h=node_h, group=grp)
+    y_val <- switch(grp, Theme=theme_y[[sid]], Project=proj_y[[sid]], Skill=skill_y[[sid]], About=about_y[[sid]], NULL) %||% 0
+    node_pos[[sid]] <- list(x=col_x[[grp]]%||%0, y=y_val, w=node_w_for(grp)%||%200, h=node_h, group=grp)
   }
-  
+
   cy_nodes <- list()
   for (n in nodes_list) {
-    grp <- n$group %||% "Theme"; if (!(grp %in% c("Theme","Project","Skill"))) next
+    grp <- n$group %||% "Theme"; if (!(grp %in% c("Theme","Project","Skill","About"))) next
     sid <- as.character(as.numeric(n$id)); np <- node_pos[[sid]]; if (is.null(np)) next
     subs_str <- paste(as.character(unlist(n$subs %||% list())), collapse="||")
     cy_nodes <- c(cy_nodes, list(list(
       data=list(id=sid, label=n$title%||%"", label_fi=n$title_fi%||%"", group=np$group, ptype=n$ptype%||%"", w=np$w, h=np$h, subs=subs_str,
-                edgeColor=n$edgeColor%||%"", lightEdgeColor=n$lightEdgeColor%||%""),
+                edgeColor=n$edgeColor%||%"", lightEdgeColor=n$lightEdgeColor%||%"", openDefault=isTRUE(n$openDefault)),
       position=list(x=np$x, y=np$y))))
   }
   
@@ -426,10 +509,11 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
 # ── Dual layout builder (desktop + mobile) ───────────────────────────────────
 
 build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
-                                 font_node = 12, font_ptype = 12, font_subs = 15, font_desc = 11.5,
+                                 font_node = 12, font_ptype = 12, font_subs = 15, font_desc = 18,
                                  font_hdr1 = 22, font_hdr2 = 15,
                                  h_theme = 46, h_project = 66, h_skill = 46,
-                                 w_project = NODE_W$Project,
+                                 w_project = NODE_W$Project, inline_mode = FALSE,
+                                 articles_enabled = FALSE,
                                  watermark_text = "", watermark_size = 10,
                                  col_bg = "#0b3552", col_sidebar_bg = "#081626", col_node_bg = "#081626",
                                  col_theme = "#3be37a", col_project = "#ffad33", col_skill = "#78e6e7",
@@ -442,12 +526,14 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                                  hdr_theme_line1   = "Themes",   hdr_theme_line2   = "I want to focus on",
                                  hdr_project_line1 = "Projects", hdr_project_line2 = "I\u2019m working on or want to work on",
                                  hdr_skill_line1   = "Skills",   hdr_skill_line2   = "I have or want to develop",
+                                 hdr_about_line1   = "About",    col_about = "#9fb0bf", fi_hdr_about_line1 = "",
                                  fi_hdr_theme_line1   = "", fi_hdr_theme_line2   = "",
                                  fi_hdr_project_line1 = "", fi_hdr_project_line2 = "",
                                  fi_hdr_skill_line1   = "", fi_hdr_skill_line2   = "") {
   hdr_args <- list(hdr_theme_line1=hdr_theme_line1, hdr_theme_line2=hdr_theme_line2,
                    hdr_project_line1=hdr_project_line1, hdr_project_line2=hdr_project_line2,
                    hdr_skill_line1=hdr_skill_line1, hdr_skill_line2=hdr_skill_line2,
+                   hdr_about_line1=hdr_about_line1, col_about=col_about, fi_hdr_about_line1=fi_hdr_about_line1,
                    fi_hdr_theme_line1=fi_hdr_theme_line1, fi_hdr_theme_line2=fi_hdr_theme_line2,
                    fi_hdr_project_line1=fi_hdr_project_line1, fi_hdr_project_line2=fi_hdr_project_line2,
                    fi_hdr_skill_line1=fi_hdr_skill_line1, fi_hdr_skill_line2=fi_hdr_skill_line2)
@@ -457,7 +543,7 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                              font_subs=font_subs, font_desc=font_desc,
                              font_hdr1=font_hdr1, font_hdr2=font_hdr2,
                              h_theme=h_theme, h_project=h_project, h_skill=h_skill,
-                             w_project=w_project,
+                             w_project=w_project, inline_mode=inline_mode,
                              watermark_text=watermark_text, watermark_size=watermark_size,
                              col_bg=col_bg, col_sidebar_bg=col_sidebar_bg, col_node_bg=col_node_bg,
                              col_theme=col_theme, col_project=col_project, col_skill=col_skill,
@@ -485,6 +571,7 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                             light_edge_color=light_edge_color), hdr_args))
   # Attach mobile as nested field (backward-compatible: top-level = desktop)
   desktop$mobile <- mobile
+  desktop$articles_enabled <- isTRUE(articles_enabled)
   desktop
 }
 

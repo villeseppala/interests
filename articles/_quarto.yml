@@ -1,0 +1,13 @@
+project:
+  type: default
+  output-dir: ../site/articles
+
+format:
+  html:
+    theme: darkly
+    css: article.css
+    toc: true
+    toc-location: right
+    include-before-body: _nav-header.html
+    include-after-body: _article-footer.html
+    anchor-sections: true

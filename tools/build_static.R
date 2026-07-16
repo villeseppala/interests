@@ -22,12 +22,14 @@ cd <- build_dual_cyto_data(g,
   font_node        = ly$font_node        %||% 12,
   font_ptype       = ly$font_ptype       %||% 12,
   font_subs        = ly$font_subs        %||% 15,
-  font_desc        = ly$font_desc        %||% 11.5,
+  font_desc        = ly$font_desc        %||% 18,
   font_hdr1        = ly$font_hdr1        %||% 22,
   font_hdr2        = ly$font_hdr2        %||% 15,
   h_theme          = ly$h_theme          %||% 46,
   h_project        = ly$h_project        %||% 66,
   h_skill          = ly$h_skill          %||% 46,
+  w_project        = ly$w_project        %||% NODE_W$Project,
+  inline_mode      = isTRUE(ly$inline_mode %||% TRUE),
   watermark_text   = ly$watermark_text   %||% "",
   watermark_size   = ly$watermark_size   %||% 10,
   col_bg           = ly$col_bg           %||% "#0b3552",
@@ -55,6 +57,8 @@ cd <- build_dual_cyto_data(g,
   hdr_project_line2    = ly$hdr_project_line2    %||% "I\u2019m working on or want to work on",
   hdr_skill_line1      = ly$hdr_skill_line1      %||% "Skills",
   hdr_skill_line2      = ly$hdr_skill_line2      %||% "I have or want to develop",
+  hdr_about_line1      = ly$hdr_about_line1      %||% "About",
+  fi_hdr_about_line1   = ly$fi_hdr_about_line1   %||% "",
   fi_hdr_theme_line1   = ly$fi_hdr_theme_line1   %||% "",
   fi_hdr_theme_line2   = ly$fi_hdr_theme_line2   %||% "",
   fi_hdr_project_line1 = ly$fi_hdr_project_line1 %||% "",
@@ -62,6 +66,29 @@ cd <- build_dual_cyto_data(g,
   fi_hdr_skill_line1   = ly$fi_hdr_skill_line1   %||% "",
   fi_hdr_skill_line2   = ly$fi_hdr_skill_line2   %||% ""
 )
+
+# ── Articles (full texts) ─────────────────────────────────────────────────────
+# Source .qmd files live in articles/<id>.qmd; Quarto renders them to site/articles/<id>.html.
+# Here we scan the sources to build the manifest (articles.json) and to mark which nodes
+# have an article. Rendering the HTML is a separate `quarto render articles` step.
+ARTICLES_DIR <- "articles"
+
+# Render the .qmd sources to site/articles/<id>.html via Quarto (part of this one build).
+if (dir.exists(ARTICLES_DIR) && length(list.files(ARTICLES_DIR, pattern = "\\.qmd$"))) {
+  if (nzchar(Sys.which("quarto"))) {
+    cat("Rendering articles with Quarto...\n")
+    rc <- tryCatch(system2("quarto", c("render", shQuote(ARTICLES_DIR))),
+                   error = function(e) { cat("  quarto render failed:", conditionMessage(e), "\n"); 1L })
+    if (!identical(rc, 0L)) cat("  (quarto render returned non-zero; article HTML may be stale)\n")
+  } else {
+    cat("Note: 'quarto' not found on PATH — skipping article HTML render (manifest still built).\n")
+  }
+}
+
+# Manifest + which node ids have an article (shared helper in layout.R)
+.art        <- scan_articles(ARTICLES_DIR)
+articles    <- .art$manifest
+article_ids <- .art$ids
 
 # ── Descriptions lookup (keyed by node id) ────────────────────────────────────
 descriptions <- list()
@@ -71,13 +98,19 @@ for (n in g$nodes) {
   if (is.null(pre)) next
   key    <- paste0(pre, n$id)
   fi_key <- paste0("fi_", pre, n$id)
-  descriptions[[as.character(n$id)]] <- list(
+  nid    <- as.character(n$id)
+  entry <- list(
     title    = n$title    %||% paste(grp, n$id),
     title_fi = n$title_fi %||% "",
     text     = desc_map[[key]]    %||% "",
     text_fi  = desc_map[[fi_key]] %||% "",
     group    = grp
   )
+  if (nid %in% article_ids) {
+    entry$hasArticle <- TRUE
+    entry$articleUrl <- paste0("articles/", nid, ".html")
+  }
+  descriptions[[nid]] <- entry
 }
 
 # ── Sidebar content ───────────────────────────────────────────────────────────
@@ -129,14 +162,51 @@ cd$ptypeLayout   <- list(
   ptypePct         = as.numeric(ly$ptype_pct %||% 10),
   projectNodeWidth = as.numeric(ly$w_project %||% NODE_W$Project)
 )
+cd$gradient_extent <- as.numeric(ly$gradient_extent %||% 20)
+cd$gradient_transparency <- as.numeric(ly$gradient_transparency %||% 40)
+cd$gradient_curve <- as.numeric(ly$gradient_curve %||% 1)
+cd$gradient_hover_mult <- as.numeric(ly$gradient_hover_mult %||% 2)
+cd$node_outline <- as.numeric(ly$node_outline %||% 3)
 cd$edge_width <- as.numeric(ly$edge_width %||% 2.5)
+cd$edge_bands <- isTRUE(ly$edge_bands %||% TRUE)
+cd$edge_sankey <- isTRUE(ly$edge_sankey %||% FALSE)
+cd$edge_gap <- as.numeric(ly$edge_gap %||% 3)
+cd$edge_transparency <- as.numeric(ly$edge_transparency %||% 18)
+cd$edge_min_width <- as.numeric(ly$edge_min_width %||% 2.5)
+cd$edge_min_on <- isTRUE(ly$edge_min_on %||% TRUE)
+cd$edge_curve <- as.numeric(ly$edge_curve %||% 1)
+cd$edge_pin_header <- isTRUE(ly$edge_pin_header %||% FALSE)
+cd$fill_nodew <- as.numeric(ly$fill_nodew %||% 0)
+cd$fill_projw <- as.numeric(ly$fill_projw %||% 0)
+cd$fill_colgap <- as.numeric(ly$fill_colgap %||% 0)
+cd$inline_mode <- isTRUE(ly$inline_mode %||% TRUE)
+cd$articles_enabled <- isTRUE(ly$articles_enabled %||% FALSE)
+cd$accordion_icon <- ly$accordion_icon %||% "triangle"
+cd$accordion_icon_size <- as.numeric(ly$accordion_icon_size %||% 14)
 cd$github_url <- ly$github_url %||% "#"
 
 write_json(cd, file.path(OUT_DIR, "payload.json"), auto_unbox = TRUE, null = "null")
 
+# Article manifest for the nav dropdown + landing page (empty array when no articles)
+write_json(articles, file.path(OUT_DIR, "articles.json"), auto_unbox = TRUE, null = "null")
+
 # Copy static assets
 file.copy(file.path("app_publish", "www", "render.js"), file.path(OUT_DIR, "render.js"), overwrite = TRUE)
 file.copy(file.path("app_publish", "www", "style.css"), file.path(OUT_DIR, "style.css"), overwrite = TRUE)
+
+# Cache-bust the asset references in index.html so a rebuild is always picked up by the browser
+# (otherwise a stale cached render.js/style.css/payload.json keeps the old behaviour, e.g. inline UI
+# not applying after a rebuild). Stamps ?v=<build time>, re-stamping any existing ?v= on each build.
+idx_path <- file.path(OUT_DIR, "index.html")
+if (file.exists(idx_path)) {
+  stamp <- as.integer(Sys.time())
+  html  <- paste(readLines(idx_path, warn = FALSE), collapse = "\n")
+  html  <- gsub('(href="style\\.css)(\\?v=[0-9]+)?"',      sprintf('\\1?v=%d"', stamp), html)
+  html  <- gsub('(src="render\\.js)(\\?v=[0-9]+)?"',       sprintf('\\1?v=%d"', stamp), html)
+  html  <- gsub("(fetch\\('payload\\.json)(\\?v=[0-9]+)?'", sprintf("\\1?v=%d'", stamp), html)
+  writeLines(html, idx_path)
+  cat(sprintf("  index.html    cache-busted (v=%d)\n", stamp))
+}
 
 cat(sprintf("Static site built in %s/\n", OUT_DIR))
 cat(sprintf("  payload.json  %s bytes\n", format(file.info(file.path(OUT_DIR, "payload.json"))$size, big.mark = ",")))

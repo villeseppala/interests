@@ -7,6 +7,49 @@
 html, body { height:100%; margin:0; background:#1e1b2e; overflow:hidden; }
 .container-fluid { padding:0 !important; margin:0 !important; }
 #main-row { display:flex; height:100vh; overflow:hidden; }
+/* When the site nav bar is present, the graph area + full-height sidebar sit below it (minus 46px),
+   so their bottoms stay on-screen and scrollable. */
+body:has(#site-nav) #main-row,
+body:has(#site-nav) #info-sidebar,
+body:has(#site-nav) #sidebar-resize-handle { height:calc(100vh - 46px); }
+
+/* ── Shared top nav bar (static site; kept in sync with articles/article.css + articles.html) ── */
+#site-nav { display:flex; align-items:center; gap:22px; height:46px; padding:0 20px;
+  background:#081626; border-bottom:1px solid rgba(255,255,255,0.12);
+  font-family:Arial,Helvetica,sans-serif; position:relative; z-index:1000; box-sizing:border-box; }
+#site-nav a { color:#e8eef4; text-decoration:none; }
+#site-nav .nav-brand { font-weight:700; font-size:16px; letter-spacing:0.02em; }
+#site-nav .nav-dropdown { position:relative; }
+#site-nav .nav-dropdown > a { font-size:14px; opacity:0.92; }
+#site-nav .nav-caret { font-size:10px; margin-left:4px; opacity:0.7; }
+#site-nav .nav-menu { position:absolute; top:100%; left:0; min-width:260px; background:#081626;
+  border:1px solid rgba(255,255,255,0.14); border-radius:6px; box-shadow:0 8px 24px rgba(0,0,0,0.35);
+  padding:6px 0; display:none; max-height:70vh; overflow-y:auto; }
+#site-nav .nav-dropdown:hover .nav-menu, #site-nav .nav-menu:hover { display:block; }
+#site-nav .nav-menu a { display:block; padding:7px 16px; font-size:13.5px; white-space:nowrap; color:#e8eef4; }
+#site-nav .nav-menu a:hover { background:rgba(255,255,255,0.08); }
+#site-nav .nav-menu .nav-menu-empty { padding:7px 16px; font-size:13px; color:rgba(232,238,244,0.7); font-style:italic; }
+body.light-mode #site-nav { background:#e2eaf3; border-bottom-color:rgba(0,0,0,0.12); }
+body.light-mode #site-nav a { color:#0b2740; }
+body.light-mode #site-nav .nav-menu { background:#eef2f8; border-color:rgba(0,0,0,0.14); }
+body.light-mode #site-nav .nav-menu a:hover { background:rgba(0,0,0,0.06); }
+
+/* ── Editable node titles + descriptions (author app inline UI) ── */
+body.author-editable .node-title-edit { cursor:text; }
+body.author-editable .node-title-edit:hover { background:rgba(255,255,255,0.12); }
+.node-title-edit:focus { background:rgba(255,255,255,0.20); box-shadow:0 0 0 1px rgba(255,255,255,0.5); }
+body.light-mode .node-title-edit:hover { background:rgba(0,0,0,0.08); }
+body.light-mode .node-title-edit:focus { background:rgba(0,0,0,0.12); box-shadow:0 0 0 1px rgba(0,0,0,0.4); }
+body.author-editable .inline-node-desc { cursor:text; }
+body.author-editable .inline-node-desc:hover { box-shadow:inset 0 0 0 1px rgba(120,180,255,0.4); }
+
+/* ── "Read full article →" link inside descriptions (inline node + sidebar + mobile) ── */
+.article-link { display:inline-block; margin-top:10px; padding:5px 12px; border-radius:6px;
+  font-family:Arial,Helvetica,sans-serif; font-size:13px; font-weight:600; text-decoration:none;
+  color:#0b3552; background:#78e6e7; pointer-events:auto !important; cursor:pointer; }
+.article-link:hover { background:#8ff0f1; }
+.inline-article-link { position:relative; z-index:7; }
+body.light-mode .article-link { background:#1a7a7b; color:#eafcff; }
 
 .col-spacer { width:3vw; flex-shrink:0; }
 
@@ -287,3 +330,84 @@ body.light-mode .mob-tab-pane div { color:rgba(0,0,0,0.8) !important; }
 body.light-mode #mob-desc-body { color:rgba(0,0,0,0.82) !important; }
 body.light-mode #mob-handle { background:rgba(0,0,0,0.12); }
 body.light-mode #mob-handle::after { background:rgba(0,0,0,0.25); }
+
+/* ── Inline UI mode (experimental) ──────────────────────────────────────── */
+#inline-sidebar-btn { display:none; }
+body.inline-mode #inline-sidebar-btn {
+  display:block; position:fixed; top:10px; left:10px; z-index:1000;
+  background:rgba(8,22,38,0.92); color:rgba(255,255,255,0.92);
+  border:1px solid rgba(255,255,255,0.25); border-radius:6px;
+  font-family:Arial,Helvetica,sans-serif; font-size:13px; font-weight:bold;
+  padding:6px 12px; cursor:pointer; }
+body.inline-mode #inline-sidebar-btn:hover { background:rgba(20,40,60,0.96); }
+/* Info sidebar becomes a compact controls box pinned to the top-right of the graph area.
+   Site info now lives in the "About" nodes, so this box only holds the title + controls. */
+body.inline-mode #info-sidebar {
+  position:fixed !important; top:8px !important; right:8px !important; left:auto !important;
+  width:auto !important; min-width:0 !important; max-width:min(340px,44vw) !important;
+  height:auto !important; max-height:none !important;
+  z-index:1000; background:transparent; overflow:visible;
+  border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.4); }
+body.inline-mode #info-sidebar #page-title {
+  border-radius:8px; border-bottom:none; padding:8px 12px 8px;
+  background:rgba(8,22,38,0.92); }
+body.inline-mode #info-sidebar #page-title > div:first-child { font-size:15px; }
+/* Header cluster spanning the bar: title/controls on the LEFT, zoom + Open/Collapse on the RIGHT. */
+body.inline-mode #inline-header-right {
+  position:fixed; top:0; left:10px; right:10px; height:46px; z-index:1001;
+  display:flex; align-items:center; gap:16px; }
+body.inline-mode #inline-header-right #inline-zoom { margin-left:auto; }
+/* Hidden for now: the nav brand ("Interests") and the "Draft/final projects" dropdown */
+body.inline-mode #site-nav .nav-brand,
+body.inline-mode #site-nav .nav-dropdown { display:none !important; }
+body.inline-mode #inline-header-right #inline-allbtns {
+  position:static; transform:none; top:auto; left:auto; right:auto; height:auto; gap:2px; }
+body.inline-mode #inline-header-right #info-sidebar {
+  position:static !important; top:auto !important; right:auto !important; left:auto !important;
+  height:auto !important; max-width:none !important; box-shadow:none !important; border-radius:0 !important; }
+body.inline-mode #inline-header-right #info-sidebar #page-title {
+  flex-direction:row; align-items:center; gap:10px;
+  padding:0; background:transparent; border-radius:0; white-space:nowrap; }
+body.inline-mode #inline-header-right #info-sidebar #page-title > div:first-child { font-size:13px; white-space:nowrap; }
+body.inline-mode #inline-header-right .inline-allbtn { font-size:10.5px; padding:2px 6px; }
+body.inline-mode #inline-header-right .inline-btnlbl { font-size:10px; min-width:42px; }
+body.inline-mode #sidebar-scroll { display:none !important; }
+body.inline-mode #sidebar-resize-handle { display:none; }
+/* Graph fills the whole row */
+body.inline-mode #graph-area { width:100%; flex:1 1 100%; overflow:hidden; }
+/* Links inside in-node descriptions are clickable (rest of the node stays click-through to toggle) */
+.inline-node-desc a { pointer-events:auto !important; cursor:pointer; }
+body.light-mode.inline-mode #inline-sidebar-btn {
+  background:rgba(226,234,243,0.95); color:rgba(0,0,0,0.8); border-color:rgba(0,0,0,0.25); }
+/* Open all / Collapse all (per-column) controls (inline UI) */
+#inline-allbtns { display:none; }
+body.inline-mode #inline-allbtns { display:flex; flex-direction:column; gap:4px;
+  position:fixed; top:8px; left:12px; z-index:1001; align-items:flex-start; }
+body.inline-mode .inline-btnrow { display:flex; gap:4px; align-items:center; }
+body.inline-mode .inline-btnlbl {
+  color:rgba(255,255,255,0.75); font-family:Arial,Helvetica,sans-serif; font-size:11px;
+  font-weight:bold; min-width:52px; text-align:right; margin-right:2px; }
+body.inline-mode .inline-allbtn {
+  background:rgba(8,22,38,0.92); color:rgba(255,255,255,0.92);
+  border:1px solid rgba(255,255,255,0.25); border-radius:5px;
+  font-family:Arial,Helvetica,sans-serif; font-size:11.5px; font-weight:bold;
+  padding:3px 8px; cursor:pointer; }
+body.inline-mode .inline-allbtn:hover { background:rgba(20,40,60,0.96); }
+body.light-mode.inline-mode .inline-btnlbl { color:rgba(0,0,0,0.6); }
+body.light-mode.inline-mode .inline-allbtn {
+  background:rgba(226,234,243,0.95); color:rgba(0,0,0,0.8); border-color:rgba(0,0,0,0.25); }
+/* Zoom control (−  100%  +  ⤢) — sits in the header cluster; pinch / Ctrl+wheel also zoom */
+#inline-zoom { display:none; }
+body.inline-mode #inline-zoom { display:flex; align-items:center; gap:3px; }
+body.inline-mode .inline-zoombtn {
+  background:rgba(8,22,38,0.92); color:rgba(255,255,255,0.92);
+  border:1px solid rgba(255,255,255,0.25); border-radius:5px;
+  font-family:Arial,Helvetica,sans-serif; font-size:13px; font-weight:bold; line-height:1;
+  width:22px; height:22px; padding:0; cursor:pointer; }
+body.inline-mode .inline-zoombtn:hover { background:rgba(20,40,60,0.96); }
+body.inline-mode #inline-zoom-pct {
+  color:rgba(255,255,255,0.8); font-family:Arial,Helvetica,sans-serif; font-size:10.5px;
+  font-weight:bold; min-width:34px; text-align:center; }
+body.light-mode.inline-mode .inline-zoombtn {
+  background:rgba(226,234,243,0.95); color:rgba(0,0,0,0.8); border-color:rgba(0,0,0,0.25); }
+body.light-mode.inline-mode #inline-zoom-pct { color:rgba(0,0,0,0.6); }

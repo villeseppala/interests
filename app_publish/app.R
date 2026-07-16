@@ -22,6 +22,10 @@ read_desc <- function(path) {
 # Canonical CSS lives in www/style.css (shared with static site build)
 APP_CSS <- paste(readLines("www/style.css", warn = FALSE), collapse = "\n")
 
+# ── Article manifest for the nav dropdown (nav links resolve to the deployed site) ────
+jsonlite::write_json(scan_articles(here("articles"))$manifest,
+                     "www/articles.json", auto_unbox = TRUE, null = "null")
+
 # ── UI ───────────────────────────────────────────────────────────────────────
 ui <- fluidPage(
   tags$head(
@@ -29,9 +33,14 @@ ui <- fluidPage(
     tags$style(HTML(APP_CSS)),
     tags$link(rel = "stylesheet", href = "https://cdnjs.cloudflare.com/ajax/libs/flag-icons/7.2.3/css/flag-icons.min.css"),
     tags$script(src = "https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"),
-    tags$script(src = paste0("render.js?v=", as.integer(file.mtime("www/render.js"))))
+    tags$script(src = paste0("render.js?v=", as.integer(file.mtime("www/render.js")))),
+    tags$script(HTML("window.SITE_NAV_BASE='https://villeseppala.github.io/interests/';")),
+    tags$script(src = paste0("site-nav.js?v=", as.integer(file.mtime("www/site-nav.js"))))
   ),
-  
+
+  # ── Shared site nav bar (links point to the deployed site; populated from www/articles.json) ──
+  div(id = "site-nav"),
+
   div(id = "main-row",
 
       # ── Left spacer ──
@@ -117,25 +126,14 @@ ui <- fluidPage(
 
       # ── Mobile bottom panel ──
       div(id = "mob-panel",
+          # Site info now lives in the "About" nodes in the graph; only Settings remains as a tab.
           div(id = "mob-tab-bar",
-              tags$button(class = "mob-tab mob-tab-active", id = "mob-tab-about",
-                          onclick = "mobShowTab('about')",
-                          span(class = "en-only", "About"), span(class = "fi-only", "Tietoa")),
-              tags$button(class = "mob-tab", id = "mob-tab-vote",
-                          onclick = "mobShowTab('vote')",
-                          span(class = "en-only", "Vote"), span(class = "fi-only", "\u00c4\u00e4nest\u00e4")),
-              tags$button(class = "mob-tab", id = "mob-tab-fund",
-                          onclick = "mobShowTab('fund')",
-                          span(class = "en-only", "Funding"), span(class = "fi-only", "Rahoitus")),
-              tags$button(class = "mob-tab", id = "mob-tab-settings",
+              tags$button(class = "mob-tab mob-tab-active", id = "mob-tab-settings",
                           onclick = "mobShowTab('settings')",
                           span(class = "en-only", "Settings"), span(class = "fi-only", "Asetukset"))
           ),
           div(id = "mob-tab-content",
-              div(id = "mob-content-about", class = "mob-tab-pane mob-tab-pane-active"),
-              div(id = "mob-content-vote",  class = "mob-tab-pane"),
-              div(id = "mob-content-fund",  class = "mob-tab-pane"),
-              div(id = "mob-content-settings", class = "mob-tab-pane")
+              div(id = "mob-content-settings", class = "mob-tab-pane mob-tab-pane-active")
           ),
           div(id = "mob-desc-panel",
               div(id = "mob-desc-header",
@@ -181,10 +179,12 @@ server <- function(input, output, session) {
   cd <- build_dual_cyto_data(g,
                              gap_v = ly$gap_v %||% 18, gap_col = ly$gap_col %||% 400,
                              font_node = ly$font_node %||% 12, font_ptype = ly$font_ptype %||% 12,
-                             font_subs = ly$font_subs %||% 15, font_desc = ly$font_desc %||% 11.5,
+                             font_subs = ly$font_subs %||% 15, font_desc = ly$font_desc %||% 18,
                              font_hdr1 = ly$font_hdr1 %||% 22, font_hdr2 = ly$font_hdr2 %||% 15,
                              h_theme = ly$h_theme %||% 46, h_project = ly$h_project %||% 66,
                              h_skill = ly$h_skill %||% 46,
+                             w_project = ly$w_project %||% NODE_W$Project, inline_mode = isTRUE(ly$inline_mode %||% TRUE),
+                             articles_enabled = isTRUE(ly$articles_enabled %||% FALSE),
                              watermark_text = ly$watermark_text %||% "",
                              watermark_size = ly$watermark_size %||% 10,
                              col_bg = ly$col_bg %||% "#0b3552",
@@ -212,6 +212,8 @@ server <- function(input, output, session) {
                              hdr_project_line2=ly$hdr_project_line2 %||% "I\u2019m working on or want to work on",
                              hdr_skill_line1=ly$hdr_skill_line1 %||% "Skills",
                              hdr_skill_line2=ly$hdr_skill_line2 %||% "I have or want to develop",
+                             hdr_about_line1=ly$hdr_about_line1 %||% "About",
+                             fi_hdr_about_line1=ly$fi_hdr_about_line1 %||% "",
                              fi_hdr_theme_line1=ly$fi_hdr_theme_line1 %||% "",
                              fi_hdr_theme_line2=ly$fi_hdr_theme_line2 %||% "",
                              fi_hdr_project_line1=ly$fi_hdr_project_line1 %||% "",
@@ -225,6 +227,26 @@ server <- function(input, output, session) {
       projectNodeWidth = as.numeric(ly$w_project %||% NODE_W$Project)
     ))
     session$sendCustomMessage("setEdgeWidth", list(width = ly$edge_width %||% 2.5))
+    session$sendCustomMessage("setEdgeBands", list(value = isTRUE(ly$edge_bands %||% TRUE)))
+    session$sendCustomMessage("setEdgeSankey", list(value = isTRUE(ly$edge_sankey %||% FALSE)))
+    session$sendCustomMessage("setEdgeGap", list(gap = ly$edge_gap %||% 3))
+    session$sendCustomMessage("setEdgeTransparency", list(pct = ly$edge_transparency %||% 18))
+    session$sendCustomMessage("setEdgeMinWidth", list(width = ly$edge_min_width %||% 2.5))
+    session$sendCustomMessage("setEdgeMinOn", list(value = isTRUE(ly$edge_min_on %||% TRUE)))
+    session$sendCustomMessage("setEdgeCurve", list(exp = ly$edge_curve %||% 1))
+    session$sendCustomMessage("setEdgePinHeader", list(value = isTRUE(ly$edge_pin_header %||% FALSE)))
+    session$sendCustomMessage("setFillNodeW", list(pct = ly$fill_nodew %||% 0))
+    session$sendCustomMessage("setFillProjW", list(pct = ly$fill_projw %||% 0))
+    session$sendCustomMessage("setFillColGap", list(pct = ly$fill_colgap %||% 0))
+    session$sendCustomMessage("setGradientExtent", list(pct = ly$gradient_extent %||% 20))
+    session$sendCustomMessage("setGradientTransparency", list(pct = ly$gradient_transparency %||% 40))
+    session$sendCustomMessage("setGradientCurve", list(curve = ly$gradient_curve %||% 1))
+    session$sendCustomMessage("setGradientHoverMult", list(mult = ly$gradient_hover_mult %||% 2))
+    session$sendCustomMessage("setNodeOutline", list(width = ly$node_outline %||% 3))
+    session$sendCustomMessage("setInlineMode", list(value = isTRUE(ly$inline_mode %||% TRUE)))
+    session$sendCustomMessage("setArticlesEnabled", list(value = isTRUE(ly$articles_enabled %||% FALSE)))
+    session$sendCustomMessage("setAccordionIcon", list(style = ly$accordion_icon %||% "triangle"))
+    session$sendCustomMessage("setAccordionIconSize", list(size = ly$accordion_icon_size %||% 14))
   })
   observe({ session$sendCustomMessage("initCy", cd) })
   observe({
@@ -339,8 +361,30 @@ server <- function(input, output, session) {
       text     = desc_map[[key]] %||% "",
       text_fi  = desc_map[[fi_key]] %||% "",
       nodeId   = id,
-      group    = grp
+      group    = grp,
+      hasArticle = file.exists(here("articles", paste0(id, ".qmd"))),
+      articleUrl = paste0("articles/", id, ".html")
     ))
+  })
+
+  # "Open all" (inline UI): send every openable node's description in one batch to expand at once.
+  # Optional group filter (msg$group = "Theme"/"Project"/"Skill", or "" for all).
+  observeEvent(input$open_all_nodes, {
+    grp_filter <- input$open_all_nodes$group %||% ""
+    nodes <- list()
+    for (n in g$nodes) {
+      grp <- n$group %||% "Theme"; pre <- GROUP_PREFIX[[grp]]
+      if (is.null(pre) || !(grp %in% c("Theme", "Project", "Skill", "About"))) next
+      if (nzchar(grp_filter) && grp != grp_filter) next
+      id <- as.numeric(n$id)
+      nodes[[length(nodes) + 1]] <- list(
+        nodeId = id, group = grp,
+        text = desc_map[[paste0(pre, id)]] %||% "", text_fi = desc_map[[paste0("fi_", pre, id)]] %||% "",
+        hasArticle = file.exists(here("articles", paste0(id, ".qmd"))),
+        articleUrl = paste0("articles/", id, ".html")
+      )
+    }
+    session$sendCustomMessage("expandAllInline", list(nodes = nodes))
   })
 }
 

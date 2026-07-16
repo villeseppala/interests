@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Draft/final projects - Ville Seppälä</title>
+  <style>
+    :root {
+      --art-bg: #0b3552; --art-fg: #e8eef4; --art-muted: rgba(232,238,244,0.7);
+      --art-accent: #78e6e7; --art-nav-bg: #081626;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--art-bg); color: var(--art-fg);
+      font-family: Arial, Helvetica, sans-serif; line-height: 1.6; }
+
+    /* Shared top nav bar (kept in sync with articles/article.css and style.css) */
+    #site-nav { display: flex; align-items: center; gap: 22px; height: 46px; padding: 0 20px;
+      background: var(--art-nav-bg); border-bottom: 1px solid rgba(255,255,255,0.12);
+      position: sticky; top: 0; z-index: 1000; }
+    #site-nav a { color: var(--art-fg); text-decoration: none; }
+    #site-nav .nav-brand { font-weight: 700; font-size: 16px; letter-spacing: 0.02em; }
+    #site-nav .nav-dropdown { position: relative; }
+    #site-nav .nav-dropdown > a { font-size: 14px; opacity: 0.92; }
+    #site-nav .nav-caret { font-size: 10px; margin-left: 4px; opacity: 0.7; }
+    #site-nav .nav-menu { position: absolute; top: 100%; left: 0; min-width: 260px;
+      background: var(--art-nav-bg); border: 1px solid rgba(255,255,255,0.14); border-radius: 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35); padding: 6px 0; display: none;
+      max-height: 70vh; overflow-y: auto; }
+    #site-nav .nav-dropdown:hover .nav-menu, #site-nav .nav-menu:hover { display: block; }
+    #site-nav .nav-menu a { display: block; padding: 7px 16px; font-size: 13.5px; white-space: nowrap; }
+    #site-nav .nav-menu a:hover { background: rgba(255,255,255,0.08); }
+    #site-nav .nav-menu .nav-menu-empty { padding: 7px 16px; font-size: 13px; color: var(--art-muted); font-style: italic; }
+
+    .wrap { max-width: 820px; margin: 0 auto; padding: 34px 22px 60px; }
+    h1 { font-size: 28px; margin: 0 0 6px; color: #fff; }
+    .lead { color: var(--art-muted); margin: 0 0 28px; }
+    .card { display: block; text-decoration: none; color: inherit;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; transition: background .12s, border-color .12s; }
+    .card:hover { background: rgba(255,255,255,0.07); border-color: var(--art-accent); }
+    .card h2 { font-size: 19px; margin: 0 0 6px; color: #fff; }
+    .card p { margin: 0; color: var(--art-muted); font-size: 14.5px; line-height: 1.55; }
+    .card .more { color: var(--art-accent); font-size: 13px; margin-top: 10px; display: inline-block; }
+    .empty { color: var(--art-muted); font-style: italic; }
+  </style>
+</head>
+<body>
+  <div id="site-nav"></div>
+  <div class="wrap">
+    <h1>Draft/final projects</h1>
+    <p class="lead">Longer write-ups behind the node descriptions in the interest graph.</p>
+    <div id="article-list"><p class="empty">Loading…</p></div>
+  </div>
+
+  <script src="site-nav.js"></script>
+  <script>
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+        return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c];
+      });
+    }
+    fetch('articles.json')
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) {
+        list = Array.isArray(list) ? list : (list.articles || []);
+        var host = document.getElementById('article-list');
+        if (!list.length) { host.innerHTML = '<p class="empty">No articles published yet.</p>'; return; }
+        host.innerHTML = list.map(function (a) {
+          return '<a class="card" href="' + esc(a.url) + '">' +
+            '<h2>' + esc(a.title) + '</h2>' +
+            (a.preview ? '<p>' + esc(a.preview) + '</p>' : '') +
+            '<span class="more">Read full article &rarr;</span></a>';
+        }).join('');
+      })
+      .catch(function () {
+        document.getElementById('article-list').innerHTML = '<p class="empty">Could not load article list.</p>';
+      });
+  </script>
+</body>
+</html>

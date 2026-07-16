@@ -1,0 +1,16 @@
+<hr class="article-foot-sep">
+<p class="article-back">
+  <a id="article-back-link" href="../index.html">&#8592; Back to this node in the graph</a>
+</p>
+<script>
+  // Derive the node id from this article's filename (e.g. 201.html -> 201) and
+  // point the back-link at the graph deep-link (#<id> opens/scrolls that node).
+  (function () {
+    var m = (location.pathname.split('/').pop() || '').match(/^([^.]+)\.html$/);
+    var id = m ? m[1] : '';
+    if (id) {
+      var a = document.getElementById('article-back-link');
+      if (a) a.setAttribute('href', '../index.html#' + id);
+    }
+  })();
+</script>

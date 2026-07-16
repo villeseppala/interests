@@ -1,0 +1,8 @@
+---
+title: "Probabilities of the end of the world"
+subtitle: "A worked example article"
+date: last-modified
+---
+
+*This is a placeholder article. The short description shown on the node in the graph
+acts as an **abstract**; this page is the fuller text it links to.*

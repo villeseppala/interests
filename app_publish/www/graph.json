@@ -4,49 +4,49 @@
       "id": 106,
       "group": "Theme",
       "title": "Russia/Ukraine",
-      "edgeColor": "#E082C2",
+      "edgeColor": "#47CFC1",
       "title_fi": "Venäjä/Ukraina",
-      "lightEdgeColor": "#C97802"
+      "lightEdgeColor": "#1492BD"
     },
     {
       "id": 101,
       "group": "Theme",
       "title": "Existential and catastropic risks",
-      "edgeColor": "#6ACA6A",
+      "edgeColor": "#4F8AD4",
       "title_fi": "Eksistentiaaliset riskit",
-      "lightEdgeColor": "#CAC512"
+      "lightEdgeColor": "#C807B2"
     },
     {
       "id": 104,
       "group": "Theme",
       "title": "Climate Change",
-      "edgeColor": "#E13551",
+      "edgeColor": "#D3477B",
       "title_fi": "Ilmastonmuutos",
-      "lightEdgeColor": "#C7640F"
+      "lightEdgeColor": "#B90A2D"
     },
     {
       "id": 105,
       "group": "Theme",
       "title": "Electricity markets",
-      "edgeColor": "#7044DB",
+      "edgeColor": "#CC6B45",
       "title_fi": "Sähkömarkkinat",
-      "lightEdgeColor": "#0DA1BC"
+      "lightEdgeColor": "#BD6108"
     },
     {
       "id": 103,
       "group": "Theme",
       "title": "European Union",
-      "edgeColor": "#DBEC97",
+      "edgeColor": "#CDC544",
       "title_fi": "Euroopan Unioni",
-      "lightEdgeColor": "#10C08B"
+      "lightEdgeColor": "#A3C701"
     },
     {
       "id": 102,
       "group": "Theme",
       "title": "Global harmony",
-      "edgeColor": "#D54CEC",
+      "edgeColor": "#83D54A",
       "title_fi": "Globaali harmonia",
-      "lightEdgeColor": "#BD1138"
+      "lightEdgeColor": "#1BC802"
     },
     {
       "id": 202,
@@ -125,45 +125,45 @@
       "group": "Skill",
       "title": "Artificial intelligence",
       "subs": [],
-      "edgeColor": "#BA1D25",
+      "edgeColor": "#297DB7",
       "title_fi": "Tekoäly",
-      "lightEdgeColor": "#C00910"
+      "lightEdgeColor": "#C10C97"
     },
     {
       "id": 301,
       "group": "Skill",
       "title": "Data visualization and graphic design",
       "subs": [],
-      "edgeColor": "#BB23A9",
+      "edgeColor": "#B82D3F",
       "title_fi": "Datavisualisointi ja graafinen suunnittelu",
-      "lightEdgeColor": "#0F62C4"
+      "lightEdgeColor": "#CB030C"
     },
     {
       "id": 302,
       "group": "Skill",
       "title": "Dashboards and websites",
       "subs": [],
-      "edgeColor": "#BE9207",
+      "edgeColor": "#C18532",
       "title_fi": "Dashboardit ja nettisivut",
-      "lightEdgeColor": "#C87504"
+      "lightEdgeColor": "#C3880D"
     },
     {
       "id": 303,
       "group": "Skill",
       "title": "Videos and streaming",
       "subs": [],
-      "edgeColor": "#7035C8",
+      "edgeColor": "#90B92A",
       "title_fi": "Videot ja striimaus",
-      "lightEdgeColor": "#9712C8"
+      "lightEdgeColor": "#01BBC8"
     },
     {
       "id": 305,
       "group": "Skill",
       "title": "Social media",
-      "edgeColor": "#53EDDB",
+      "edgeColor": "#29BB28",
       "title_fi": "Sosiaalinen media",
       "subs": [],
-      "lightEdgeColor": "#15D3CD"
+      "lightEdgeColor": "#0632D5"
     },
     {
       "id": 205.5,
@@ -210,8 +210,8 @@
       "group": "Theme",
       "title": "Finnish economy",
       "title_fi": "Suomen talous",
-      "edgeColor": "#E6C764",
-      "lightEdgeColor": "#19B10C"
+      "edgeColor": "#4ED36F",
+      "lightEdgeColor": "#02B667"
     },
     {
       "id": 209.6,
@@ -224,7 +224,7 @@
     {
       "id": 209.55,
       "group": "Project",
-      "title": "How to get Russia to end its offensive",
+      "title": "Russia's economic situation",
       "ptype": "Text",
       "pnum": 209,
       "title_fi": "Mitä saada Venäjä lopettamaan hyökkäyksensä"
@@ -233,94 +233,113 @@
       "id": 303.5,
       "group": "Skill",
       "title": "Economics",
-      "edgeColor": "#58A0EA",
-      "lightEdgeColor": "#0BC1C3",
+      "edgeColor": "#2DC095",
+      "lightEdgeColor": "#7311D0",
       "title_fi": "Taloustiede",
       "subs": []
+    },
+    {
+      "id": 901,
+      "group": "About",
+      "title": "What is this site about",
+      "title_fi": "Mikä tämä sivu on?",
+      "openDefault": true
+    },
+    {
+      "id": 902,
+      "group": "About",
+      "title": "Influence my focus",
+      "title_fi": "Vaikuta painopisteisiini"
+    },
+    {
+      "id": 903,
+      "group": "About",
+      "title": "Funding/work opportunities",
+      "title_fi": "Rahoitus- ja työmahdollisuudet"
     }
   ],
   "edges": [
     {
       "from": 101,
       "to": 201,
-      "color": "#6ACA6A",
+      "color": "#4F8AD4",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 202,
-      "color": "#6ACA6A",
+      "color": "#4F8AD4",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 204,
-      "color": "#6ACA6A",
+      "color": "#4F8AD4",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 203,
-      "color": "#D54CEC",
+      "color": "#83D54A",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 204,
-      "color": "#D54CEC",
+      "color": "#83D54A",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 203,
-      "color": "#DBEC97",
+      "color": "#CDC544",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 207,
-      "color": "#DBEC97",
+      "color": "#CDC544",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206,
-      "color": "#E13551",
+      "color": "#D3477B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 207,
-      "color": "#E13551",
+      "color": "#D3477B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 208,
-      "color": "#E13551",
+      "color": "#D3477B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 207,
-      "color": "#7044DB",
+      "color": "#CC6B45",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 208,
-      "color": "#7044DB",
+      "color": "#CC6B45",
       "dashes": false,
       "hidden": false
     },
@@ -369,21 +388,21 @@
     {
       "from": 102,
       "to": 205.5,
-      "color": "#D54CEC",
+      "color": "#83D54A",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 205.5,
-      "color": "#E13551",
+      "color": "#D3477B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 204,
-      "color": "#E13551",
+      "color": "#D3477B",
       "dashes": false,
       "hidden": false
     },
@@ -404,21 +423,21 @@
     {
       "from": 102,
       "to": 204.3,
-      "color": "#D54CEC",
+      "color": "#83D54A",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206.5,
-      "color": "#E13551",
+      "color": "#D3477B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 206.5,
-      "color": "#7044DB",
+      "color": "#CC6B45",
       "dashes": false,
       "hidden": false
     },
@@ -460,28 +479,28 @@
     {
       "from": 104,
       "to": 203,
-      "color": "#E13551",
+      "color": "#D3477B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 201,
-      "color": "#D54CEC",
+      "color": "#83D54A",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 106.1,
       "to": 209.6,
-      "color": "#E6C764",
+      "color": "#4ED36F",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 106,
       "to": 209.55,
-      "color": "#E082C2",
+      "color": "#47CFC1",
       "dashes": false,
       "hidden": false
     },
@@ -571,12 +590,15 @@
       304,
       305
     ],
-    "Funding": [],
-    "Vote": []
+    "About": [
+      901,
+      902,
+      903
+    ]
   },
   "layout": {
-    "gap_v": 12,
-    "gap_col": 430,
+    "gap_v": 22,
+    "gap_col": 490,
     "font_node": 19,
     "font_ptype": 14,
     "font_subs": 15,
@@ -588,22 +610,42 @@
     "h_skill": 94,
     "w_project": 444,
     "ptype_pct": 18,
-    "edge_width": 6.5,
+    "edge_width": 8,
+    "edge_bands": true,
+    "edge_sankey": false,
+    "edge_gap": 0,
+    "edge_transparency": 18,
+    "edge_min_width": 41,
+    "edge_min_on": true,
+    "edge_curve": 0.6,
+    "edge_pin_header": false,
+    "fill_nodew": 16,
+    "fill_projw": 21,
+    "fill_colgap": 13,
+    "gradient_extent": 38,
+    "gradient_transparency": 30,
+    "gradient_curve": 3.9,
+    "gradient_hover_mult": 2.4,
+    "node_outline": 0,
+    "inline_mode": true,
+    "articles_enabled": true,
+    "accordion_icon": "chevron",
+    "accordion_icon_size": 18,
     "watermark_text": "",
     "watermark_size": 10,
-    "col_bg": "#242B3D",
+    "col_bg": "#18212f",
     "col_sidebar_bg": "#373e48",
-    "col_node_bg": "#2e2c3a",
-    "col_theme": "#4DD3DD",
-    "col_project": "#E7924F",
-    "col_skill": "#55E374",
+    "col_node_bg": "#1c2631",
+    "col_theme": "#dedede",
+    "col_project": "#dedede",
+    "col_skill": "#dedede",
     "light_col_bg": "#ffffff",
     "light_col_sidebar_bg": "#ffffff",
     "light_col_node_bg": "#ffffff",
-    "light_col_theme": "#4302CD",
-    "light_col_project": "#a1080d",
-    "light_col_skill": "#01892a",
-    "light_edge_color": "#555555",
+    "light_col_theme": "#212121",
+    "light_col_project": "#212121",
+    "light_col_skill": "#212121",
+    "light_edge_color": "#4f4f4f",
     "mob_font_mult": 3,
     "mob_h_theme_mult": 1,
     "mob_h_proj_mult": 1,
