@@ -6,15 +6,15 @@
       "title": "Russia/Ukraine",
       "edgeColor": "#47CFC1",
       "title_fi": "Venäjä/Ukraina",
-      "lightEdgeColor": "#1492BD"
+      "lightEdgeColor": "#3F9B3E"
     },
     {
       "id": 101,
       "group": "Theme",
       "title": "Existential and catastropic risks",
       "edgeColor": "#4F8AD4",
-      "title_fi": "Eksistentiaaliset riskit",
-      "lightEdgeColor": "#C807B2"
+      "title_fi": "Eksistentiaaliset riskit ja longtermismi",
+      "lightEdgeColor": "#33AD86"
     },
     {
       "id": 104,
@@ -22,7 +22,7 @@
       "title": "Climate Change",
       "edgeColor": "#D3477B",
       "title_fi": "Ilmastonmuutos",
-      "lightEdgeColor": "#B90A2D"
+      "lightEdgeColor": "#418EBC"
     },
     {
       "id": 105,
@@ -30,7 +30,7 @@
       "title": "Electricity markets",
       "edgeColor": "#CC6B45",
       "title_fi": "Sähkömarkkinat",
-      "lightEdgeColor": "#BD6108"
+      "lightEdgeColor": "#B33195"
     },
     {
       "id": 103,
@@ -38,7 +38,7 @@
       "title": "European Union",
       "edgeColor": "#CDC544",
       "title_fi": "Euroopan Unioni",
-      "lightEdgeColor": "#A3C701"
+      "lightEdgeColor": "#B52430"
     },
     {
       "id": 102,
@@ -46,7 +46,7 @@
       "title": "Global harmony",
       "edgeColor": "#83D54A",
       "title_fi": "Globaali harmonia",
-      "lightEdgeColor": "#1BC802"
+      "lightEdgeColor": "#B17D2D"
     },
     {
       "id": 202,
@@ -54,7 +54,7 @@
       "title": "Optimal ways to evaluate individual existential threats",
       "ptype": "Text",
       "pnum": 202,
-      "title_fi": "Miten vertailla  eksistentiaalisten riskien suuruutta"
+      "title_fi": "Miten vertailla eksistentiaalisten riskien suuruutta"
     },
     {
       "id": 201,
@@ -62,7 +62,7 @@
       "title": "Probabilities of the end of the world",
       "ptype": "Website",
       "pnum": 201,
-      "title_fi": "Maailmanlopun todennäköisyydet"
+      "title_fi": "Työkalu maailmanlopun todennäköisyyksien hahmottamiseen"
     },
     {
       "id": 209,
@@ -70,7 +70,7 @@
       "title": "Circle graph creator",
       "ptype": "Website",
       "pnum": 209,
-      "title_fi": "Ympyrägraafi-työkalu"
+      "title_fi": "Sivu ympyrägraafien luomiseen"
     },
     {
       "id": 206,
@@ -127,7 +127,7 @@
       "subs": [],
       "edgeColor": "#297DB7",
       "title_fi": "Tekoäly",
-      "lightEdgeColor": "#C10C97"
+      "lightEdgeColor": "#B22B68"
     },
     {
       "id": 301,
@@ -136,7 +136,7 @@
       "subs": [],
       "edgeColor": "#B82D3F",
       "title_fi": "Datavisualisointi ja graafinen suunnittelu",
-      "lightEdgeColor": "#CB030C"
+      "lightEdgeColor": "#AE5D35"
     },
     {
       "id": 302,
@@ -145,7 +145,7 @@
       "subs": [],
       "edgeColor": "#C18532",
       "title_fi": "Dashboardit ja nettisivut",
-      "lightEdgeColor": "#C3880D"
+      "lightEdgeColor": "#B0BE34"
     },
     {
       "id": 303,
@@ -154,7 +154,7 @@
       "subs": [],
       "edgeColor": "#90B92A",
       "title_fi": "Videot ja striimaus",
-      "lightEdgeColor": "#01BBC8"
+      "lightEdgeColor": "#42B233"
     },
     {
       "id": 305,
@@ -163,7 +163,7 @@
       "edgeColor": "#29BB28",
       "title_fi": "Sosiaalinen media",
       "subs": [],
-      "lightEdgeColor": "#0632D5"
+      "lightEdgeColor": "#3DB98F"
     },
     {
       "id": 205.5,
@@ -211,7 +211,7 @@
       "title": "Finnish economy",
       "title_fi": "Suomen talous",
       "edgeColor": "#4ED36F",
-      "lightEdgeColor": "#02B667"
+      "lightEdgeColor": "#799830"
     },
     {
       "id": 209.6,
@@ -227,14 +227,14 @@
       "title": "Russia's economic situation",
       "ptype": "Text",
       "pnum": 209,
-      "title_fi": "Mitä saada Venäjä lopettamaan hyökkäyksensä"
+      "title_fi": "Venäjän taloustilanne"
     },
     {
       "id": 303.5,
       "group": "Skill",
       "title": "Economics",
       "edgeColor": "#2DC095",
-      "lightEdgeColor": "#7311D0",
+      "lightEdgeColor": "#347FBA",
       "title_fi": "Taloustiede",
       "subs": []
     },
@@ -256,6 +256,14 @@
       "group": "About",
       "title": "Funding/work opportunities",
       "title_fi": "Rahoitus- ja työmahdollisuudet"
+    },
+    {
+      "id": 209.56,
+      "group": "Project",
+      "title": "Incentives to Russia for ending the war",
+      "ptype": "Text",
+      "pnum": 209,
+      "title_fi": "Kannusteet Venäjälle sodan lopettamiseksi"
     }
   ],
   "edges": [
@@ -552,6 +560,13 @@
       "color": "#d17bb7",
       "dashes": false,
       "hidden": false
+    },
+    {
+      "from": 106,
+      "to": 209.56,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
     }
   ],
   "order": {
@@ -578,6 +593,7 @@
       209,
       209.5,
       209.55,
+      209.56,
       209.6,
       210,
       211
@@ -642,9 +658,9 @@
     "light_col_bg": "#ffffff",
     "light_col_sidebar_bg": "#ffffff",
     "light_col_node_bg": "#ffffff",
-    "light_col_theme": "#212121",
-    "light_col_project": "#212121",
-    "light_col_skill": "#212121",
+    "light_col_theme": "#292929",
+    "light_col_project": "#292929",
+    "light_col_skill": "#292929",
     "light_edge_color": "#4f4f4f",
     "mob_font_mult": 3,
     "mob_h_theme_mult": 1,

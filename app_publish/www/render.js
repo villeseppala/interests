@@ -265,16 +265,16 @@ function hexToRgba(hex, alpha) {
           else flash();
           return;
         }
-        // Clicking a description closes the node; in the author app a double-click edits it instead,
-        // so the close is delayed. Text selection (drag) is preserved — don't close if text is selected.
+        // Published/static: clicking a description closes the node. Author app: a single click on the
+        // text starts editing it (it never closes — only the title does).
+        // Text selection (drag) is preserved — don't act if text is selected.
         var descEl = t && t.closest && t.closest('.inline-node-desc');
         if (inlineMode && descEl && !(t.closest && t.closest('.inline-article-link'))) {
           e.stopPropagation();
-          if (window.getSelection && String(window.getSelection())) return;   // selecting text: leave the node open
+          if (window.getSelection && String(window.getSelection())) return;   // selecting text: leave as is
           var did = descEl.getAttribute('data-node-id');
-          if (!authorEditable) { toggleNodeInline(did); return; }              // single click closes
-          if (_inlineClickTimer) { clearTimeout(_inlineClickTimer); _inlineClickTimer = null; return; }  // 2nd click → dblclick edits
-          _inlineClickTimer = setTimeout(function () { _inlineClickTimer = null; toggleNodeInline(did); }, 250);
+          if (!authorEditable) toggleNodeInline(did);                          // published: single click closes
+          else startDescEdit(did);                                            // author: single click edits the text
           return;
         }
         // Title (edit mode): a single click toggles the node (open/collapse), delayed so that a
@@ -1039,6 +1039,9 @@ function accordionIconHtml(open, group, headerH) {
     return '<div class="acc-node-icon" style="position:absolute;' + sideCss + vpos +
       'transform:' + tf + ';z-index:8;font-size:' + size + 'px;line-height:1;color:' + col + ';pointer-events:none;">' + glyph + '</div>';
   }
+  // Projects carry a type label (Website/Text/…) on the right, so only show the left chevron there
+  // to avoid overlapping it; other groups show a chevron at both ends.
+  if (group === 'Project') return icon('left:10px;', false);
   return icon('left:10px;', false) + icon('right:10px;', !open);
 }
 
@@ -1299,9 +1302,17 @@ function captureInlineBase() {
 }
 
 // Recompute positions (stack expansions + per-column scroll) and re-fit the view.
+// Report the currently-open inline node ids to the Shiny server (author app), so PNG export can
+// reproduce the same open nodes. No-op on the static site (Shiny shim).
+function syncOpenIdsToShiny() {
+  if (window.Shiny && Shiny.setInputValue && !Shiny._isStatic)
+    Shiny.setInputValue('inline_open_ids', Object.keys(inlineExpandedMap), { priority: 'event' });
+}
+
 function reflowInline() {
   if (!cy || !inlineBase) return;
   inlineRefreshView();   // layoutInlineScroll() re-fits and calls applyInlinePositions()
+  syncOpenIdsToShiny();
 }
 
 // Toggle a node's inline expansion (same as tapping it): collapse if open, else request its content.
@@ -1338,6 +1349,7 @@ function restoreInlineBase() {
   inlineColScroll = { Theme: 0, Project: 0, Skill: 0 };
   inlineColShiftUp = { Theme: 0, Project: 0, Skill: 0 };
   if (cy) { cy.emit('render'); inlineRefreshView(); }
+  syncOpenIdsToShiny();
 }
 
 // Collapse one node (id given) or all (id omitted). Restores base layout when none remain.
@@ -1437,7 +1449,9 @@ function scrollColumnToNode(id) {
   var stackedTop = node.position('y') + curOff - node.data('h') / 2;
   inlineColScroll[g] = stackedTop - bb.y1;   // bring the node top to the top of the content area
   applyInlinePositions();                    // clamps to the scrollable range
-  cy.emit('render'); drawEdgeOverlay();
+  cy.emit('render');
+  if (lastData) positionHeaders(lastData);   // headers scroll with their column
+  drawEdgeOverlay();
 }
 
 /* ── Description Panel / Bottom Sheet ────────────────────────────────────── */
@@ -2120,7 +2134,10 @@ function positionHeaders(data) {
     if (h.sub) return;                          // handled below (anchored to its About node)
     // In inline mode a Theme/Skill column can rise into the space above; its header follows.
     var shiftUp = inlineMode ? (inlineColShiftUp[hdrGroups[i]] || 0) : 0;
-    var sx = h.x * zoom + pan.x, sy = (h.y - shiftUp) * zoom + pan.y;
+    // ...and the header scrolls with its own column, so scrolled content never slides underneath it
+    // (it slips up out of view instead of sitting on top of the text or peeking between nodes).
+    var scrollOff = inlineMode ? (inlineColScroll[hdrGroups[i]] || 0) : 0;
+    var sx = h.x * zoom + pan.x, sy = (h.y - shiftUp - scrollOff) * zoom + pan.y;
     var div = document.createElement('div');
     var hcolor = i === 0 ? colTheme : (i === 1 ? colProject : colSkill);
     div.className = 'col-hdr'; div.id = 'colhdr-' + i; div.style.color = hcolor;
@@ -2575,14 +2592,15 @@ function applyMobileNodeSizes(data) {
     if (!n.data) return;
     var grp = n.data.group;
     if (grp === 'Project') { if ((n.data.w || 0) < projectW) n.data.w = projectW; }
-    else if (grp === 'Theme' || grp === 'Skill') { n.data.w = themeSkillW; }
+    else if (grp === 'Theme' || grp === 'Skill' || grp === 'About') { n.data.w = themeSkillW; }
   });
 
-  // Group nodes by column (sort order preserved across re-stacks)
+  // Group nodes by column (sort order preserved across re-stacks). About rides in the Skill
+  // column (stackCol), so it gets restacked with it instead of keeping its pre-mobile y.
   var colNodes = { Theme: [], Project: [], Skill: [] };
   (data.nodes || []).forEach(function(n) {
     if (!n.data || !n.position) return;
-    var grp = n.data.group;
+    var grp = stackCol(n.data.group);
     if (colNodes[grp]) colNodes[grp].push(n);
   });
   ['Theme', 'Project', 'Skill'].forEach(function(grp) {
@@ -2596,11 +2614,13 @@ function applyMobileNodeSizes(data) {
       if      (grp === 'Project') n.data.h = measureProjectNodeHeight(n.data, n.data.w);
       else if (grp === 'Theme')   n.data.h = measureThemeNodeHeight(n.data, n.data.w);
       else if (grp === 'Skill')   n.data.h = measureSkillNodeHeight(n.data, n.data.w);
+      else if (grp === 'About')   n.data.h = measureThemeNodeHeight(n.data, n.data.w);  // title-only, like Theme
     });
   }
 
   function restack(gp, gts) {
     var colTotals = {};
+    var aboutHdrGap = Math.round(fontHdr1 * 2.2);   // room for the "About" sub-header above its first node
     ['Theme', 'Project', 'Skill'].forEach(function(grp) {
       var nodes = colNodes[grp];
       if (!nodes.length) { colTotals[grp] = 0; return; }
@@ -2608,7 +2628,10 @@ function applyMobileNodeSizes(data) {
       var curY = 0;
       nodes.forEach(function(n, i) {
         var h = n.data.h || 46;
-        curY = (i === 0) ? h / 2 : curY + (nodes[i - 1].data.h || 46) / 2 + gap + h / 2;
+        var g = gap;
+        // First About node in the column: leave extra room for the "About" sub-header
+        if (i > 0 && n.data.group === 'About' && nodes[i - 1].data.group !== 'About') g = gap + aboutHdrGap;
+        curY = (i === 0) ? h / 2 : curY + (nodes[i - 1].data.h || 46) / 2 + g + h / 2;
         n.position.y = curY;
       });
       var last = nodes[nodes.length - 1];
@@ -3340,6 +3363,7 @@ function bindInlineWheel() {
       inlineColScroll[g] = (inlineColScroll[g] || 0) + dy / cy.zoom();  // screen px → cyto units
       applyInlinePositions();           // clamps to the column's scrollable range
       cy.emit('render');
+      if (lastData) positionHeaders(lastData);   // headers scroll with their column
       drawEdgeOverlay();
     }
     e.preventDefault();                 // stop Cytoscape zoom

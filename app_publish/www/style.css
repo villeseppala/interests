@@ -357,9 +357,10 @@ body.inline-mode #inline-header-right {
   position:fixed; top:0; left:10px; right:10px; height:46px; z-index:1001;
   display:flex; align-items:center; gap:16px; }
 body.inline-mode #inline-header-right #inline-zoom { margin-left:auto; }
-/* Hidden for now: the nav brand ("Interests") and the "Draft/final projects" dropdown */
-body.inline-mode #site-nav .nav-brand,
-body.inline-mode #site-nav .nav-dropdown { display:none !important; }
+/* Hidden for now on the graph page (desktop AND mobile — mobile is never .inline-mode):
+   the nav brand ("Interests") and the "Draft/final projects" dropdown. Article pages keep theirs. */
+body:has(#graph-area) #site-nav .nav-brand,
+body:has(#graph-area) #site-nav .nav-dropdown { display:none !important; }
 body.inline-mode #inline-header-right #inline-allbtns {
   position:static; transform:none; top:auto; left:auto; right:auto; height:auto; gap:2px; }
 body.inline-mode #inline-header-right #info-sidebar {
