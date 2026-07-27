@@ -376,8 +376,9 @@ body.inline-mode #info-sidebar #page-title {
 body.inline-mode #info-sidebar #page-title-text { font-size:15px; }
 /* Header cluster spanning the bar: title/controls on the LEFT, zoom + Open/Collapse on the RIGHT. */
 body.inline-mode #inline-header-right {
-  position:fixed; top:0; left:10px; right:10px; height:46px; z-index:1001;
-  display:flex; align-items:center; gap:16px; }
+  position:fixed; top:0; left:10px; right:10px; min-height:46px; z-index:1001;
+  display:flex; align-items:center; flex-wrap:wrap; column-gap:16px; row-gap:4px;
+  align-content:center; padding:3px 0; box-sizing:border-box; }
 body.inline-mode #inline-header-right #inline-zoom { margin-left:auto; }
 /* Hidden for now on the graph page (desktop AND mobile — mobile is never .inline-mode):
    the nav brand ("Interests") and the "Draft/final projects" dropdown. Article pages keep theirs. */
@@ -389,8 +390,8 @@ body.inline-mode #inline-header-right #info-sidebar {
   position:static !important; top:auto !important; right:auto !important; left:auto !important;
   height:auto !important; max-width:none !important; box-shadow:none !important; border-radius:0 !important; }
 body.inline-mode #inline-header-right #info-sidebar #page-title {
-  flex-direction:row; align-items:center; gap:10px;
-  padding:0; background:transparent; border-radius:0; white-space:nowrap; }
+  flex-direction:row; align-items:center; gap:10px; flex-wrap:wrap; row-gap:4px;
+  padding:0; background:transparent; border-radius:0; }
 body.inline-mode #inline-header-right #info-sidebar #page-title-text { font-size:13px; white-space:nowrap; }
 body.inline-mode #inline-header-right .inline-allbtn { font-size:10.5px; padding:2px 6px; }
 body.inline-mode #inline-header-right .inline-btnlbl { font-size:10px; min-width:42px; }

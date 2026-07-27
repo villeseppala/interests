@@ -130,6 +130,7 @@ var ptypePct = 10;
 var mobileData = null;
 var selectedNodeId = null;
 var hoveredNodeId = null;
+var _edgeHoverActive = false;   // true while the hover comes from pointing at an edge (not a node)
 var mobileMode = false;
 var forceMobile = false;
 var unifiedUI = true;        // one UI everywhere: narrow screens use the inline node UI, not the old
@@ -563,7 +564,15 @@ function snapshotInlineFillBase() {
     nodes[n.id()] = { w: n.data('w') || 200, x: n.position('x') };
   });
   var headers = (lastData && lastData.headers) ? lastData.headers.map(function (h) { return h.x; }) : [];
-  inlineFillBase = { nodes: nodes, headers: headers };
+  // Stable content height for the fill's slack math — so re-measuring heights at the widened width
+  // (syncInlineHeights) can't feed back into how much the fill widens (which would oscillate on scroll).
+  var y1 = Infinity, y2 = -Infinity;
+  cy.nodes().forEach(function (n) {
+    var g = n.data('group'); if (!isColNode(g)) return;
+    var h = n.data('h') || 46, y = n.position('y');
+    y1 = Math.min(y1, y - h / 2); y2 = Math.max(y2, y + h / 2);
+  });
+  inlineFillBase = { nodes: nodes, headers: headers, bboxH: (y2 > y1) ? (y2 - y1) : 0 };
 }
 
 // Distribute extra horizontal slack (inline mode): widen nodes / spread columns to fill
@@ -588,8 +597,9 @@ function applyInlineFill() {
   var W = ga.clientWidth, viewH = ga.clientHeight || window.innerHeight;
   var bb = inlineBaseBBox(); if (!bb || bb.w === 0) return;
   var hm = (lastData && lastData.headerMargin) || 70;
-  // 3) Height-fit zoom (heights unaffected by width) and horizontal slack at that zoom.
-  var zh = (viewH - 28) / (bb.h + hm);
+  // 3) Height-fit zoom (using the stable cached content height, not the live one) and horizontal slack.
+  var bbH = (inlineFillBase.bboxH > 0) ? inlineFillBase.bboxH : bb.h;
+  var zh = (viewH - 28) / (bbH + hm);
   if (zh <= 0) return;
   var slackPx = (W - 40) - bb.w * zh;
   if (slackPx <= 0) return; // already width-constrained → nothing to distribute
@@ -622,11 +632,43 @@ function applyInlineFill() {
   }
 }
 
+// Re-measure each collapsed node's height at its CURRENT (post-fill) width and re-stack each column,
+// preserving inter-node gaps. Fixes tall boxes left behind when the fill widens a node so its title
+// drops from two rows to one. Idempotent once heights match the width (the fill uses a cached stable
+// height, so this can't feed back into the widening). Operates on inlineBase when it exists, else on
+// the live nodes directly.
+function syncInlineHeights() {
+  if (!cy || !inlineMode) return;
+  var useBase = !!inlineBase;
+  var arr = [];
+  cy.nodes().forEach(function (n) {
+    if (n.data('group') !== 'Project') return;   // Project column only — Theme/Skill keep their heights
+    if (useBase && !inlineBase[n.id()]) return;
+    arr.push(n);
+  });
+  if (!arr.length) return;
+  function yOf(n) { return useBase ? inlineBase[n.id()].y : n.position('y'); }
+  function hOf(n) { return useBase ? inlineBase[n.id()].h : (n.data('h') || 46); }
+  arr.sort(function (a, b) { return yOf(a) - yOf(b); });
+  var pob = null, pnb = null;
+  arr.forEach(function (n) {
+    var bh = hOf(n), by = yOf(n);
+    var oldTop = by - bh / 2, oldBottom = by + bh / 2;
+    var newH = inlineExpandedMap[n.id()] ? bh : collapsedNodeHeight(n.data());
+    var nTop = (pnb == null) ? oldTop : pnb + (oldTop - pob);   // preserve the gap above this node
+    var newY = nTop + newH / 2;
+    if (useBase) { inlineBase[n.id()].y = newY; inlineBase[n.id()].h = newH; }
+    else { n.position('y', newY); n.data('h', newH); }
+    pob = oldBottom; pnb = nTop + newH;
+  });
+}
+
 function layoutInlineScroll() {
   if (!cy) return;
   var ga = document.getElementById('graph-area'), el = document.getElementById('cy');
   if (!ga || !el) return;
   applyInlineFill();                 // redistribute extra horizontal space before fitting
+  syncInlineHeights();               // re-measure heights at the widened width (fixes tall boxes) + re-stack
   var W = ga.clientWidth, viewH = ga.clientHeight || window.innerHeight;
   var baseBB = inlineBaseBBox();
   if (!baseBB || baseBB.w === 0) return;
@@ -634,9 +676,18 @@ function layoutInlineScroll() {
   var prevZoom = cy.zoom();           // zoom before this re-fit (for the vertical focal shift below)
   // Fit BOTH dimensions of the base layout so the no-description view shows every node, then apply
   // the user's magnification (uiZoom). Columns still scroll vertically per-column at any zoom.
-  var fitZoom = Math.min((W - 40) / baseBB.w, (viewH - 28) / (baseBB.h + hm));
+  var fitW = (W - 40) / baseBB.w;
+  var fitH = (viewH - 28) / (baseBB.h + hm);
+  // Desktop: fit the whole map (min of both). Narrow screens: fit to WIDTH only — the columns fill the
+  // width (minimal side margins) and the content scrolls vertically. Width-only also keeps the zoom
+  // independent of node heights, so the node-height multiplier makes nodes taller without shrinking text.
+  var fitZoom = isNarrow() ? fitW : Math.min(fitW, fitH);
   var zoom = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), fitZoom * (uiZoom || 1)));
   var topPad = 8 + hm * zoom;
+  // Keep the graph below the fixed header bar even when it wraps to 2–3 rows on a narrow screen,
+  // so the wrapped controls never cover the column headers.
+  var hdrBar = document.getElementById('inline-header-right');
+  if (hdrBar) { var hbH = hdrBar.getBoundingClientRect().height; if (hbH > 0) topPad = Math.max(topPad, hbH + 6); }
   el.style.height = viewH + 'px';    // viewport-sized; columns scroll internally (per column)
   cy.resize();
   cy.zoomingEnabled(true);            // briefly allow the programmatic zoom below
@@ -761,8 +812,10 @@ function applyInlinePositions() {
     // Rise into the space above (Theme/Skill only; Project is already at the top)
     var shiftUp = Math.min(totalDelta, Math.max(0, firstTop - projTop));
     inlineColShiftUp[g] = shiftUp;
-    // Clamp this column's own scroll to what still overflows after the upward shift
-    var maxScroll = Math.max(0, (bottom - shiftUp) - viewportBottomCyto);
+    // Clamp this column's own scroll to what still overflows after the upward shift. A small bottom
+    // clearance lets the last node scroll fully into view instead of sitting flush against the edge.
+    var bottomClear = 20 / zoom;
+    var maxScroll = Math.max(0, (bottom - shiftUp) - viewportBottomCyto + bottomClear);
     var off = Math.min(Math.max(inlineColScroll[g] || 0, 0), maxScroll);
     inlineColScroll[g] = off;
     // Second pass: apply positions (shifted up by shiftUp, then by the scroll offset)
@@ -1567,6 +1620,8 @@ function expandNodeInline(id, descHtml, raw, lang, articleLink, skipReflow, art)
   if (skipReflow) return;
   reflowInline();
   setNodeUrl(id);
+  hoveredNodeId = String(id);   // highlight the just-opened node + its links, like a desktop hover
+  applyHighlightState();
   if (String(id) === pendingScrollNode) { scrollColumnToNode(id); pendingScrollNode = null; }
   else if (autoFitOnOpen && autoFitArmed) autoFitOpenedNode(id);
 }
@@ -1582,7 +1637,8 @@ function autoFitOpenedNode(id) {
   var W = ga.clientWidth, viewH = ga.clientHeight || window.innerHeight;
   var baseBB = inlineBaseBBox(); if (!baseBB || baseBB.w === 0) return;
   var hm = (lastData && lastData.headerMargin) || 70;
-  var fitZoom = Math.min((W - 40) / baseBB.w, (viewH - 28) / (baseBB.h + hm));
+  var fitW = (W - 40) / baseBB.w, fitH = (viewH - 28) / (baseBB.h + hm);   // match layoutInlineScroll's fit
+  var fitZoom = isNarrow() ? fitW : Math.min(fitW, fitH);
   if (!(fitZoom > 0)) return;
   var w = node.data('w') || 200;
   uiZoom = Math.max(1, Math.min(uiZoomMax(), (W - 24) / (w * fitZoom)));  // node width → viewport width
@@ -1613,6 +1669,8 @@ function collapseNodeInline(id) {
   else reflowInline();
   var remaining = Object.keys(inlineExpandedMap);
   setNodeUrl(remaining.length ? remaining[remaining.length - 1] : null);
+  hoveredNodeId = remaining.length ? String(remaining[remaining.length - 1]) : null;   // highlight the new last-opened
+  applyHighlightState();
 }
 
 // Clear inline expansion state without moving anything (used when the graph is rebuilt).
@@ -1646,6 +1704,8 @@ function collapseAllInline(group) {
   else reflowInline();
   var rem = Object.keys(inlineExpandedMap);
   setNodeUrl(rem.length ? rem[rem.length - 1] : null);
+  hoveredNodeId = rem.length ? String(rem[rem.length - 1]) : null;   // highlight the new last-opened
+  applyHighlightState();
 }
 
 // Open every openable node inline, or only those of `group` when given. Static site has all
@@ -2031,8 +2091,11 @@ function drawEdgeOverlay() {
     if (srcEp.indexOf('px') >= 0) { var sp2 = srcEp.split(/\s+/); syBase = sp.y + parseFloat(sp2[1] || '0'); }
     if (tgtEp.indexOf('px') >= 0) { var tp2 = tgtEp.split(/\s+/); tyBase = tp.y + parseFloat(tp2[1] || '0'); }
     var sa = attachGeom(src), ta = attachGeom(tgt);
+    // The Theme/Skill endpoint — hovering/clicking this edge highlights it (like hovering that node).
+    var sGrp = src.data('group');
+    var hlId = (sGrp === 'Theme' || sGrp === 'Skill') ? String(d.source) : String(d.target);
     rawEdges.push({
-      d: d, edge: edge,
+      d: d, edge: edge, hlId: hlId,
       sx: (sp.x + sw / 2) * zoom + pan.x,
       tx: (tp.x - tw / 2) * zoom + pan.x,
       syBase: syBase, tyBase: tyBase,
@@ -2086,16 +2149,17 @@ function drawEdgeOverlay() {
     edgePaths.push({
       pathD: 'M' + x1 + ',' + y1 + ' C' + cx1 + ',' + y1 + ' ' + cx2 + ',' + y2 + ' ' + x2 + ',' + y2,
       color: re.d.color || '#ffffff', lightColor: re.d.lightColor || lightEdgeColor, dashes: re.d.dashes,
-      isSel: re.edge.hasClass('selected'), isHov: re.edge.hasClass('hovered')
+      isSel: re.edge.hasClass('selected'), isHov: re.edge.hasClass('hovered'), hlId: re.hlId
     });
   });
   var strokeW = baseEdgeWidth * zoom * (mobileMode ? 1.5 : 1);
-  function makePath(d, stroke, width, opacity, dashes) {
+  function makePath(d, stroke, width, opacity, dashes, hlId) {
     var p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     p.setAttribute('d', d); p.setAttribute('fill', 'none');
     p.setAttribute('stroke', stroke); p.setAttribute('stroke-width', width);
     if (opacity != null) p.setAttribute('opacity', opacity);
     if (dashes) p.setAttribute('stroke-dasharray', (5 * zoom) + ',' + (3 * zoom));
+    if (hlId != null) { p.setAttribute('data-hl', hlId); p.style.pointerEvents = 'stroke'; }  // hover/click target
     return p;
   }
   var anySel = edgePaths.some(function (ep) { return ep.isSel; });
@@ -2106,27 +2170,27 @@ function drawEdgeOverlay() {
     // Bottom: non-selected, non-hovered edges — faded to quiet context
     edgePaths.forEach(function (ep) {
       if (ep.isSel || ep.isHov) return;
-      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW, DIM_OP, ep.dashes));
+      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW, DIM_OP, ep.dashes, ep.hlId));
     });
     // Hovered (not selected) — keep hover preview working during a selection
     edgePaths.forEach(function (ep) {
       if (!ep.isHov || ep.isSel) return;
-      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW * 2.25, NORM_OP, ep.dashes));
+      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW * 2.25, NORM_OP, ep.dashes, ep.hlId));
     });
     // Top: selected edges — full color, fully opaque, slightly thicker
     edgePaths.forEach(function (ep) {
       if (!ep.isSel) return;
-      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW * 1.4, 1, ep.dashes));
+      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW * 1.4, 1, ep.dashes, ep.hlId));
     });
   } else {
     // No selection: hovered edge sits below normal edges so other connections stay visible
     edgePaths.forEach(function (ep) {
       if (!ep.isHov) return;
-      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW * 2.25, NORM_OP, ep.dashes));
+      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW * 2.25, NORM_OP, ep.dashes, ep.hlId));
     });
     edgePaths.forEach(function (ep) {
       if (ep.isHov) return;
-      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW, NORM_OP, ep.dashes));
+      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW, NORM_OP, ep.dashes, ep.hlId));
     });
   }
 }
@@ -2196,6 +2260,7 @@ function drawEdgeBands(svg, rawEdges, zoom, pan) {
     var d = 'M' + tp.join(' L') + ' L' + bt.reverse().join(' L') + ' Z';
     var p = document.createElementNS(SVGNS, 'path');
     p.setAttribute('d', d); p.setAttribute('fill', color); p.setAttribute('stroke', 'none'); p.setAttribute('opacity', op);
+    if (re.hlId != null) { p.setAttribute('data-hl', re.hlId); p.style.pointerEvents = 'auto'; }  // hover/click target
     return p;
   }
 
@@ -2648,6 +2713,20 @@ function applyNarrowScale(data) {
   restack(themeCol); restack(skillCol);
 }
 
+// Collapsed (unexpanded) height of a node measured at its CURRENT width. Used to re-measure heights
+// after the "extra width" fill widens nodes — otherwise a title that now fits on one row is left in a
+// box that was sized for two rows. On narrow screens Project nodes also get at least a two-row height
+// (comfortable finger targets). Everything else is measured to fit its title.
+function collapsedNodeHeight(nd) {
+  var g = nd.group, w = nd.w || 200, h;
+  if (g === 'Project') h = measureProjectNodeHeight(nd, w);
+  else if (g === 'Skill') h = measureSkillNodeHeight(nd, w);
+  else if (g === 'Theme' || g === 'About') h = measureThemeNodeHeight(nd, w);
+  else return nd.h || 46;
+  if (g === 'Project' && isNarrow()) h = Math.max(h, Math.round(2 * fontNode * 1.3 + 8));  // two-row floor
+  return h;
+}
+
 function autoFitProjectWidth(data) {
   if (useMobileLayout()) return;
   var canvas = document.createElement('canvas');
@@ -2854,12 +2933,15 @@ function measureProjectNodeHeight(nodeData, w) {
   var padR = 9 + nodeTextPad;
   var ptypeColW = (!mobileMode && nodeData.ptype) ? Math.round(w * ptypePct / 100) : 0;
   var containerW = Math.max(w - ptypeColW - padL - padR, 4);   // 4px 8px vertical padding → vPad 8
-  var label = String(nodeData.label || '');
-  var labelFi = String(nodeData.label_fi || '');
-  return measureNodeHeight(
-    [{ text: labelFi.length > label.length ? labelFi : label, fontSize: fontNode, fontWeight: 'bold', lineHeight: 1.3 }],
-    containerW, 8
-  );
+  var en = String(nodeData.label || ''), fi = String(nodeData.label_fi || '');
+  // Match nodeBodyHtml's Project branch exactly: if the English title fits on one line it renders
+  // nowrap (one row; a longer Finnish title is font-shrunk to fit), otherwise both wrap. Using the
+  // same whole-string test — not a word-by-word line count — avoids the tall-box artifact where a
+  // borderline title measured two rows but actually renders on one.
+  var lines = (measureTextPx(en, fontNode) <= containerW) ? 1
+            : Math.max(canvasTextLines(en, fontNode, 'bold', containerW),
+                       canvasTextLines(fi, fontNode, 'bold', containerW));
+  return Math.max(lines * fontNode * 1.3 + 8, 8);
 }
 
 function measureThemeNodeHeight(nodeData, w) {
@@ -3142,8 +3224,8 @@ function initCyGraph(data) {
   });
   // Hover only on desktop
   if (!mobileMode) {
-    cy.on('mouseover', 'node', function (evt) { hoveredNodeId = evt.target.data('id'); applyHighlightState(); });
-    cy.on('mouseout', 'node', function () { hoveredNodeId = null; applyHighlightState(); });
+    cy.on('mouseover', 'node', function (evt) { hoveredNodeId = evt.target.data('id'); _edgeHoverActive = false; applyHighlightState(); });
+    cy.on('mouseout', 'node', function () { if (_edgeHoverActive) return; hoveredNodeId = null; applyHighlightState(); });
   }
   cy.on('pan zoom', function () { positionHeaders(lastData); drawEdgeOverlay(); drawNodeConnector(); });
   // Dragging on a node pans the graph (nodes are non-grabbable)
@@ -3840,14 +3922,33 @@ function bindInlineWheel() {
   });
   window.addEventListener('mousemove', function (e) { if (dragMove(e.clientX, e.clientY)) e.preventDefault(); });
   window.addEventListener('mouseup', dragEnd);
+  // Capture phase so a one-finger drag that starts ON a description still scrolls the column: the
+  // description overlay calls stopPropagation on touchstart (to keep text selectable / links working),
+  // which would otherwise swallow the drag before it reaches this bubble-phase listener.
   ga.addEventListener('touchstart', function (e) {
     if (inlineMode && !useMobileLayout() && e.touches.length === 1) dragStart(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: false });
+  }, { passive: false, capture: true });
   ga.addEventListener('touchmove', function (e) {
     if (_pinchD != null || e.touches.length !== 1) return;
     if (dragMove(e.touches[0].clientX, e.touches[0].clientY)) e.preventDefault();
-  }, { passive: false });
+  }, { passive: false, capture: true });
   ga.addEventListener('touchend', dragEnd);
+  // Edge hover/click → highlight the Theme/Skill node the edge originates from, exactly like hovering
+  // that node. Edge paths carry data-hl (their Theme/Skill endpoint) and their own pointer-events, so
+  // e.target identifies the edge even though the SVG overlay is rebuilt on every highlight change.
+  ga.addEventListener('mousemove', function (e) {
+    if (_drag && _drag.moved) return;                                  // mid-drag: ignore
+    var hl = e.target && e.target.getAttribute && e.target.getAttribute('data-hl');
+    if (hl) {
+      if (hoveredNodeId !== hl) { hoveredNodeId = hl; _edgeHoverActive = true; applyHighlightState(); }
+    } else if (_edgeHoverActive) {
+      _edgeHoverActive = false; hoveredNodeId = null; applyHighlightState();
+    }
+  });
+  ga.addEventListener('click', function (e) {
+    var hl = e.target && e.target.getAttribute && e.target.getAttribute('data-hl');
+    if (hl) { hoveredNodeId = hl; _edgeHoverActive = true; applyHighlightState(); }  // also serves a mobile tap
+  });
   // Arm auto-fit-on-open only after the first user gesture, so the page still loads as the whole map
   // even when a node opens by default.
   ga.addEventListener('pointerdown', function () { autoFitArmed = true; }, true);
@@ -4092,6 +4193,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (sideScroll) sideScroll.addEventListener('scroll', function() { drawNodeConnector(); });
   mobileMode = useMobileLayout();
   lastMobileState = mobileMode;  // init so first resize event can detect boundary crossing
+  lastNarrowState = isNarrow();   // init so the first resize can detect a narrow-breakpoint crossing
   applyMobileLayout();
   resizeCy();
 });
@@ -4099,6 +4201,7 @@ document.addEventListener('DOMContentLoaded', function () {
 /* ── Viewport change: reinit if crossing mobile/desktop boundary ─────────── */
 
 var lastMobileState = null;
+var lastNarrowState = null;  // isNarrow() at the last resize — crossing it re-applies the narrow multipliers
 var lastMobileW = 0;        // viewport width used in last applyMobileNodeSizes call
 var postInitResizeHandler = null; // one-shot handler registered after each initCy
 var resizeDebounce = null;
@@ -4106,6 +4209,21 @@ window.addEventListener('resize', function () {
   var nowMobile = useMobileLayout();
   var ga = document.getElementById('graph-area');
   var nowW = ga ? ga.clientWidth : window.innerWidth;
+  // Unified UI: the narrow gap/node-width multipliers are baked into the layout at build time
+  // (applyNarrowScale), keyed off isNarrow() — which is viewport-width based (the browser width, not
+  // the device). Crossing that breakpoint must rebuild so the multipliers apply/unapply live.
+  var nowNarrow = isNarrow();
+  if (rawPayload && lastNarrowState !== null && nowNarrow !== lastNarrowState) {
+    lastNarrowState = nowNarrow;
+    clearTimeout(resizeDebounce);
+    resizeDebounce = setTimeout(function () {
+      var pk = pickData(rawPayload);
+      if (cy) { cy.destroy(); cy = null; }
+      initCyGraph(pk);
+    }, 180);
+    return;
+  }
+  lastNarrowState = nowNarrow;
   var mobileWidthChanged = nowMobile && lastMobileW > 0 && Math.abs(nowW - lastMobileW) > 5;
   if (rawPayload && lastMobileState !== null && nowMobile !== lastMobileState) {
     // Crossed mobile/desktop boundary — full reinit immediately
