@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Same-column connections · 12 ways</title>
+<style>
+  :root { --bg:#0b3552; --panel:#0e2c46; --node:#0f2436; --ink:#e8f1f8; --dim:#9fb6c6; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:Arial, Helvetica, sans-serif; line-height:1.5; }
+  header { padding:26px 24px 6px; max-width:1240px; margin:0 auto; }
+  header h1 { margin:0 0 8px; font-size:23px; }
+  header p { margin:6px 0; color:var(--dim); max-width:88ch; font-size:14px; }
+  .grid { max-width:1240px; margin:0 auto; padding:14px 24px 48px;
+          display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px; }
+  .card { background:var(--panel); border:1px solid rgba(255,255,255,0.08); border-radius:12px;
+          padding:14px; display:flex; flex-direction:column; gap:8px; }
+  .card h2 { margin:0; font-size:15px; }
+  .card .stage { background:var(--bg); border-radius:8px; padding:6px; }
+  .card svg { width:100%; height:auto; display:block; }
+  .card p { margin:0; color:var(--dim); font-size:12.5px; }
+  .card .proj { color:#9fd6c8; }
+  .num { color:#6f8598; font-weight:bold; }
+  .legend { max-width:1240px; margin:0 auto; padding:0 24px 26px; color:var(--dim); font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Indicating connections between nodes in the <em>same</em> column — 12 ways</h1>
+  <p>Each mock shows a single column of <b>project</b> bars carrying <b>9 same-column connections</b>
+     (drawn in full). Project bars have their <b>left and right edges partly occupied</b> by the
+     cross-column ribbon bands (theme colours left, skill colours right) — shown as the small coloured
+     ticks on each bar. So a same-column link has to live in the <b>outer channel</b>, the <b>row gaps</b>,
+     a <b>side panel</b>, or use a <b>no-line encoding</b>. The green note on each card says how it copes
+     with the occupied sides.</p>
+</header>
+<div class="grid" id="grid"></div>
+<div class="legend">
+  <p><b>Rough verdict for 9 links on projects:</b> line-routing methods (arcs, lanes, traces, ribbons)
+  get crowded fast and fight the side bands — best kept to a reserved outer channel and few links.
+  For a full 9, the <b>non-routing</b> encodings scale best: <b>adjacency matrix (4)</b>,
+  <b>numbered partners (5)</b>, and <b>hover-reveal (9)</b> stay legible at any count and don't touch the
+  occupied edges. A good combo: matrix or numbers for the always-on overview + hover-reveal for detail.</p>
+</div>
+
+<script>
+const NS='http://www.w3.org/2000/svg';
+const NB=8, x0=96, bw=150, bh=26, gap=6, topPad=16, W=320;
+const H = topPad + NB*(bh+gap) + 4;
+const cy = i => topPad + bh/2 + i*(bh+gap);
+// 9 connections among the 8 bars
+const CONNS = [[0,2],[0,4],[1,3],[1,6],[2,5],[3,7],[4,6],[5,7],[2,7]];
+const PAL = ['#5ac8fa','#ffcc66','#ff6f91','#7ee081','#c792ea','#4fd1c5','#f6a5c0','#f7d154','#8ab4f8'];
+const THEME = ['#4f8ad4','#d3477b','#cc6b45','#4ed36f','#c18532'];
+const SKILL = ['#47cfc1','#297db7','#90b92a','#b82d3f','#2dc095'];
+
+function el(t, a){ const e=document.createElementNS(NS,t); for(const k in a) e.setAttribute(k, a[k]); return e; }
+function line(s,x1,y1,x2,y2,c,w){ s.appendChild(el('line',{x1,y1,x2,y2,stroke:c,'stroke-width':w||1.5,'stroke-linecap':'round'})); }
+function pathd(s,d,c,w,op,fill){ s.appendChild(el('path',{d,fill:fill||'none',stroke:c||'none','stroke-width':w||1.5,opacity:op==null?1:op,'stroke-linecap':'round'})); }
+function dot(s,x,y,c,r){ s.appendChild(el('circle',{cx:x,cy:y,r:r||2.4,fill:c})); }
+function txt(s,x,y,t,c,fs,anchor){ const e=el('text',{x,y,fill:c,'font-size':fs||10,'text-anchor':anchor||'middle','font-family':'Arial'}); e.textContent=t; s.appendChild(e); }
+
+// A project column: dark bars + partial theme/skill bands on the edges (centre left free for attach).
+function drawBase(s, dimSet){
+  for(let i=0;i<NB;i++){
+    const y=cy(i), dim = dimSet && !dimSet.has(i);
+    const g = el('g',{opacity: dim?0.28:1});
+    g.appendChild(el('rect',{x:x0,y:y-bh/2,width:bw,height:bh,rx:3,fill:'#0f2436',stroke:'#3a5a76','stroke-width':1.4}));
+    // left bands (theme) — top & bottom, leaving the vertical centre free to attach to
+    g.appendChild(el('rect',{x:x0,y:y-12,width:3,height:8,fill:THEME[i%THEME.length]}));
+    if(i%2===0) g.appendChild(el('rect',{x:x0,y:y+4,width:3,height:8,fill:THEME[(i+2)%THEME.length]}));
+    // right bands (skill)
+    g.appendChild(el('rect',{x:x0+bw-3,y:y-12,width:3,height:8,fill:SKILL[i%SKILL.length]}));
+    if(i%3===0) g.appendChild(el('rect',{x:x0+bw-3,y:y+4,width:3,height:8,fill:SKILL[(i+1)%SKILL.length]}));
+    const n=el('text',{x:x0+bw/2,y:y+3.5,fill:'#7f97a8','font-size':10,'text-anchor':'middle'}); n.textContent=i; g.appendChild(n);
+    s.appendChild(g);
+  }
+}
+function partners(i){ const p=[]; CONNS.forEach(([a,b])=>{ if(a===i)p.push(b); else if(b===i)p.push(a); }); return p; }
+
+// ---- 12 renderers ---------------------------------------------------------
+const R = {};
+
+R.arcOne = s => { drawBase(s); CONNS.forEach(([a,b],k)=>{ const c=PAL[k], r=12+Math.abs(b-a)*8;
+  pathd(s,`M${x0},${cy(a)} C${x0-r},${cy(a)} ${x0-r},${cy(b)} ${x0},${cy(b)}`,c,1.6,0.9); dot(s,x0,cy(a),c); dot(s,x0,cy(b),c); }); };
+
+R.arcSplit = s => { drawBase(s); CONNS.forEach(([a,b],k)=>{ const c=PAL[k], r=12+Math.abs(b-a)*6;
+  if(k%2){ const X=x0+bw; pathd(s,`M${X},${cy(a)} C${X+r},${cy(a)} ${X+r},${cy(b)} ${X},${cy(b)}`,c,1.6,0.9); dot(s,X,cy(a),c); dot(s,X,cy(b),c); }
+  else   { pathd(s,`M${x0},${cy(a)} C${x0-r},${cy(a)} ${x0-r},${cy(b)} ${x0},${cy(b)}`,c,1.6,0.9); dot(s,x0,cy(a),c); dot(s,x0,cy(b),c); } }); };
+
+R.subway = s => { drawBase(s); CONNS.forEach(([a,b],k)=>{ const c=PAL[k], lx=x0-9-k*8;
+  line(s,x0,cy(a),lx,cy(a),c,1.5); line(s,x0,cy(b),lx,cy(b),c,1.5); line(s,lx,cy(a),lx,cy(b),c,2.2); dot(s,x0,cy(a),c,1.8); dot(s,x0,cy(b),c,1.8); }); };
+
+R.matrix = s => { drawBase(s); const gx=x0+bw+9, gy=topPad+2, cell=6;
+  txt(s,gx+NB*cell/2,gy-3,'adjacency','#7f97a8',8);
+  for(let i=0;i<NB;i++)for(let j=0;j<NB;j++) s.appendChild(el('rect',{x:gx+j*cell,y:gy+i*cell,width:cell,height:cell,fill:'none',stroke:'rgba(255,255,255,0.10)','stroke-width':0.6}));
+  CONNS.forEach(([a,b],k)=>{ dot(s,gx+b*cell+cell/2,gy+a*cell+cell/2,PAL[k],2); dot(s,gx+a*cell+cell/2,gy+b*cell+cell/2,PAL[k],2); });
+  for(let i=0;i<NB;i++) txt(s,gx-3,gy+i*cell+cell/2+2,i,'#5f7688',6,'end'); };
+
+R.numbered = s => { drawBase(s); for(let i=0;i<NB;i++){ const p=partners(i); if(p.length) txt(s,x0+bw+7,cy(i)+3,'→ '+p.join(' '),'#9fb6c6',9.5,'start'); } };
+
+R.colorDots = s => { drawBase(s); const cnt={}; CONNS.forEach(([a,b],k)=>{ const c=PAL[k];
+  const oa=cnt[a]=(cnt[a]||0), ob=cnt[b]=(cnt[b]||0); dot(s,x0+10+oa*8,cy(a),c,3); dot(s,x0+10+ob*8,cy(b),c,3); cnt[a]++; cnt[b]++; }); };
+
+R.ortho = s => { drawBase(s); CONNS.forEach(([a,b],k)=>{ const dx=x0-10-k*7, c='rgba(255,255,255,0.72)';
+  pathd(s,`M${x0},${cy(a)} H${dx} V${cy(b)} H${x0}`,c,1.3,1); dot(s,x0,cy(a),'#cfe0ee',1.7); dot(s,x0,cy(b),'#cfe0ee',1.7); }); };
+
+R.bundle = s => { drawBase(s); const xr=x0-52; CONNS.forEach(([a,b],k)=>{ const c=PAL[k], my=(cy(a)+cy(b))/2;
+  pathd(s,`M${x0},${cy(a)} Q${xr},${cy(a)} ${xr},${my} Q${xr},${cy(b)} ${x0},${cy(b)}`,c,1.5,0.9); dot(s,x0,cy(a),c,1.8); dot(s,x0,cy(b),c,1.8); });
+  line(s,xr,cy(0)-6,xr,cy(NB-1)+6,'rgba(255,255,255,0.18)',6); };
+
+R.hover = s => { const sel=2, p=partners(sel), keep=new Set([sel,...p]); drawBase(s, keep);
+  p.forEach((q,k)=>{ const c=PAL[k], r=14+Math.abs(q-sel)*8; pathd(s,`M${x0},${cy(sel)} C${x0-r},${cy(sel)} ${x0-r},${cy(q)} ${x0},${cy(q)}`,c,2,1); dot(s,x0,cy(q),c,2.6); });
+  s.appendChild(el('rect',{x:x0-2,y:cy(sel)-bh/2-2,width:bw+4,height:bh+4,rx:4,fill:'none',stroke:'#ffd27a','stroke-width':2}));
+  dot(s,x0,cy(sel),'#ffd27a',3);
+  pathd(s,`M${x0+bw/2},${cy(sel)} l0,14 l4,-4 l3,7 l3,-1 l-3,-7 l6,0 Z`,'none',0,1,'#fff'); };
+
+R.brackets = s => { drawBase(s);
+  const grp=[[0,1,2],[3,4],[5,6,7]];
+  const mids = grp.map(g => (cy(g[0])+cy(g[g.length-1]))/2);
+  grp.forEach((g,gi)=>{ const y1=cy(g[0]), y2=cy(g[g.length-1]), bx=x0-14, c=PAL[gi];
+    pathd(s,`M${x0},${y1} H${bx} V${y2} H${x0}`, c, 1.6, 0.9);   // group bracket
+    dot(s,bx,mids[gi],c,2.4);
+  });
+  // join the three group brackets one level deeper (dendrogram root)
+  pathd(s,`M${x0-14},${mids[0]} H${x0-30} V${mids[2]} H${x0-14}`,'rgba(255,255,255,0.6)',1.5,0.9);
+  dot(s,x0-30,(mids[0]+mids[2])/2,'rgba(255,255,255,0.85)',2.4); };
+
+R.miniMap = s => { drawBase(s); const cxm=x0+bw+34, cym=(cy(0)+cy(NB-1))/2, R0=26; const pos=[];
+  for(let i=0;i<NB;i++){ const ang=-Math.PI/2 + i/NB*2*Math.PI; pos.push([cxm+R0*Math.cos(ang), cym+R0*Math.sin(ang)]); }
+  txt(s,cxm,cym-R0-8,'connectivity','#7f97a8',8);
+  CONNS.forEach(([a,b],k)=> line(s,pos[a][0],pos[a][1],pos[b][0],pos[b][1],PAL[k],1.3));
+  pos.forEach((p,i)=>{ dot(s,p[0],p[1],'#0f2436',5); s.appendChild(el('circle',{cx:p[0],cy:p[1],r:5,fill:'#0f2436',stroke:'#7fa8c4','stroke-width':1.2})); txt(s,p[0],p[1]+3,i,'#cfe0ee',7); }); };
+
+R.ribbon = s => { drawBase(s); CONNS.forEach(([a,b],k)=>{ const c=PAL[k], r=14+Math.abs(b-a)*7;
+  pathd(s,`M${x0},${cy(a)} C${x0-r},${cy(a)} ${x0-r},${cy(b)} ${x0},${cy(b)}`,c,5,0.30);
+  pathd(s,`M${x0},${cy(a)} C${x0-r},${cy(a)} ${x0-r},${cy(b)} ${x0},${cy(b)}`,c,1.2,0.85); }); };
+
+// ---- card definitions -----------------------------------------------------
+const CARDS = [
+  ['Arc diagram — one side', R.arcOne,
+   'Nested semicircular arcs in the outer channel; longer links bow out further so they nest instead of overlap.',
+   'Projects: route on the free outer side and attach at each bar’s vertical centre (kept clear of the bands).'],
+  ['Arc diagram — split sides', R.arcSplit,
+   'Alternate arcs between the left and right outer channels to halve the crossings and depth.',
+   'Projects: uses both margins, staying outside the theme/skill band ticks on each edge.'],
+  ['Subway lanes', R.subway,
+   'Each link is its own coloured vertical lane with short stubs into its two bars — parallel, never crossing.',
+   'Projects: lanes sit in a reserved outer channel; only the tiny stubs touch the (free) bar centre.'],
+  ['Adjacency matrix', R.matrix,
+   'A compact N×N dot grid beside the column; a dot at (row a, col b) marks a link. Scales to any count.',
+   'Projects: lives entirely in a side panel — never touches the occupied edges. Best for all 9.'],
+  ['Numbered partners', R.numbered,
+   'Each bar simply lists the indices it connects to, like footnotes. Text, so it scales without limit.',
+   'Projects: labels sit just outside the bar; zero routing, no clash with the bands.'],
+  ['Colour-paired dots', R.colorDots,
+   'Every link gets a unique colour; a matching dot on both endpoints pairs them. Dots stack when a node has several.',
+   'Projects: dots sit just inside the bar face (away from the edge bands); no lines at all.'],
+  ['Orthogonal wire traces', R.ortho,
+   'Thin right-angle wires at layered depths (PCB style), one depth per link. Monochrome so 9 stay calm.',
+   'Projects: all right-angles live in the outer channel; attach points avoid the edge bands.'],
+  ['Bundled to a side rail', R.bundle,
+   'Every link curves toward a shared vertical rail and back — hierarchical bundling that tames many crossings.',
+   'Projects: the rail sits well outside the bars, clear of both bands.'],
+  ['Hover / select reveal', R.hover,
+   'Nothing static: selecting a node (here #2) lights it and its partners and draws just those links; the rest dim.',
+   'Projects: on-demand, so the occupied edges are never cluttered. Scales to any number of links.'],
+  ['Bracket clustering', R.brackets,
+   'When links form clusters, show a dendrogram of nested brackets on the outer side instead of every edge.',
+   'Projects: brackets live in the outer channel; good when relationships are groupy rather than arbitrary.'],
+  ['Mini network map', R.miniMap,
+   'A tiny satellite node-link diagram beside the column shows the whole same-column connectivity at a glance.',
+   'Projects: a side panel — independent of the bars, so the busy edges stay untouched.'],
+  ['Colour ribbons', R.ribbon,
+   'Translucent filled ribbons echoing the app’s cross-column edges, kept on one outer side.',
+   'Projects: needs the most outer margin; readable for a few links, crowded near all 9.'],
+];
+
+const grid = document.getElementById('grid');
+CARDS.forEach(([title, fn, desc, proj], i)=>{
+  const card = document.createElement('div'); card.className='card';
+  const h = document.createElement('h2'); h.innerHTML = '<span class="num">'+(i+1)+'</span> · '+title; card.appendChild(h);
+  const stage = document.createElement('div'); stage.className='stage';
+  const svg = el('svg',{viewBox:`0 0 ${W} ${H}`, role:'img'}); fn(svg); stage.appendChild(svg); card.appendChild(stage);
+  const p = document.createElement('p'); p.textContent = desc; card.appendChild(p);
+  const pr = document.createElement('p'); pr.className='proj'; pr.textContent = proj; card.appendChild(pr);
+  grid.appendChild(card);
+});
+</script>
+</body>
+</html>

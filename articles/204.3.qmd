@@ -1,9 +1,11 @@
 ---
-title: "Probabilities of the end of the world"
+title: Polarization"
 subtitle: "A worked example article"
 date: last-modified
 inline: true
 ---
 
-*This is a placeholder article. The short description shown on the node in the graph
+
+*Tsshis is a placeholder article. Test The short description shown on the node in the graph
 acts as an **abstract**; this page is the fuller text it links to.*
+

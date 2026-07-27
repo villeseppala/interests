@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Same-column connection styles</title>
+<style>
+  :root { --bg:#0b3552; --panel:#0e2c46; --node:#0f2436; --ink:#e8f1f8; --dim:#9fb6c6;
+          --theme:#3be37a; --link:rgba(255,255,255,0.78); --accent:#ffcc66; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font-family:Arial, Helvetica, sans-serif; line-height:1.5; }
+  header { padding:28px 24px 8px; max-width:1100px; margin:0 auto; }
+  header h1 { margin:0 0 8px; font-size:24px; }
+  header p { margin:6px 0; color:var(--dim); max-width:70ch; }
+  .grid { max-width:1100px; margin:0 auto; padding:16px 24px 48px;
+          display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:18px; }
+  .card { background:var(--panel); border:1px solid rgba(255,255,255,0.08);
+          border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:10px; }
+  .card h2 { margin:0; font-size:16px; }
+  .card .stage { background:var(--bg); border-radius:8px; padding:6px; }
+  .card svg { width:100%; height:auto; display:block; }
+  .card p { margin:0; color:var(--dim); font-size:13.5px; }
+  .card .best { color:var(--ink); font-size:13px; }
+  .tag { display:inline-block; font-size:11px; letter-spacing:.03em; text-transform:uppercase;
+         color:#0b3552; background:var(--theme); border-radius:20px; padding:2px 9px; font-weight:bold; }
+  .tag.soft { background:rgba(255,255,255,0.14); color:var(--ink); }
+  ul { margin:2px 0 0; padding-left:18px; color:var(--dim); font-size:13px; }
+  li { margin:2px 0; }
+  .legend { max-width:1100px; margin:0 auto; padding:0 24px 24px; color:var(--dim); font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Ways to indicate a connection between two nodes in the <em>same</em> column</h1>
+  <p>The columns are vertical stacks of horizontal bars, and the existing cross-column edges already
+     live on the <strong>inner</strong> sides (Themes on their right toward Projects, Skills on their
+     left). So a same-column link reads most clearly when it uses a <strong>different visual channel</strong> —
+     the outer edge, a neutral (non-source) color, or no line at all. Each mock links the 2nd and 4th
+     bar as an example.</p>
+</header>
+
+<div class="grid">
+
+  <!-- 1. Outer side bracket -->
+  <div class="card">
+    <span class="tag">recommended</span>
+    <h2>1 · Outer-edge bracket</h2>
+    <div class="stage">
+      <svg viewBox="0 0 300 275" role="img" aria-label="Bracket on the outer edge linking two bars">
+        <!-- bars -->
+        <g font-family="Arial" font-size="12.5" font-weight="bold">
+          <rect x="72" y="15"  width="204" height="40" rx="3" fill="#0f2436" stroke="#47cfc1" stroke-width="2"/>
+          <text x="266" y="39" text-anchor="end" fill="#bfeee8">Russia / Ukraine</text>
+          <rect x="72" y="66"  width="204" height="40" rx="3" fill="#0f2436" stroke="#4f8ad4" stroke-width="2"/>
+          <text x="266" y="90" text-anchor="end" fill="#cfe0f5">Existential risks</text>
+          <rect x="72" y="117" width="204" height="40" rx="3" fill="#0f2436" stroke="#d3477b" stroke-width="2"/>
+          <text x="266" y="141" text-anchor="end" fill="#f3c9d9">Climate change</text>
+          <rect x="72" y="168" width="204" height="40" rx="3" fill="#0f2436" stroke="#cc6b45" stroke-width="2"/>
+          <text x="266" y="192" text-anchor="end" fill="#f1d3c7">Electricity markets</text>
+          <rect x="72" y="219" width="204" height="40" rx="3" fill="#0f2436" stroke="#83d54a" stroke-width="2"/>
+          <text x="266" y="243" text-anchor="end" fill="#dcf0c9">Global harmony</text>
+        </g>
+        <!-- bracket linking bar 2 (center y=86) and bar 4 (center y=188) -->
+        <path d="M72,86 H52 Q44,86 44,94 V180 Q44,188 52,188 H72"
+              fill="none" stroke="rgba(255,255,255,0.82)" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="72" cy="86"  r="3.2" fill="rgba(255,255,255,0.9)"/>
+        <circle cx="72" cy="188" r="3.2" fill="rgba(255,255,255,0.9)"/>
+      </svg>
+    </div>
+    <p>A thin brace on the column's outer edge (the side with no cross-column ribbons) ties the two bars
+       together, like a tree/phylogeny brace.</p>
+    <ul>
+      <li><b>+</b> Never collides with the source-colored edges.</li>
+      <li><b>+</b> Reads instantly as "these two relate."</li>
+      <li><b>−</b> Needs a little outer margin reserved.</li>
+      <li><b>−</b> Crossing brackets get busy if many pairs.</li>
+    </ul>
+    <p class="best">Best for: a handful of explicit pairings you always want visible.</p>
+  </div>
+
+  <!-- 2. Loop-out ribbon -->
+  <div class="card">
+    <h2>2 · Loop-out ribbon</h2>
+    <div class="stage">
+      <svg viewBox="0 0 300 275" role="img" aria-label="A curved ribbon that bows out and back">
+        <g font-family="Arial" font-size="12.5" font-weight="bold">
+          <rect x="72" y="15"  width="204" height="40" rx="3" fill="#0f2436" stroke="#47cfc1" stroke-width="2"/>
+          <text x="266" y="39" text-anchor="end" fill="#bfeee8">Russia / Ukraine</text>
+          <rect x="72" y="66"  width="204" height="40" rx="3" fill="#0f2436" stroke="#4f8ad4" stroke-width="2"/>
+          <text x="266" y="90" text-anchor="end" fill="#cfe0f5">Existential risks</text>
+          <rect x="72" y="117" width="204" height="40" rx="3" fill="#0f2436" stroke="#d3477b" stroke-width="2"/>
+          <text x="266" y="141" text-anchor="end" fill="#f3c9d9">Climate change</text>
+          <rect x="72" y="168" width="204" height="40" rx="3" fill="#0f2436" stroke="#cc6b45" stroke-width="2"/>
+          <text x="266" y="192" text-anchor="end" fill="#f1d3c7">Electricity markets</text>
+          <rect x="72" y="219" width="204" height="40" rx="3" fill="#0f2436" stroke="#83d54a" stroke-width="2"/>
+          <text x="266" y="243" text-anchor="end" fill="#dcf0c9">Global harmony</text>
+        </g>
+        <!-- ribbon: two beziers filled -->
+        <path d="M72,80 C28,96 28,178 72,194 C40,178 40,96 72,80 Z"
+              fill="rgba(120,230,180,0.28)" stroke="rgba(120,230,180,0.85)" stroke-width="1.4"/>
+      </svg>
+    </div>
+    <p>A curved ribbon leaves one bar, bows out into the margin, and returns to the other — the same
+       visual language as your cross-column ribbons, kept on one side.</p>
+    <ul>
+      <li><b>+</b> Visually consistent with existing edges.</li>
+      <li><b>+</b> Can carry a color/gradient for meaning.</li>
+      <li><b>−</b> Eats more horizontal margin than a bracket.</li>
+      <li><b>−</b> Two nearby loops can overlap awkwardly.</li>
+    </ul>
+    <p class="best">Best for: making same-column links feel native to the map.</p>
+  </div>
+
+  <!-- 3. Inset spine + stubs -->
+  <div class="card">
+    <h2>3 · Inset spine &amp; stubs</h2>
+    <div class="stage">
+      <svg viewBox="0 0 300 275" role="img" aria-label="A vertical spine just inside the column with stubs">
+        <g font-family="Arial" font-size="12.5" font-weight="bold">
+          <rect x="72" y="15"  width="204" height="40" rx="3" fill="#0f2436" stroke="#47cfc1" stroke-width="2"/>
+          <text x="266" y="39" text-anchor="end" fill="#bfeee8">Russia / Ukraine</text>
+          <rect x="72" y="66"  width="204" height="40" rx="3" fill="#0f2436" stroke="#4f8ad4" stroke-width="2"/>
+          <text x="266" y="90" text-anchor="end" fill="#cfe0f5">Existential risks</text>
+          <rect x="72" y="117" width="204" height="40" rx="3" fill="#0f2436" stroke="#d3477b" stroke-width="2"/>
+          <text x="266" y="141" text-anchor="end" fill="#f3c9d9">Climate change</text>
+          <rect x="72" y="168" width="204" height="40" rx="3" fill="#0f2436" stroke="#cc6b45" stroke-width="2"/>
+          <text x="266" y="192" text-anchor="end" fill="#f1d3c7">Electricity markets</text>
+          <rect x="72" y="219" width="204" height="40" rx="3" fill="#0f2436" stroke="#83d54a" stroke-width="2"/>
+          <text x="266" y="243" text-anchor="end" fill="#dcf0c9">Global harmony</text>
+        </g>
+        <!-- spine sits just inside the left edge, over the nodes -->
+        <line x1="86" y1="86" x2="86" y2="188" stroke="rgba(255,255,255,0.7)" stroke-width="2.2" stroke-linecap="round"/>
+        <line x1="86" y1="86"  x2="99" y2="86"  stroke="rgba(255,255,255,0.7)" stroke-width="2.2" stroke-linecap="round"/>
+        <line x1="86" y1="188" x2="99" y2="188" stroke="rgba(255,255,255,0.7)" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="86" cy="86"  r="3" fill="#fff"/>
+        <circle cx="86" cy="188" r="3" fill="#fff"/>
+      </svg>
+    </div>
+    <p>A short vertical line runs <em>inside</em> the bars near their edge, with little stubs into each
+       linked node. No extra margin needed.</p>
+    <ul>
+      <li><b>+</b> Zero horizontal footprint.</li>
+      <li><b>+</b> Subtle; won't dominate the map.</li>
+      <li><b>−</b> Competes with the node's own outline/text.</li>
+      <li><b>−</b> Weaker signal — easy to miss.</li>
+    </ul>
+    <p class="best">Best for: dense layouts where margin is scarce.</p>
+  </div>
+
+  <!-- 4. Group frame -->
+  <div class="card">
+    <h2>4 · Group frame</h2>
+    <div class="stage">
+      <svg viewBox="0 0 300 275" role="img" aria-label="A rounded frame enclosing adjacent bars">
+        <!-- frame behind bars -->
+        <rect x="60" y="60" width="228" height="154" rx="10"
+              fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.5)" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <rect x="70" y="52" width="86" height="16" rx="8" fill="rgba(255,255,255,0.14)"/>
+        <text x="79" y="64" font-family="Arial" font-size="10.5" fill="#e8f1f8" font-weight="bold">related set</text>
+        <g font-family="Arial" font-size="12.5" font-weight="bold">
+          <rect x="72" y="15"  width="204" height="40" rx="3" fill="#0f2436" stroke="#47cfc1" stroke-width="2"/>
+          <text x="266" y="39" text-anchor="end" fill="#bfeee8">Russia / Ukraine</text>
+          <rect x="72" y="66"  width="204" height="40" rx="3" fill="#0f2436" stroke="#4f8ad4" stroke-width="2"/>
+          <text x="266" y="90" text-anchor="end" fill="#cfe0f5">Existential risks</text>
+          <rect x="72" y="117" width="204" height="40" rx="3" fill="#0f2436" stroke="#d3477b" stroke-width="2"/>
+          <text x="266" y="141" text-anchor="end" fill="#f3c9d9">Climate change</text>
+          <rect x="72" y="168" width="204" height="40" rx="3" fill="#0f2436" stroke="#cc6b45" stroke-width="2"/>
+          <text x="266" y="192" text-anchor="end" fill="#f1d3c7">Electricity markets</text>
+          <rect x="72" y="219" width="204" height="40" rx="3" fill="#0f2436" stroke="#83d54a" stroke-width="2"/>
+          <text x="266" y="243" text-anchor="end" fill="#dcf0c9">Global harmony</text>
+        </g>
+      </svg>
+    </div>
+    <p>Wrap a set of <em>adjacent</em> bars in a labelled rounded frame — grouping rather than pairwise
+       linking.</p>
+    <ul>
+      <li><b>+</b> Great for "these belong together" clusters.</li>
+      <li><b>+</b> Can carry a group label.</li>
+      <li><b>−</b> Only works if members sit next to each other.</li>
+      <li><b>−</b> Can't show a link that skips a node.</li>
+    </ul>
+    <p class="best">Best for: sub-grouping consecutive nodes (needs stable ordering).</p>
+  </div>
+
+  <!-- 5. Shared tag / badge -->
+  <div class="card">
+    <h2>5 · Shared tag (no line)</h2>
+    <div class="stage">
+      <svg viewBox="0 0 300 275" role="img" aria-label="Matching badges on two non-adjacent bars">
+        <g font-family="Arial" font-size="12.5" font-weight="bold">
+          <rect x="72" y="15"  width="204" height="40" rx="3" fill="#0f2436" stroke="#47cfc1" stroke-width="2"/>
+          <text x="266" y="39" text-anchor="end" fill="#bfeee8">Russia / Ukraine</text>
+          <rect x="72" y="66"  width="204" height="40" rx="3" fill="#0f2436" stroke="#4f8ad4" stroke-width="2"/>
+          <text x="266" y="90" text-anchor="end" fill="#cfe0f5">Existential risks</text>
+          <rect x="72" y="117" width="204" height="40" rx="3" fill="#0f2436" stroke="#d3477b" stroke-width="2"/>
+          <text x="266" y="141" text-anchor="end" fill="#f3c9d9">Climate change</text>
+          <rect x="72" y="168" width="204" height="40" rx="3" fill="#0f2436" stroke="#cc6b45" stroke-width="2"/>
+          <text x="266" y="192" text-anchor="end" fill="#f1d3c7">Electricity markets</text>
+          <rect x="72" y="219" width="204" height="40" rx="3" fill="#0f2436" stroke="#83d54a" stroke-width="2"/>
+          <text x="266" y="243" text-anchor="end" fill="#dcf0c9">Global harmony</text>
+        </g>
+        <!-- matching badges on bar 2 and bar 5 (non-adjacent) -->
+        <g font-family="Arial" font-size="11" font-weight="bold">
+          <circle cx="86" cy="86"  r="8.5" fill="#ffcc66"/><text x="86" y="90" text-anchor="middle" fill="#0b3552">A</text>
+          <circle cx="86" cy="239" r="8.5" fill="#ffcc66"/><text x="86" y="243" text-anchor="middle" fill="#0b3552">A</text>
+        </g>
+      </svg>
+    </div>
+    <p>Give each partner the same little chip (a color, letter, or number). No drawn line at all — the
+       eye pairs them by matching mark.</p>
+    <ul>
+      <li><b>+</b> Works for <em>non-adjacent</em> nodes, any distance.</li>
+      <li><b>+</b> Scales to many independent pairs/sets.</li>
+      <li><b>−</b> Requires scanning to find the match.</li>
+      <li><b>−</b> Runs out of distinct chips if there are many.</li>
+    </ul>
+    <p class="best">Best for: several far-apart relationships without clutter.</p>
+  </div>
+
+  <!-- 6. Hover highlight -->
+  <div class="card">
+    <h2>6 · Hover-only highlight</h2>
+    <div class="stage">
+      <svg viewBox="0 0 300 275" role="img" aria-label="Partners light up on hover; others dim">
+        <g font-family="Arial" font-size="12.5" font-weight="bold">
+          <!-- dimmed non-partners -->
+          <g opacity="0.32">
+            <rect x="72" y="15"  width="204" height="40" rx="3" fill="#0f2436" stroke="#47cfc1" stroke-width="2"/>
+            <text x="266" y="39" text-anchor="end" fill="#bfeee8">Russia / Ukraine</text>
+            <rect x="72" y="117" width="204" height="40" rx="3" fill="#0f2436" stroke="#d3477b" stroke-width="2"/>
+            <text x="266" y="141" text-anchor="end" fill="#f3c9d9">Climate change</text>
+            <rect x="72" y="219" width="204" height="40" rx="3" fill="#0f2436" stroke="#83d54a" stroke-width="2"/>
+            <text x="266" y="243" text-anchor="end" fill="#dcf0c9">Global harmony</text>
+          </g>
+          <!-- highlighted partners (hovered + its link) -->
+          <rect x="70" y="64" width="208" height="44" rx="3" fill="#12314a" stroke="#4f8ad4" stroke-width="3.4"/>
+          <text x="266" y="90" text-anchor="end" fill="#eaf2fb">Existential risks</text>
+          <rect x="70" y="166" width="208" height="44" rx="3" fill="#12314a" stroke="#cc6b45" stroke-width="3.4"/>
+          <text x="266" y="192" text-anchor="end" fill="#f6e2d8">Electricity markets</text>
+        </g>
+        <!-- cursor hint -->
+        <path d="M150,86 l0,16 l4,-4 l3,7 l3,-1 l-3,-7 l6,0 Z" fill="#fff" opacity="0.9"/>
+      </svg>
+    </div>
+    <p>Nothing persistent: hovering (or selecting) a node brightens it and its same-column partners while
+       the rest dim — reusing your existing hover-highlight machinery.</p>
+    <ul>
+      <li><b>+</b> Zero static clutter; scales to any number of links.</li>
+      <li><b>+</b> Cheap — extends the highlight you already have.</li>
+      <li><b>−</b> Invisible until the user interacts.</li>
+      <li><b>−</b> No use on a static export / screenshot.</li>
+    </ul>
+    <p class="best">Best for: many links you only need on demand (pairs well with 1 or 5).</p>
+  </div>
+
+</div>
+
+<div class="legend">
+  <p><b>My take:</b> combine <b>#1 (outer bracket)</b> or <b>#5 (shared tag)</b> for the persistent signal
+  with <b>#6 (hover highlight)</b> for detail on demand. Brackets for a few always-on pairings; tags when
+  partners are far apart or numerous; hover to confirm without cluttering the static view.</p>
+</div>
+
+</body>
+</html>

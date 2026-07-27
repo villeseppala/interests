@@ -1,0 +1,22 @@
+---
+title: "Probabilities of the end of the world"
+subtitle: "A worked example article"
+date: last-modified
+inline: true
+---
+
+
+There is a considerable yet hard to define probability for humankind's extinction, or atleast a catastrophic civilizational collapse, within our lifetime. 
+
+I would like to create a site that allows the user to set probabilities on how likely this kind of extinction event or catastropthic collapse occurs in different time periods in the future. The site then calculates the expected longevity of humankind (measured in expected years the humankind will exist or in expected human lives, for example). Results are accompanied by graphs.
+
+The motivation behind the site is to demonstrate that even very small improvements in existential risk will pay off immensely in the long run in terms of humankind's longevity. This should motivate the user to pursue those improvements various ways in their lives. 
+
+
+The user can also simulate a number of possible paths for humankind, given the chosen probabilities, that are shown in the graphs. This can give a more tangible impressions of existential risk than expected/average values. 
+
+Site can also be used to collect expert estimates on existential risk, since users can export their selected probabilities to the server. Expert evaluations could be filtered using some simple authentications mechanisms, such as identification codes. Estimates from experts or the general public can be used to set default values for the site and their distribution can be shown to the user. 
+
+I think the questionnaire setting can provide novelty by collecting more information on risk probabilities over different time periods and by focusing on how much would removing specific risks reduce the overall extinction/catastropic risk (see the description of the project below for more on this approach).
+
+See the presentation for more info and sketches of the sites layout: https://docs.google.com/presentation/d/1MYwDxNplckHsZZDX9KoPoIQtO3CPq4YPcuMRX1p3bhM/edit?slide=id.p#slide=id.p

@@ -189,7 +189,6 @@ server <- function(input, output, session) {
                              w_project = ly$w_project %||% NODE_W$Project, w_node = ly$w_node,
                              inline_mode = isTRUE(ly$inline_mode %||% TRUE),
                              articles_enabled = isTRUE(ly$articles_enabled %||% FALSE),
-                             auto_fit_open = isTRUE(ly$auto_fit_open %||% FALSE),
                              watermark_text = ly$watermark_text %||% "",
                              watermark_size = ly$watermark_size %||% 10,
                              col_bg = ly$col_bg %||% "#0b3552",
@@ -243,9 +242,6 @@ server <- function(input, output, session) {
     session$sendCustomMessage("setFillNodeW", list(pct = ly$fill_nodew %||% 0))
     session$sendCustomMessage("setFillProjW", list(pct = ly$fill_projw %||% 0))
     session$sendCustomMessage("setFillColGap", list(pct = ly$fill_colgap %||% 0))
-    session$sendCustomMessage("setFillNodePad", list(pct = ly$fill_nodepad %||% 0))
-    session$sendCustomMessage("setNarrowGapMult", list(mult = ly$narrow_gap_mult %||% 1))
-    session$sendCustomMessage("setNarrowNodeMult", list(mult = ly$narrow_node_mult %||% 1))
     session$sendCustomMessage("setGradientExtent", list(pct = ly$gradient_extent %||% 20))
     session$sendCustomMessage("setGradientTransparency", list(pct = ly$gradient_transparency %||% 40))
     session$sendCustomMessage("setGradientCurve", list(curve = ly$gradient_curve %||% 1))
@@ -255,11 +251,9 @@ server <- function(input, output, session) {
     session$sendCustomMessage("setOutlineSaturation", list(value = ly$outline_saturation %||% 1))
     session$sendCustomMessage("setOutlineTransparency", list(pct = ly$outline_transparency %||% 0))
     session$sendCustomMessage("setNodePad", list(px = ly$node_pad %||% 0))
-    session$sendCustomMessage("setProjectMaxWidth", list(px = ly$project_max_width %||% 0))
     session$sendCustomMessage("setDescPad", list(px = ly$desc_pad %||% 10))
     session$sendCustomMessage("setInlineMode", list(value = isTRUE(ly$inline_mode %||% TRUE)))
     session$sendCustomMessage("setArticlesEnabled", list(value = isTRUE(ly$articles_enabled %||% FALSE)))
-    session$sendCustomMessage("setAutoFitOpen", list(value = isTRUE(ly$auto_fit_open %||% FALSE)))
     session$sendCustomMessage("setAccordionIcon", list(style = ly$accordion_icon %||% "triangle"))
     session$sendCustomMessage("setAccordionIconSize", list(size = ly$accordion_icon_size %||% 14))
   })

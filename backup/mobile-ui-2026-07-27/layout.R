@@ -383,19 +383,10 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
     if (inline) return(w_node)                        # inline: Theme/Skill/About share w_node
     NODE_W[[grp]] %||% 200                             # non-inline: per-group defaults
   }
-  # Inline: gap_col is the EDGE gap between adjacent columns — the clear space between the right
-  # border of the Theme nodes and the left border of the Project nodes (and Project→Skill). Convert
-  # to column-centre x using the uniform per-column widths (Theme/Skill = w_node, Project = w_project).
-  # gap 0 = columns just touch; the slider now goes all the way down instead of hitting a centre-to-
-  # centre floor. Non-inline keeps the old centre-to-centre meaning (dormant path).
-  if (inline) {
-    gap <- max(gap_col, 0)
-    proj_x  <- w_node / 2 + gap + w_project / 2
-    skill_x <- proj_x + w_project / 2 + gap + w_node / 2
-    col_x <- list(Theme = 0, Project = proj_x, Skill = skill_x, About = skill_x)
-  } else {
-    col_x <- list(Theme = 0, Project = gap_col, Skill = gap_col * 2, About = gap_col * 2)
-  }
+  # Column spacing floor = the point where adjacent columns would just touch (no overlap), so the
+  # slider stays effective down to that width instead of the old fixed w_project+90 dead zone.
+  col_gap <- if (inline) max(gap_col, (w_node + w_project) / 2) else gap_col
+  col_x <- list(Theme = 0, Project = col_gap, Skill = col_gap * 2, About = col_gap * 2)
 
   # Use custom node heights
   node_h_map <- list(Theme = h_theme, Project = h_project, About = NODE_H[["About"]] %||% 46)
@@ -553,7 +544,7 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                                  font_hdr1 = 22, font_hdr2 = 15,
                                  h_theme = 46, h_project = 66, h_skill = 46,
                                  w_project = NODE_W$Project, w_node = NULL, inline_mode = FALSE,
-                                 articles_enabled = FALSE, auto_fit_open = FALSE,
+                                 articles_enabled = FALSE,
                                  watermark_text = "", watermark_size = 10,
                                  col_bg = "#0b3552", col_sidebar_bg = "#081626", col_node_bg = "#081626",
                                  col_theme = "#3be37a", col_project = "#ffad33", col_skill = "#78e6e7",
@@ -612,7 +603,6 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
   # Attach mobile as nested field (backward-compatible: top-level = desktop)
   desktop$mobile <- mobile
   desktop$articles_enabled <- isTRUE(articles_enabled)
-  desktop$auto_fit_open <- isTRUE(auto_fit_open)
   desktop
 }
 

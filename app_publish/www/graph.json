@@ -4,7 +4,7 @@
       "id": 106,
       "group": "Theme",
       "title": "Russia/Ukraine",
-      "edgeColor": "#47CFC1",
+      "edgeColor": "#5ED294",
       "title_fi": "Venäjä/Ukraina",
       "lightEdgeColor": "#3F9B3E"
     },
@@ -12,7 +12,7 @@
       "id": 101,
       "group": "Theme",
       "title": "Existential and catastropic risks",
-      "edgeColor": "#4F8AD4",
+      "edgeColor": "#5E67D2",
       "title_fi": "Eksistentiaaliset riskit ja longtermismi",
       "lightEdgeColor": "#33AD86"
     },
@@ -20,7 +20,7 @@
       "id": 104,
       "group": "Theme",
       "title": "Climate Change",
-      "edgeColor": "#D3477B",
+      "edgeColor": "#D2695E",
       "title_fi": "Ilmastonmuutos",
       "lightEdgeColor": "#418EBC"
     },
@@ -28,7 +28,7 @@
       "id": 105,
       "group": "Theme",
       "title": "Electricity markets",
-      "edgeColor": "#CC6B45",
+      "edgeColor": "#7CD25E",
       "title_fi": "Sähkömarkkinat",
       "lightEdgeColor": "#B33195"
     },
@@ -36,7 +36,7 @@
       "id": 103,
       "group": "Theme",
       "title": "European Union",
-      "edgeColor": "#CDC544",
+      "edgeColor": "#D25EA7",
       "title_fi": "Euroopan Unioni",
       "lightEdgeColor": "#B52430"
     },
@@ -44,7 +44,7 @@
       "id": 102,
       "group": "Theme",
       "title": "Global harmony",
-      "edgeColor": "#83D54A",
+      "edgeColor": "#A95ED2",
       "title_fi": "Globaali harmonia",
       "lightEdgeColor": "#B17D2D"
     },
@@ -125,7 +125,7 @@
       "group": "Skill",
       "title": "Artificial intelligence",
       "subs": [],
-      "edgeColor": "#297DB7",
+      "edgeColor": "#4893D1",
       "title_fi": "Tekoäly",
       "lightEdgeColor": "#B22B68"
     },
@@ -134,7 +134,7 @@
       "group": "Skill",
       "title": "Data visualization and graphic design",
       "subs": [],
-      "edgeColor": "#B82D3F",
+      "edgeColor": "#D14893",
       "title_fi": "Datavisualisointi ja graafinen suunnittelu",
       "lightEdgeColor": "#AE5D35"
     },
@@ -143,7 +143,7 @@
       "group": "Skill",
       "title": "Dashboards and websites",
       "subs": [],
-      "edgeColor": "#C18532",
+      "edgeColor": "#D18648",
       "title_fi": "Dashboardit ja nettisivut",
       "lightEdgeColor": "#B0BE34"
     },
@@ -152,7 +152,7 @@
       "group": "Skill",
       "title": "Videos and streaming",
       "subs": [],
-      "edgeColor": "#90B92A",
+      "edgeColor": "#93D148",
       "title_fi": "Videot ja striimaus",
       "lightEdgeColor": "#42B233"
     },
@@ -160,7 +160,7 @@
       "id": 305,
       "group": "Skill",
       "title": "Social media",
-      "edgeColor": "#29BB28",
+      "edgeColor": "#8648D1",
       "title_fi": "Sosiaalinen media",
       "subs": [],
       "lightEdgeColor": "#3DB98F"
@@ -210,7 +210,7 @@
       "group": "Theme",
       "title": "Finnish economy",
       "title_fi": "Suomen talous",
-      "edgeColor": "#4ED36F",
+      "edgeColor": "#5EBCD2",
       "lightEdgeColor": "#799830"
     },
     {
@@ -233,7 +233,7 @@
       "id": 303.5,
       "group": "Skill",
       "title": "Economics",
-      "edgeColor": "#2DC095",
+      "edgeColor": "#48D186",
       "lightEdgeColor": "#347FBA",
       "title_fi": "Taloustiede",
       "subs": []
@@ -270,84 +270,84 @@
     {
       "from": 101,
       "to": 201,
-      "color": "#4F8AD4",
+      "color": "#5E67D2",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 202,
-      "color": "#4F8AD4",
+      "color": "#5E67D2",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 204,
-      "color": "#4F8AD4",
+      "color": "#5E67D2",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 203,
-      "color": "#83D54A",
+      "color": "#A95ED2",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 204,
-      "color": "#83D54A",
+      "color": "#A95ED2",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 203,
-      "color": "#CDC544",
+      "color": "#D25EA7",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 207,
-      "color": "#CDC544",
+      "color": "#D25EA7",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206,
-      "color": "#D3477B",
+      "color": "#D2695E",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 207,
-      "color": "#D3477B",
+      "color": "#D2695E",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 208,
-      "color": "#D3477B",
+      "color": "#D2695E",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 207,
-      "color": "#CC6B45",
+      "color": "#7CD25E",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 208,
-      "color": "#CC6B45",
+      "color": "#7CD25E",
       "dashes": false,
       "hidden": false
     },
@@ -396,21 +396,21 @@
     {
       "from": 102,
       "to": 205.5,
-      "color": "#83D54A",
+      "color": "#A95ED2",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 205.5,
-      "color": "#D3477B",
+      "color": "#D2695E",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 204,
-      "color": "#D3477B",
+      "color": "#D2695E",
       "dashes": false,
       "hidden": false
     },
@@ -431,21 +431,21 @@
     {
       "from": 102,
       "to": 204.3,
-      "color": "#83D54A",
+      "color": "#A95ED2",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206.5,
-      "color": "#D3477B",
+      "color": "#D2695E",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 206.5,
-      "color": "#CC6B45",
+      "color": "#7CD25E",
       "dashes": false,
       "hidden": false
     },
@@ -487,28 +487,28 @@
     {
       "from": 104,
       "to": 203,
-      "color": "#D3477B",
+      "color": "#D2695E",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 201,
-      "color": "#83D54A",
+      "color": "#A95ED2",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 106.1,
       "to": 209.6,
-      "color": "#4ED36F",
+      "color": "#5EBCD2",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 106,
       "to": 209.55,
-      "color": "#47CFC1",
+      "color": "#5ED294",
       "dashes": false,
       "hidden": false
     },
@@ -564,7 +564,7 @@
     {
       "from": 106,
       "to": 209.56,
-      "color": "#d17bb7",
+      "color": "#5ED294",
       "dashes": false,
       "hidden": false
     }
@@ -614,37 +614,48 @@
   },
   "layout": {
     "gap_v": 22,
-    "gap_col": 490,
-    "font_node": 19,
-    "font_ptype": 14,
+    "gap_col": 50,
+    "font_node": 21,
+    "font_ptype": 21,
     "font_subs": 15,
-    "font_desc": 16,
+    "font_desc": 19,
     "font_hdr1": 30,
     "font_hdr2": 24,
     "h_theme": 80,
     "h_project": 52,
     "h_skill": 94,
-    "w_project": 444,
+    "w_project": 540,
+    "w_node": 332,
     "ptype_pct": 18,
     "edge_width": 8,
     "edge_bands": true,
-    "edge_sankey": false,
-    "edge_gap": 0,
+    "edge_sankey": true,
+    "edge_gap": 3,
     "edge_transparency": 18,
-    "edge_min_width": 41,
-    "edge_min_on": true,
-    "edge_curve": 0.6,
+    "edge_min_width": 44,
+    "edge_min_on": false,
+    "edge_curve": 2.9,
     "edge_pin_header": false,
-    "fill_nodew": 16,
-    "fill_projw": 21,
-    "fill_colgap": 13,
+    "fill_nodew": 26,
+    "fill_projw": 23,
+    "fill_colgap": 12,
+    "fill_nodepad": 7,
+    "narrow_gap_mult": 1,
+    "narrow_node_mult": 1,
     "gradient_extent": 38,
     "gradient_transparency": 30,
     "gradient_curve": 3.9,
-    "gradient_hover_mult": 2.4,
-    "node_outline": 0,
+    "gradient_hover_mult": 2.1,
+    "node_outline": 2.5,
+    "project_outline": 0,
+    "outline_saturation": 1,
+    "outline_transparency": 0,
+    "node_pad": 0,
+    "project_max_width": 0,
+    "desc_pad": 8,
     "inline_mode": true,
     "articles_enabled": true,
+    "auto_fit_open": false,
     "accordion_icon": "chevron",
     "accordion_icon_size": 18,
     "watermark_text": "",

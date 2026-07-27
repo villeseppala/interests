@@ -57,8 +57,6 @@ var _openSeq = 0;            // increments on each inline open; the highest open
 var fillNodeW = 0;           // % of extra horizontal space used to widen Theme/Skill (+About) nodes
 var fillProjW = 0;           // % of extra horizontal space used to widen Project nodes
 var fillColGap = 0;          // % of extra horizontal space used to widen column spacing
-var fillNodePad = 0;         // % of extra horizontal space used to pad the DESCRIPTION text (widen the
-                             // box, keep the description text column fixed — extra becomes side padding)
 var inlineFillBase = null;   // { nodes:{id:{w,x}}, headers:[x] } base horizontal geometry, for re-distributing space
 var uiZoom = 1;              // inline-mode magnification on top of the fit zoom (1 = fit width; up to 3)
 var inlinePanX = 0;          // horizontal pan (screen px) when zoomed in past the viewport width
@@ -120,25 +118,12 @@ function setGradientFillAlpha(a) {
   GRAD_ALPHA_SELECT = Math.min(1, a + 0.1);
 }
 var projectNodeWidth = 444;
-var projectMaxWidth = 0;     // inline: max project node width (px) before a long title wraps to 2 rows.
-                             // 0 = auto (cap at the base project width — never widen the column; wrap
-                             // instead). >0 raises the cap: widen up to it, then wrap. (author slider)
-var narrowGapMult = 1;       // on narrow screens, multiply the base column gap by this (tighter/looser)
-var narrowNodeMult = 1;      // on narrow screens, multiply all node widths by this. Together they set
-                             // the gap:node proportion on phones (fit-zoom normalises absolute scale).
 var ptypePct = 10;
 var mobileData = null;
 var selectedNodeId = null;
 var hoveredNodeId = null;
 var mobileMode = false;
 var forceMobile = false;
-var unifiedUI = true;        // one UI everywhere: narrow screens use the inline node UI, not the old
-                             // separate mobile layout (which stays dormant behind this flag — set to
-                             // false to restore it). See useMobileLayout().
-var autoFitOnOpen = false;   // when a node is opened, zoom so its text column fills the viewport width
-                             // (author-controllable). Reading is then vertical-scroll only, no pan.
-var autoFitArmed = false;    // suppresses auto-fit until the first user interaction, so the page still
-                             // loads as the whole map even when a node opens by default.
 var previewWidth = 390;
 var previewHeight = 844;
 var sheetMode = null; // 'desc' | 'info' | null
@@ -152,7 +137,6 @@ var watermarkText = '';
 var watermarkSize = 10;
 var descFontSize = 18;
 var descPad = 10;   // horizontal padding (px) of the inline description text; vertical scales from it
-var descPadFill = 0; // extra description-text padding from the "extra width -> description padding" fill
 var colBg = '#0b3552';
 var colSidebarBg = '#081626';
 var colNodeBg = '#081626';
@@ -183,13 +167,9 @@ var lastDescMsg = null;
 document.addEventListener('DOMContentLoaded', function() {
   if (currentLang === 'fi') document.body.classList.add('lang-fi');
   if (isExportMode) document.documentElement.classList.add('export-mode');
-  if (unifiedUI) document.body.classList.add('unified-ui');   // one UI everywhere (hides old mobile chrome)
 });
 
-// Raw narrow-viewport detection — a phone-sized screen (or the author's mobile preview). Independent
-// of unifiedUI: used for touch-friendly tuning (deeper max zoom for reading) even though we now render
-// the SAME inline UI at every width.
-function isNarrow() {
+function useMobileLayout() {
   if (forceMobile) return true;
   if (window.matchMedia) {
     if (window.matchMedia('(max-width:' + MOBILE_BREAKPOINT + 'px)').matches) return true;
@@ -199,18 +179,6 @@ function isNarrow() {
   }
   return (document.documentElement.clientWidth || window.innerWidth) <= MOBILE_BREAKPOINT;
 }
-
-// "Should we use the OLD, separate mobile layout?" With unifiedUI on (the default) the answer is always
-// no — narrow screens fall through to the inline UI, and every `!useMobileLayout()` gate on the inline
-// path stays true on phones. Set unifiedUI = false to bring the old bottom-sheet mobile UI back.
-function useMobileLayout() {
-  if (unifiedUI) return false;
-  return isNarrow();
-}
-
-// Max inline magnification. On phones allow a deep zoom so a single node's text can fill the screen
-// (whole map fits tiny, so reading needs more than the desktop 3× cap); on desktop keep it at 3×.
-function uiZoomMax() { return isNarrow() ? 8 : 3; }
 
 function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -576,13 +544,12 @@ function applyInlineFill() {
     var b = inlineFillBase.nodes[n.id()];
     if (b) { n.data('w', b.w); n.position('x', b.x); }
   });
-  descPadFill = 0;   // reset the distributed description padding (re-applied below if requested)
   if (lastData && lastData.headers) lastData.headers.forEach(function (h, i) {
     if (inlineFillBase.headers[i] != null) h.x = inlineFillBase.headers[i];
   });
   // 2) Only in inline mode, and only if some slack is requested.
   if (!inlineMode || mobileMode) return;
-  var total = (fillNodeW || 0) + (fillProjW || 0) + (fillColGap || 0) + (fillNodePad || 0);
+  var total = (fillNodeW || 0) + (fillProjW || 0) + (fillColGap || 0);
   if (total <= 0) return;
   var ga = document.getElementById('graph-area'); if (!ga) return;
   var W = ga.clientWidth, viewH = ga.clientHeight || window.innerHeight;
@@ -596,22 +563,16 @@ function applyInlineFill() {
   // 4) Cyto-space width to consume, split between three shares (theme/skill width, project width,
   //    column gaps). Δwidth = 2·dwTS + 1·dwProj + 2·gAdd  (Theme+Skill widen, Project widens, 2 gaps).
   var usableCyto = (slackPx / zh) * (total / 100);
-  var dwTS   = (usableCyto * (fillNodeW / total)) / 2;   // Theme + Skill (+About) text-area widen
-  var dwProj = (usableCyto * (fillProjW / total));        // Project text-area widen
+  var dwTS   = (usableCyto * (fillNodeW / total)) / 2;   // Theme + Skill (+About) columns
+  var dwProj = (usableCyto * (fillProjW / total));        // Project column
   var gAdd   = (usableCyto * (fillColGap / total)) / 2;   // two column gaps
-  var dPad   = (usableCyto * (fillNodePad / total)) / 3;  // padding widen, spread over theme+project+skill
-  // The padding share widens the box but is added back as DESCRIPTION-text padding (descPadFill), so the
-  // description text column stays fixed and the extra width shows as inner padding around descriptions.
-  var dwTSp   = dwTS + dPad;                              // theme/skill total box widen
-  var dwProjp = dwProj + dPad;                            // project total box widen
-  var shiftP = gAdd + dwTSp / 2 + dwProjp / 2;            // Project column shift (keeps gap growth even)
-  var shiftS = 2 * gAdd + dwTSp + dwProjp;                // Skill column shift
-  if (dPad > 0) descPadFill = dPad / 2;                   // half each side; box grew by dPad → desc column fixed
-  // 5) Widen node boxes; shift Project/Skill columns (Theme stays; About rides Skill).
+  var shiftP = gAdd + dwTS / 2 + dwProj / 2;              // Project column shift (keeps gap growth even)
+  var shiftS = 2 * gAdd + dwTS + dwProj;                  // Skill column shift
+  // 5) Widen nodes (Project by dwProj, others by dwTS); shift Project/Skill columns (Theme/About stay).
   cy.nodes().forEach(function (n) {
     var g = n.data('group');
     if (!isColNode(g)) return;
-    n.data('w', (n.data('w') || 0) + (g === 'Project' ? dwProjp : dwTSp));
+    n.data('w', (n.data('w') || 0) + (g === 'Project' ? dwProj : dwTS));
     var sc = stackCol(g);   // About rides with its column (Skill) so its x-shift matches
     if (sc === 'Project') n.position('x', n.position('x') + shiftP);
     else if (sc === 'Skill') n.position('x', n.position('x') + shiftS);
@@ -679,7 +640,7 @@ function layoutInlineScroll() {
 // Set the inline magnification, keeping the point under the cursor (clientX/clientY) fixed, then re-fit.
 function setUiZoom(newUi, clientX, clientY) {
   if (!cy || !inlineMode || useMobileLayout()) return;
-  newUi = Math.max(1, Math.min(uiZoomMax(), newUi));
+  newUi = Math.max(1, Math.min(3, newUi));
   if (Math.abs(newUi - uiZoom) < 1e-4) return;
   var ga = document.getElementById('graph-area');
   if (ga && clientX != null) {
@@ -1305,7 +1266,7 @@ function inlineExpandedNodeHtml(data, exEntry) {
 // Description padding: `descPad` is the horizontal inset; vertical scales from it (defaults to 6/10/8).
 function descPadTop() { return Math.round(descPad * 0.6); }
 function descPadBot() { return Math.round(descPad * 0.8); }
-function descPadCss() { return descPadTop() + 'px ' + (descPad + descPadFill) + 'px ' + descPadBot() + 'px'; }
+function descPadCss() { return descPadTop() + 'px ' + descPad + 'px ' + descPadBot() + 'px'; }
 var _inlineProbe = null;
 function measureDescHeight(node, descHtml) {
   if (!_inlineProbe) {
@@ -1315,7 +1276,7 @@ function measureDescHeight(node, descHtml) {
   }
   var w = node.data('w') || 200;
   var wr = 'word-wrap:break-word;overflow-wrap:break-word;';
-  _inlineProbe.style.width = Math.max(w - 2 * (descPad + descPadFill), 20) + 'px';  // desc horizontal padding each side
+  _inlineProbe.style.width = Math.max(w - 2 * descPad, 20) + 'px';  // desc horizontal padding each side
   _inlineProbe.innerHTML =
     '<div style="font-family:Arial,Helvetica,sans-serif;font-size:' + descFontSize + 'px;line-height:1.45;' + wr + '">' + descHtml + '</div>';
   return _inlineProbe.offsetHeight + descPadTop() + descPadBot() + 4; // desc vertical padding + buffer
@@ -1329,7 +1290,7 @@ function measureRawHeight(node, raw) {
     document.body.appendChild(_inlineProbe);
   }
   var w = node.data('w') || 200;
-  _inlineProbe.style.width = Math.max(w - 2 * (descPad + descPadFill), 20) + 'px';
+  _inlineProbe.style.width = Math.max(w - 2 * descPad, 20) + 'px';
   _inlineProbe.innerHTML = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:' + descFontSize +
     'px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;">' + (esc(raw) || '&nbsp;') + '</div>';
   return _inlineProbe.offsetHeight + descPadTop() + descPadBot() + 4;
@@ -1568,27 +1529,6 @@ function expandNodeInline(id, descHtml, raw, lang, articleLink, skipReflow, art)
   reflowInline();
   setNodeUrl(id);
   if (String(id) === pendingScrollNode) { scrollColumnToNode(id); pendingScrollNode = null; }
-  else if (autoFitOnOpen && autoFitArmed) autoFitOpenedNode(id);
-}
-
-// Zoom/pan so the just-opened node's text column fills the viewport width, then bring its top under the
-// header. Reading is then vertical-scroll only — no horizontal panning. Gated by the author's
-// "auto-fit on open" toggle and armed only after the first user interaction (so initial load still
-// shows the whole map). Mainly for narrow screens, where the whole map fits too small to read.
-function autoFitOpenedNode(id) {
-  if (!cy || !inlineMode) return;
-  var node = cy.getElementById(String(id)); if (!node || node.empty()) return;
-  var ga = document.getElementById('graph-area'); if (!ga) return;
-  var W = ga.clientWidth, viewH = ga.clientHeight || window.innerHeight;
-  var baseBB = inlineBaseBBox(); if (!baseBB || baseBB.w === 0) return;
-  var hm = (lastData && lastData.headerMargin) || 70;
-  var fitZoom = Math.min((W - 40) / baseBB.w, (viewH - 28) / (baseBB.h + hm));
-  if (!(fitZoom > 0)) return;
-  var w = node.data('w') || 200;
-  uiZoom = Math.max(1, Math.min(uiZoomMax(), (W - 24) / (w * fitZoom)));  // node width → viewport width
-  _zoomFocal = { cx: W / 2, contentX: node.position('x') };              // centre the node horizontally
-  layoutInlineScroll();
-  scrollColumnToNode(id);                                                // node top just under the header
 }
 
 // Restore every node to its base (unexpanded) position/height once nothing is expanded.
@@ -2586,68 +2526,6 @@ function refreshLayout() {
 /* On narrow viewports: keep base width and double node height so titles wrap  */
 /* to two rows — this allows a larger zoom and visually larger font.          */
 
-// Narrow screens: multiply the base column gap and node widths by the author's narrow multipliers,
-// then re-measure heights and re-stack the Theme and Skill(+About) columns (preserving R's per-node
-// vertical gaps). Projects are left to autoFitProjectWidth downstream. Runs on the fresh per-init
-// payload clone before saveLayoutSnapshot/autoFit, so the scaled layout becomes the working base.
-function applyNarrowScale(data) {
-  if (!unifiedUI || !isNarrow() || !data || !data.nodes) return;
-  var gm = (narrowGapMult > 0) ? narrowGapMult : 1;
-  var nm = (narrowNodeMult > 0) ? narrowNodeMult : 1;
-  if (gm === 1 && nm === 1) return;
-
-  // Uniform per-column base widths + the Project column x (to recover the base edge gap).
-  var themeW = 0, projW = 0, projX = null;
-  data.nodes.forEach(function (n) {
-    if (!n.data) return;
-    var g = n.data.group;
-    if (g === 'Theme' || g === 'Skill' || g === 'About') themeW = Math.max(themeW, n.data.w || 0);
-    else if (g === 'Project') { projW = Math.max(projW, n.data.w || 0); if (projX == null && n.position) projX = n.position.x; }
-  });
-  if (!(themeW > 0) || !(projW > 0) || projX == null) return;
-  var baseGap = projX - themeW / 2 - projW / 2;            // R laid columns out edge-to-edge
-
-  var newThemeW = Math.max(40, themeW * nm);
-  var newProjW  = Math.max(40, projW * nm);
-  var newGap    = Math.max(0, baseGap * gm);
-  var newProjX  = newThemeW / 2 + newGap + newProjW / 2;
-  var newSkillX = newProjX + newProjW / 2 + newGap + newThemeW / 2;
-
-  // Apply widths + column x; record original y/h; re-measure Theme/Skill/About heights at the new width.
-  data.nodes.forEach(function (n) {
-    if (!n.data || !n.position) return;
-    n.data._oy = n.position.y; n.data._oh = n.data.h;
-    var g = n.data.group;
-    if (g === 'Theme')        { n.data.w = newThemeW; n.position.x = 0;         n.data.h = measureThemeNodeHeight(n.data, newThemeW); }
-    else if (g === 'About')   { n.data.w = newThemeW; n.position.x = newSkillX; n.data.h = measureThemeNodeHeight(n.data, newThemeW); }
-    else if (g === 'Skill')   { n.data.w = newThemeW; n.position.x = newSkillX; n.data.h = measureSkillNodeHeight(n.data, newThemeW); }
-    else if (g === 'Project') { n.data.w = newProjW;  n.position.x = newProjX; }  // height/re-stack: autoFitProjectWidth
-  });
-  (data.headers || []).forEach(function (h, i) {
-    if (i === 0) h.x = 0; else if (i === 1) h.x = newProjX; else if (i === 2) h.x = newSkillX;
-  });
-
-  // Re-stack a column top-down, preserving each original inter-node gap while accommodating new heights.
-  function restack(nodesInCol) {
-    nodesInCol.sort(function (a, b) { return a.data._oy - b.data._oy; });
-    var prevOrigBottom = null, prevNewBottom = null;
-    nodesInCol.forEach(function (n) {
-      var oTop = n.data._oy - n.data._oh / 2;
-      var nTop = (prevNewBottom == null) ? oTop : prevNewBottom + (oTop - prevOrigBottom);
-      n.position.y = nTop + n.data.h / 2;
-      prevOrigBottom = oTop + n.data._oh;
-      prevNewBottom  = nTop + n.data.h;
-    });
-  }
-  var themeCol = [], skillCol = [];
-  data.nodes.forEach(function (n) {
-    if (!n.data) return;
-    if (n.data.group === 'Theme') themeCol.push(n);
-    else if (n.data.group === 'Skill' || n.data.group === 'About') skillCol.push(n);
-  });
-  restack(themeCol); restack(skillCol);
-}
-
 function autoFitProjectWidth(data) {
   if (useMobileLayout()) return;
   var canvas = document.createElement('canvas');
@@ -2687,36 +2565,6 @@ function autoFitProjectWidth(data) {
     gapV = Math.max(4, Math.round(projNodes[1].position.y - projNodes[0].position.y -
                                   (projNodes[0].data.h + projNodes[1].data.h) / 2));
 
-  // ── Inline mode: cap project width and WRAP long titles instead of widening the whole column ──
-  // Vertical space is cheap here (columns scroll independently); horizontal is shared and scarce —
-  // on a phone a wide column shrinks the whole-map fit-zoom. Auto cap = the base project width
-  // (never widen — wrap immediately); the optional "max project width" slider raises the cap (widen
-  // up to it, then wrap). requiredSingle > baseW here (the already-fits case returned above).
-  if (inlineMode) {
-    var cap = (projectMaxWidth && projectMaxWidth > 0) ? projectMaxWidth : baseW;
-    var targetW = Math.max(80, Math.min(requiredSingle, cap));
-    var dW = targetW - baseW;
-    currentLayoutMode = (targetW >= requiredSingle) ? 'single' : 'two';
-    var pTop = projNodes[0].position.y - projNodes[0].data.h / 2;   // anchor the first project's top
-    var yC = pTop;
-    projNodes.forEach(function (n) {
-      n.data.w = targetW;
-      n.data.h = measureProjectNodeHeight(n.data, targetW);         // wrap-aware height at the cap
-      n.position.y = yC + n.data.h / 2;                             // re-stack downward, no overlap
-      yC += n.data.h + gapV;
-    });
-    // Keep columns balanced around the (possibly) resized project column.
-    (data.nodes || []).forEach(function (n) {
-      if (!n.data || !n.position) return;
-      if (n.data.group === 'Project') n.position.x += dW / 2;
-      else if (n.data.group === 'Skill' || n.data.group === 'About') n.position.x += dW;
-    });
-    (data.headers || []).forEach(function (h, i) {
-      if (i === 1) h.x += dW / 2; else if (i === 2) h.x += dW;
-    });
-    return;
-  }
-
   // Bounding box at base (unmodified) node sizes
   var bx1 = Infinity, bx2 = -Infinity, by1 = Infinity, by2 = -Infinity;
   (data.nodes || []).forEach(function(n) {
@@ -2751,8 +2599,10 @@ function autoFitProjectWidth(data) {
   var balancedDelta = Math.round((W - 40) * (bbHTwoRow + hm) / (H - 28) - origBBW);
   var twoRowNodeW   = baseW + Math.max(0, balancedDelta);
 
-  // (Inline mode returned above with its own cap/wrap handling.) Non-inline balances width vs height.
-  if (twoRowNodeW >= requiredSingle) {
+  // Inline mode scrolls each column vertically, so there's no need to compress the project column
+  // into two rows to save height — always use the wide single-row layout for a consistent width
+  // that doesn't flip with the viewport's height.
+  if (inlineMode || twoRowNodeW >= requiredSingle) {
     // ── Single-row: balanced width exceeds the one-row requirement; just use single-row ──
     currentLayoutMode = 'single';
     (data.nodes || []).forEach(function(n) {
@@ -2845,15 +2695,8 @@ function measureNodeHeight(lines, containerW, vPad) {
 }
 
 function measureProjectNodeHeight(nodeData, w) {
-  // Text area width must match nodeBodyHtml's Project branch: node width minus the type column and
-  // the asymmetric title padding (left clears the chevron, right minimal). Otherwise wrapped-line
-  // counting disagrees with the rendered layout.
-  var _spec = (inlineMode && accordionIcon !== 'none') ? ACC_ICONS[accordionIcon] : null;
-  var _gut  = (_spec && _spec.c) ? Math.round(accordionIconSize * (_spec.mult || 1) * 0.7) + 16 : 0;
-  var padL = Math.max(9, _gut) + nodeTextPad;
-  var padR = 9 + nodeTextPad;
-  var ptypeColW = (!mobileMode && nodeData.ptype) ? Math.round(w * ptypePct / 100) : 0;
-  var containerW = Math.max(w - ptypeColW - padL - padR, 4);   // 4px 8px vertical padding → vPad 8
+  // Project inner div: padding:4px 9px → 8px vertical, 18px horizontal (CSS px = cyto units)
+  var containerW = Math.max(w - 18, 4);
   var label = String(nodeData.label || '');
   var labelFi = String(nodeData.label_fi || '');
   return measureNodeHeight(
@@ -3064,7 +2907,6 @@ function initCyGraph(data) {
   applyDataGlobals(data);
   applyColors();
   applyMobileLayout();
-  applyNarrowScale(data);   // narrow screens: scale base gap/node widths before snapshot & auto-fit
   saveLayoutSnapshot(data);
   autoFitProjectWidth(data);
   applyMobileNodeSizes(data);
@@ -3277,7 +3119,6 @@ Shiny.addCustomMessageHandler('updateCy', function (data) {
   applyDataGlobals(picked);
   applyColors();
   applyMobileLayout();
-  applyNarrowScale(picked);   // narrow screens: scale base gap/node widths before snapshot & auto-fit
   saveLayoutSnapshot(picked);
   autoFitProjectWidth(picked);
   applyMobileNodeSizes(picked);
@@ -3641,10 +3482,6 @@ Shiny.addCustomMessageHandler('setFillColGap', function (msg) {
   fillColGap = (msg && msg.pct != null) ? Math.max(0, msg.pct) : 0;
   if (inlineMode && !useMobileLayout()) layoutInlineScroll();
 });
-Shiny.addCustomMessageHandler('setFillNodePad', function (msg) {
-  fillNodePad = (msg && msg.pct != null) ? Math.max(0, msg.pct) : 0;
-  if (inlineMode && !useMobileLayout()) layoutInlineScroll();
-});
 
 Shiny.addCustomMessageHandler('setGradientExtent', function (msg) {
   gradientExtent = (msg.pct != null) ? msg.pct : 20;
@@ -3848,9 +3685,6 @@ function bindInlineWheel() {
     if (dragMove(e.touches[0].clientX, e.touches[0].clientY)) e.preventDefault();
   }, { passive: false });
   ga.addEventListener('touchend', dragEnd);
-  // Arm auto-fit-on-open only after the first user gesture, so the page still loads as the whole map
-  // even when a node opens by default.
-  ga.addEventListener('pointerdown', function () { autoFitArmed = true; }, true);
   _inlineWheelBound = true;
 }
 
@@ -3919,29 +3753,6 @@ Shiny.addCustomMessageHandler('setInlineMode', function (msg) {
   }
 });
 
-Shiny.addCustomMessageHandler('setAutoFitOpen', function (msg) {
-  autoFitOnOpen = !!(msg && msg.value);
-});
-
-// Inline project-width cap (0 = auto). Changing it re-runs the layout: reuse the full rebuild path
-// (restore base geometry → autoFitProjectWidth applies the new cap → re-fit). During initial load cy
-// isn't built yet, so this just sets the global and initCy picks it up.
-Shiny.addCustomMessageHandler('setProjectMaxWidth', function (msg) {
-  projectMaxWidth = (msg && msg.px != null) ? +msg.px : 0;
-  if (cy && rawPayload) Shiny._handlers['updateCy'](rawPayload);
-});
-
-// Narrow-screen gap / node-width multipliers. Only relevant when narrow; changing them re-runs the
-// full layout (applyNarrowScale rescales the base, then autoFit/fit follow). Rebuild only if narrow.
-Shiny.addCustomMessageHandler('setNarrowGapMult', function (msg) {
-  narrowGapMult = (msg && msg.mult != null && +msg.mult > 0) ? +msg.mult : 1;
-  if (cy && rawPayload && isNarrow()) Shiny._handlers['updateCy'](rawPayload);
-});
-Shiny.addCustomMessageHandler('setNarrowNodeMult', function (msg) {
-  narrowNodeMult = (msg && msg.mult != null && +msg.mult > 0) ? +msg.mult : 1;
-  if (cy && rawPayload && isNarrow()) Shiny._handlers['updateCy'](rawPayload);
-});
-
 Shiny.addCustomMessageHandler('setArticlesEnabled', function (msg) {
   articlesEnabled = !!(msg && msg.value);
   // Re-render any currently open description so the article link appears/disappears.
@@ -3984,7 +3795,6 @@ window.initStaticApp = function(payload) {
   if (payload.edge_curve != null) Shiny._handlers['setEdgeCurve']({ exp: payload.edge_curve });
   if (payload.edge_pin_header != null) Shiny._handlers['setEdgePinHeader']({ value: payload.edge_pin_header });
   if (payload.fill_nodew != null) Shiny._handlers['setFillNodeW']({ pct: payload.fill_nodew });
-  if (payload.fill_nodepad != null) Shiny._handlers['setFillNodePad']({ pct: payload.fill_nodepad });
   if (payload.fill_projw != null) Shiny._handlers['setFillProjW']({ pct: payload.fill_projw });
   if (payload.fill_colgap != null) Shiny._handlers['setFillColGap']({ pct: payload.fill_colgap });
   if (payload.gradient_extent != null) Shiny._handlers['setGradientExtent']({ pct: payload.gradient_extent });
@@ -3998,12 +3808,8 @@ window.initStaticApp = function(payload) {
   if (payload.outline_saturation != null) Shiny._handlers['setOutlineSaturation']({ value: payload.outline_saturation });
   if (payload.outline_transparency != null) Shiny._handlers['setOutlineTransparency']({ pct: payload.outline_transparency });
   if (payload.node_pad != null) Shiny._handlers['setNodePad']({ px: payload.node_pad });
-  if (payload.project_max_width != null) Shiny._handlers['setProjectMaxWidth']({ px: payload.project_max_width });
-  if (payload.narrow_gap_mult != null) Shiny._handlers['setNarrowGapMult']({ mult: payload.narrow_gap_mult });
-  if (payload.narrow_node_mult != null) Shiny._handlers['setNarrowNodeMult']({ mult: payload.narrow_node_mult });
   if (payload.desc_pad != null) Shiny._handlers['setDescPad']({ px: payload.desc_pad });
   if (payload.inline_mode != null) Shiny._handlers['setInlineMode']({ value: payload.inline_mode });
-  if (payload.auto_fit_open != null) Shiny._handlers['setAutoFitOpen']({ value: payload.auto_fit_open });
   if (payload.articles_enabled != null) Shiny._handlers['setArticlesEnabled']({ value: payload.articles_enabled });
   // Defer graph init to a new macrotask so any pending viewport-settle resize events
   // are processed first — ensures useMobileLayout() reads the correct dimensions.
