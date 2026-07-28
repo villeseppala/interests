@@ -8,10 +8,11 @@ inline: true
 
 There is a considerable yet hard to define probability for humankind's extinction, or atleast a catastrophic civilizational collapse, within our lifetime. 
 
+Studies on the topic usually focus on probability estimates given by experts on either the individual risks or the total existential risk. Perhaps the most comprehensive queastionnaire study on topic by the Forecasting Research Institure presents median total extinction probabilities from 1% to 7% by year 2100, depending on the expert group*. Catastrophic risk probabilities, estimated by the same groups, ranged from 9% to 29%. 
+
 I would like to create a site that allows the user to set probabilities on how likely this kind of extinction event or catastropthic collapse occurs in different time periods in the future. The site then calculates the expected longevity of humankind (measured in expected years the humankind will exist or in expected human lives, for example). Results are accompanied by graphs.
 
 The motivation behind the site is to demonstrate that even very small improvements in existential risk will pay off immensely in the long run in terms of humankind's longevity. This should motivate the user to pursue those improvements various ways in their lives. 
-
 
 The user can also simulate a number of possible paths for humankind, given the chosen probabilities, that are shown in the graphs. This can give a more tangible impressions of existential risk than expected/average values. 
 
@@ -20,3 +21,8 @@ Site can also be used to collect expert estimates on existential risk, since use
 I think the questionnaire setting can provide novelty by collecting more information on risk probabilities over different time periods and by focusing on how much would removing specific risks reduce the overall extinction/catastropic risk (see the description of the project below for more on this approach).
 
 See the presentation for more info and sketches of the sites layout: https://docs.google.com/presentation/d/1MYwDxNplckHsZZDX9KoPoIQtO3CPq4YPcuMRX1p3bhM/edit?slide=id.p#slide=id.p
+
+
+*"Forecasting Existential Risks -
+Evidence from a Long-Run
+Forecasting Tournament" (2023) by Forecasting Research Institute, pages 16-17. Extinction was defined as reduction of the global population to less than 5000. Catastrophic risk was defined as 10% or more of humans dying within a 5-year period.

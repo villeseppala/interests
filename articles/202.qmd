@@ -1,0 +1,28 @@
+---
+title: "Optimal ways to evaluate individual existential risks"
+date: last-modified
+inline: true
+---
+
+###Issues with the standard approach
+Most questionnaire studies concerning individual existential risks (such as artificial intelligence, engineered pandemics, nuclear weapons, climate change etc.) ask the respondents to estimate the probability of them causing humankind's extinction or, in case of catastrophic risks, a civilizational collapse. 
+
+There are major issues with this approach, sometimes noted in the literature: Risks are intertwined, and it is also difficult to determine what is the threshold of contribution from a specific threat for it to be considered as a cause for an extinction/catastrophic event. To illustrate: If an extinction event is caused by a misaligned AI using nuclear weapons, is it an AI or nuclear extinction? Most of the questionnaires allow it to be both. But if AI is used only very partially, in a very mundane capacity, does it still count? Where is the line drawn? 
+
+Same goes for climate change. It is very unlikely that climate change in itself would cause extinction, but it may increase the probability of major conflicts and therefore, it could be a major factor behind extinction even if it wasn’t the final mechanism for it. However, I see that the current questionnaire settings focues on these direct causes and downplay the effect of indirect causes. 
+
+All in all, there is considerable ambiguity in these settings in approaching risk estimates, which may undermine their results.
+
+###Risk factors and an approach based on overall risk reduction
+Toby Ord explores these issues to some extent in The Precipice (2020) and talks about risk factors that influence the risks themselves. I would like to explore this further and consider if it would be wise to evaluate the threats by asking how much the removal of a threat (risk factor) altogether would reduce the overall existential/catastrophic risk probability. This estimate would indicate the overall impact of a threat (regardless of how deeply entrenched to other threats the threat is), while taking into account the impact from other threats (thus avoiding double counting issues when comparing risks). 
+
+Focus on risk factors and their reduction would also be a more relevant approach, since it is imperative to reduce the overall risk. The approach can also be expanded to specific policy actions. For example, by asking the questionnaire takers to evaluate how much signing a specific AI threat mitigitation treaty would reduce the overall extinction risk. Or to evaluate how much signing would reduce the overall AI risk and then use the general estimates of how much reducing the AI risk would reduce the overall risk to calculate the effect of the treaty to overall risk by a proxy.
+
+###Practical considerations
+I consider that there are two ways to estimate the risk reduction probability. Firstly, in percentage points, as absolute reduction from the overall risk. In this case, if a threat was totally uncorrelated to other threats (such as m maybe asteroid impacts), the reduction estimate would also correspond to the standard risk probability estimate from the risk. This way can be esier to relate to previous risks. 
+
+Second way is to estimate the reduction in relation to the overall risk probability, as a percentage reduction than a percentage point reduction of the previous approach. This could be preferable especially if the overall risk is hard to estimate to the questionnaire taker, but the relative magnitude of the specific risk relative to other risks, is clearer. 
+
+Questionnaires could be built to accomodate both ways, so the user could choose whichever way they feel more condifent about. Results could be combined to some extent. 
+
+(medium size text, possibly an article or a blog. Related to previous project.)

@@ -383,12 +383,7 @@ function saturateColor(hex, mult) {
           var html = opt.tpl(node.data()); if (!html) return;
           var pos = node.position(), w = node.data('w') || 160, h = node.data('h') || 44;
           var d = document.createElement('div');
-          var grp = node.data('group');
-          var nc = grp === 'Theme' ? colTheme : grp === 'Project' ? colProject : grp === 'About' ? (lightMode ? '#8a99a8' : '#7d8b98') : colSkill;
-          var nr = parseInt(nc.slice(1,3),16)||0, ng = parseInt(nc.slice(3,5),16)||0, nb = parseInt(nc.slice(5,7),16)||0;
-          var bevel = '2px 4px 7px rgba(0,0,0,0.65), -2px -2px 3px rgba(' + nr + ',' + ng + ',' + nb + ',0.42)';
           d.style.cssText = 'position:absolute;box-sizing:border-box;pointer-events:none;overflow:hidden;';
-          d.style.boxShadow = bevel;
           // Opaque node background so the edge ribbons (drawn beneath the labels) don't bleed over the
           // node body — they stay visible only in the gaps between columns.
           var _nbg = nodeBgSameAsGraph ? colBg : colNodeBg;
@@ -878,7 +873,10 @@ function buildStyle() {
         shape: 'rectangle', width: 'data(w)', height: 'data(h)',
         'background-fill': 'flat',
         'background-color': function() { return nodeBgSameAsGraph ? colBg : colNodeBg; },
-        'border-width': nodeOutlineWidth,
+        // Only About uses the Cytoscape border; Theme/Skill/Project draw their outline via the HTML
+        // overlay, so keep their Cytoscape border width 0 (a 'transparent' colour + border-opacity
+        // otherwise renders as a thin black frame, since the opacity is applied to the colour's RGB).
+        'border-width': function(e){ return e.data('group') === 'About' ? nodeOutlineWidth : 0; },
         'border-color': borderColor, 'border-opacity': function() { return outlineOpacity; }, 'border-style': 'solid', label: '',
         'shadow-opacity': 0, 'outline-width': 0, 'outline-opacity': 0, 'underlay-opacity': 0, 'overlay-opacity': 0,
         cursor: function (e) {
@@ -891,7 +889,7 @@ function buildStyle() {
     }},
     { selector: 'node.selected', style: {
         'background-color': function() { var b = nodeBgSameAsGraph ? colBg : colNodeBg; return blendWithWhite(b, 0.15); },
-        'border-width': (mobileMode ? 14 : 9) * bm, 'shadow-opacity': 0, 'outline-width': 0, 'outline-opacity': 0,
+        'border-width': function(e){ return e.data('group') === 'About' ? (mobileMode ? 14 : 9) * bm : 0; }, 'shadow-opacity': 0, 'outline-width': 0, 'outline-opacity': 0,
     }},
     { selector: 'node.hovered', style: {
         'border-opacity': 1, 'outline-width': 0,   // hover clears the outline transparency (About border); no thickening
@@ -1013,50 +1011,13 @@ function nodeBorderBandsHtml(data) {
   if (grp !== 'Project') return '';
   // Prefer bands computed in buildBaseGradients (while edges were present) so the outline always
   // matches the visible gradient; fall back to a live recompute if the map isn't built yet.
-  var bands = nodeBorderBands[data.id] || projectBandColors(n, 1);  // solid (full-alpha) source colors
   var out = '';
-  // If a connected Theme/Skill is hovered, emphasize ONLY that node's band on this project's outline
-  // (make it solid); every other segment keeps the chosen transparency. Otherwise the whole node uses
-  // `op`. Emphasis is opacity-only now — bands never change width on hover.
-  var hlSide = null, hlIndex = -1;
-  if (hoveredNodeId != null) {
-    var hnode = cy.getElementById(String(hoveredNodeId));
-    if (hnode && !hnode.empty()) {
-      var hgrp = hnode.data('group');
-      if (hgrp === 'Theme' || hgrp === 'Skill') {
-        var bi = projectBandIndex(n, hgrp, hoveredNodeId);
-        if (bi.index >= 0) { hlSide = (hgrp === 'Theme') ? 'left' : 'right'; hlIndex = bi.index; }
-      }
-    }
-  }
-  function segOp(which, i) {                            // opacity for a given left/right band segment
-    if (hlSide) return (which === hlSide && i === hlIndex) ? 1 : outlineOpacity;
-    return op;
-  }
-  // Top & bottom edges: left half = nearest Theme color, right half = nearest Skill color, so the
-  // colored outline wraps continuously around the corners. A side with no source color is left empty.
-  // The top half is the side's first band; the bottom half its last — so a hovered node whose band
-  // sits at the top or bottom also highlights that edge portion (same width rule as the side bands).
-  var lFirst = bands.left.length  ? bands.left[0]  : null;
-  var rFirst = bands.right.length ? bands.right[0] : null;
-  var lLast  = bands.left.length  ? bands.left[bands.left.length - 1]   : null;
-  var rLast  = bands.right.length ? bands.right[bands.right.length - 1] : null;
-  function edgeHalf(vpos, hpos, side, idx, col) {
-    if (!col) return;  // no source color on this side -> that half stays transparent
-    out += '<div style="' + z + 'opacity:' + segOp(side, idx) + ';' + hpos + ':0;' + vpos + ':0;width:50%;height:' + bw + 'px;background:' + saturateColor(col, outlineSaturation) + ';"></div>';
-  }
-  edgeHalf('top', 'left', 'left', 0, lFirst);   edgeHalf('top', 'right', 'right', 0, rFirst);
-  edgeHalf('bottom', 'left', 'left', bands.left.length - 1, lLast);
-  edgeHalf('bottom', 'right', 'right', bands.right.length - 1, rLast);
-  // Left = Theme edge colors, right = Skill edge colors (split into vertical bands); drawn after the
-  // top/bottom edges so the corners take the side color. A side with no source color is left empty.
-  function side(arr, which) {
-    if (!arr.length) return;  // no source color on this side -> leave the outline transparent there
-    var geom = projectBandGeom(data.id, arr.length);   // line the outline bands up with the edge ribbons
-    for (var i = 0; i < arr.length; i++)
-      out += '<div style="' + z + 'opacity:' + segOp(which, i) + ';' + which + ':0;top:' + geom[i].top + '%;height:' + geom[i].height + '%;width:' + bw + 'px;background:' + saturateColor(arr[i], outlineSaturation) + ';"></div>';
-  }
-  side(bands.left, 'left'); side(bands.right, 'right');
+  // Top & bottom outline only, in the project's own colour (from the Color tab). The left/right walls
+  // stay open so the edge ribbons flow into the node's sides; connection colours still read from the
+  // node's internal gradient. Solid on hover / neighbour-highlight, else the chosen outline opacity.
+  var pcol = saturateColor(colProject, outlineSaturation);
+  out += '<div style="' + z + 'opacity:' + op + ';left:0;top:0;width:100%;height:' + bw + 'px;background:' + pcol + ';"></div>';
+  out += '<div style="' + z + 'opacity:' + op + ';left:0;bottom:0;width:100%;height:' + bw + 'px;background:' + pcol + ';"></div>';
   return out;
 }
 
@@ -1356,8 +1317,8 @@ function inlineExpandedNodeHtml(data, exEntry) {
 // Measure the height (cyto units = CSS px at zoom 1) of just the description block, which sits
 // full-width below the node's normal-content header. Total node height = header (origH) + this.
 // Description padding: `descPad` is the horizontal inset; vertical scales from it (defaults to 6/10/8).
-function descPadTop() { return Math.round(descPad * 0.6); }
-function descPadBot() { return Math.round(descPad * 0.8); }
+function descPadTop() { return Math.round(descPad * 0.6 + descPadFill); }   // descPadFill (extra-width fill) pads all sides
+function descPadBot() { return Math.round(descPad * 0.8 + descPadFill); }
 function descPadCss() { return descPadTop() + 'px ' + (descPad + descPadFill) + 'px ' + descPadBot() + 'px'; }
 var _inlineProbe = null;
 function measureDescHeight(node, descHtml) {
@@ -2462,8 +2423,23 @@ function positionHeaders(data) {
     var hcolor = i === 0 ? colTheme : (i === 1 ? colProject : colSkill);
     div.className = 'col-hdr'; div.id = 'colhdr-' + i; div.style.color = hcolor;
     div.style.transform = 'scale(1)'; div.style.transformOrigin = 'top center';
-    div.innerHTML = '<b style="font-size:' + fontHdr1 + 'px;white-space:nowrap">' + dualLabel(h.line1, h.line1_fi) +
-      '</b><span style="font-size:' + fontHdr2 + 'px;white-space:nowrap">' + dualLabel(h.line2, h.line2_fi) + '</span>';
+    // Title/subtitle on the left, per-column Open all / Collapse all buttons on the right (stacked so
+    // they fit within the existing two-line header height). openAllInline/collapseAllInline are global.
+    var hgrp = hdrGroups[i];
+    var btnFs = Math.max(7, Math.round(fontHdr2 * 0.7));
+    // More breathing room between the title and the buttons when the browser is wide; small on narrow.
+    var hdrGap = Math.max(6, Math.min(32, Math.round(((area.clientWidth || window.innerWidth) - 700) / 55 + 8)));
+    div.innerHTML =
+      '<div class="col-hdr-inner" style="gap:' + hdrGap + 'px;">' +
+        '<div class="col-hdr-text">' +
+          '<b style="font-size:' + fontHdr1 + 'px;white-space:nowrap">' + dualLabel(h.line1, h.line1_fi) + '</b>' +
+          '<span style="font-size:' + fontHdr2 + 'px;white-space:nowrap">' + dualLabel(h.line2, h.line2_fi) + '</span>' +
+        '</div>' +
+        '<div class="col-hdr-btns" style="font-size:' + btnFs + 'px;">' +
+          '<button type="button" class="col-hdr-btn" onclick="openAllInline(\'' + hgrp + '\')">' + (currentLang === 'fi' ? 'Avaa kaikki' : 'Open all') + '</button>' +
+          '<button type="button" class="col-hdr-btn" onclick="collapseAllInline(\'' + hgrp + '\')">' + (currentLang === 'fi' ? 'Sulje kaikki' : 'Collapse all') + '</button>' +
+        '</div>' +
+      '</div>';
     div.style.visibility = 'hidden'; div.style.top = '0'; div.style.left = '0';
     area.appendChild(div);
     var natW = div.offsetWidth;
@@ -3964,19 +3940,11 @@ function ensureInlineSidebarBtn() {
     var b = document.createElement('button'); b.type = 'button'; b.className = 'inline-allbtn';
     b.textContent = text; b.onclick = fn; return b;
   }
-  function mkRow(label, fn) {
-    var row = document.createElement('div'); row.className = 'inline-btnrow';
-    var lbl = document.createElement('span'); lbl.className = 'inline-btnlbl'; lbl.textContent = label;
-    row.appendChild(lbl);
-    row.appendChild(mkBtn('All',      function () { fn(); }));
-    row.appendChild(mkBtn('Themes',   function () { fn('Theme'); }));
-    row.appendChild(mkBtn('Projects', function () { fn('Project'); }));
-    row.appendChild(mkBtn('Skills',   function () { fn('Skill'); }));
-    return row;
-  }
+  // Global controls: open / collapse every column at once (per-column controls now live in each
+  // column's header). openAllInline()/collapseAllInline() with no group act on all columns.
   var wrap = document.createElement('div'); wrap.id = 'inline-allbtns';
-  wrap.appendChild(mkRow('Open',     openAllInline));
-  wrap.appendChild(mkRow('Collapse', collapseAllInline));
+  wrap.appendChild(mkBtn('Open all',     function () { openAllInline(); }));
+  wrap.appendChild(mkBtn('Collapse all', function () { collapseAllInline(); }));
 
   // Zoom controls (−  100%  +  ⤢). Pinch / Ctrl+wheel also zoom; ⤢ resets to fit width.
   var zc = document.createElement('div'); zc.id = 'inline-zoom';

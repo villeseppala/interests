@@ -1,0 +1,26 @@
+---
+title: "Overlapping tariff unions as a global political tool"
+date: last-modified
+inline: true
+---
+
+I feel that when punitive tariffs are used, they are usually based on general disagreements between countries. They might lead to a chain of retaliatory tariffs and worsen relations between the countries even more.
+
+We should encourage countries to set tariffs based on specific issues instead of antagonism. The tariff setter would have to specify a measurable topic the tariff is based on and could not hide behind ambiguity. For fairness, the setter should apply the same criteria to all the other countries as well and set the tariffs on each that meet the criteria. Explicit metrics would also let other countries to better evaluate how fair the tariffs are and whether to join the tariff setter in their implementation, as part of a tariff union. 
+
+The tariff receivers would know what to change in order to get the tariffs taken off or reduced. This would make the tariffs to be more guiding in nature.
+
+Encouraging this kind of tariffs could help to move the world from deepening blocs into overlapping tariff unions that cover various topics. Setting tariffs would become less dramatic and more business as usual as countries that are on the opposite ends of a tariff in one topic might be on the same side in another one. This would further relieve retaliatory pressure more. This, in turn, would lower the threshold to set tariffs and bring the tariff topics more into international and national political discussion, thus making them a widely used global political tool.
+
+A kind of prototype example of this kind of tariff is the EU's Carbon Border Adjustment Mechanism (CBAM) starting gradually in 2026. It's a tariff type payment on imports in some product classes and it is applied if imported product's carbon contents have not been priced equally by the source country to the carbon price of EU's emission trading system. 
+
+Other examples that could be basis for tariffs:
+- Corporate income tax difference
+- Participation and compliance on various nuclear treaties
+- Participation and compliance on various AI and biotechnology safety treaties
+- Refugee intake rates
+- Press freedom indices
+
+I am not sure yet if it would be optimal to let countries within unions to set tariff rates separately, or would it be better if the rates were equal.
+
+(medium size text, possibly an article)
