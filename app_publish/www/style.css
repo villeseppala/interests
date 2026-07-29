@@ -283,8 +283,9 @@ body.lang-fi span.fi-only, body.lang-fi b.fi-only, body.lang-fi a.fi-only { disp
   body:not(.unified-ui) #mob-panel { display:flex; padding-bottom:env(safe-area-inset-bottom, 0px); }
   /* Unified inline UI on a narrow screen: full-height graph, same as desktop inline. */
   body.unified-ui #graph-area { width:100%; height:100dvh; overflow:hidden; position:relative; }
-  /* On mobile (narrow) hide the page title to free header space; controls (theme/lang) stay. */
-  body.unified-ui #page-title { display:none !important; }
+  /* On mobile (narrow) hide only the page TITLE TEXT to free header space; the language flags and
+     other controls live in the same #page-title container and must stay visible. */
+  body.unified-ui #page-title-text { display:none !important; }
 }
 /* Unified UI: the old mobile chrome never appears, at any width. */
 body.unified-ui #mob-handle,
@@ -451,6 +452,37 @@ body.inline-mode .inline-allbtn:hover { background:rgba(20,40,60,0.96); }
 body.light-mode.inline-mode .inline-btnlbl { color:rgba(0,0,0,0.6); }
 body.light-mode.inline-mode .inline-allbtn {
   background:rgba(226,234,243,0.95); color:rgba(0,0,0,0.8); border-color:rgba(0,0,0,0.25); }
+/* Touch devices: the header controls are finger targets, so enlarge Open all / Close all (they were
+   shrunk to 10.5px for the desktop header cluster) and the zoom / font-size buttons. Placed after the
+   base rules so it wins at equal specificity. */
+@media (pointer: coarse) {
+  body.inline-mode #inline-header-right .inline-allbtn,
+  body.inline-mode .inline-allbtn { font-size:15px; padding:8px 14px; border-radius:7px; }
+  body.inline-mode .inline-zoombtn { width:34px; height:34px; font-size:18px; }
+  body.inline-mode #inline-zoom-pct, body.inline-mode #inline-descfont-val { font-size:13px; }
+}
+/* Mobile (narrow): keep the whole header on ONE row. Hide the site address (GitHub link + light-mode
+   toggle stay); tighten gaps and shrink the zoom/font controls so everything fits. Placed after the
+   coarse-pointer block so these compact sizes win. If the row is still wider than the screen it scrolls
+   sideways rather than wrapping. */
+@media (max-width: 768px), (max-height: 500px) and (max-width: 1100px) {
+  body.unified-ui #site-url-label { display:none !important; }
+  body.unified-ui #inline-header-right {
+    flex-wrap:nowrap; overflow-x:auto; column-gap:6px; left:6px; right:6px;
+    -ms-overflow-style:none; scrollbar-width:none; }
+  body.unified-ui #inline-header-right::-webkit-scrollbar { display:none; }
+  body.unified-ui #inline-header-right > * { flex:none; }
+  body.unified-ui #inline-header-right #info-sidebar #page-title { gap:5px; flex-wrap:nowrap; }
+  body.unified-ui #controls-row { gap:5px; }
+  body.unified-ui .lang-btn { padding:0 2px; font-size:15px; }
+  /* Zoom buttons are removed on mobile (pinch-to-zoom still works) to free header space. */
+  body.unified-ui #inline-zoom { display:none !important; }
+  body.unified-ui #inline-descfont { gap:2px; }
+  body.unified-ui .inline-zoombtn { width:27px; height:27px; font-size:15px; }
+  body.unified-ui #inline-descfont-val { min-width:24px; font-size:11px; }
+  body.unified-ui #inline-header-right .inline-allbtn { font-size:12px; padding:6px 9px; }
+  body.unified-ui #inline-allbtns { gap:4px; }
+}
 /* Zoom control (−  100%  +  ⤢) — sits in the header cluster; pinch / Ctrl+wheel also zoom */
 #inline-zoom { display:none; }
 body.inline-mode #inline-zoom { display:flex; align-items:center; gap:3px; }

@@ -1403,15 +1403,17 @@ function nodeBodyHtml(data, noGradient) {
   var accGutter = (_accSpec && _accSpec.c) ? Math.round(accordionIconSize * (_accSpec.mult || 1) * 0.7) + 16 : 0;
 
   if (g === 'Theme') {
+    var themeGut = Math.max(14, accGutter);   // clear BOTH chevrons (left + right); also wraps sooner
     return '<div style="width:100%;height:100%;box-sizing:border-box;position:relative;' +
       'display:flex;align-items:center;justify-content:flex-end;padding:3px ' + (7 + nodeTextPad) + 'px;overflow:hidden;">' +
       '<span style="color:' + colTheme + ';font-family:Arial,Helvetica,sans-serif;font-size:' + fn + ';' +
-      'font-weight:bold;text-align:right;line-height:1.25;padding-right:' + Math.max(14, accGutter) + 'px;position:relative;z-index:6;' + wrap + '">' + label + '</span>' +
+      'font-weight:bold;text-align:right;line-height:1.25;padding-left:' + themeGut + 'px;padding-right:' + themeGut + 'px;position:relative;z-index:6;' + wrap + '">' + label + '</span>' +
       grad(gradientExtent) + border() + acc() + '</div>';
   }
   if (g === 'Skill') {
+    var skillGut = Math.max(7, accGutter) + nodeTextPad;   // clear BOTH chevrons (left + right)
     var html = '<div style="width:100%;height:100%;box-sizing:border-box;position:relative;' +
-      'display:flex;flex-direction:column;justify-content:center;padding:4px ' + (7 + nodeTextPad) + 'px 4px ' + (Math.max(7, accGutter) + nodeTextPad) + 'px;overflow:hidden;">' +
+      'display:flex;flex-direction:column;justify-content:center;padding:4px ' + skillGut + 'px 4px ' + skillGut + 'px;overflow:hidden;">' +
       '<div style="color:' + colSkill + ';font-family:Arial,Helvetica,sans-serif;font-size:' + fn + ';' +
       'font-weight:bold;line-height:1.25;position:relative;z-index:6;' + wrap + '">' + label + '</div>';
     var subs = data.subs || '';
@@ -1426,10 +1428,11 @@ function nodeBodyHtml(data, noGradient) {
   if (g === 'About') {
     // Neutral informational node in the Theme column; right-aligned like the Theme nodes above it.
     var aboutCol = lightMode ? '#5a6b7a' : '#c4d0da';
+    var aboutGut = Math.max(14, accGutter);   // clear BOTH chevrons (left + right), like Theme
     return '<div style="width:100%;height:100%;box-sizing:border-box;position:relative;' +
       'display:flex;align-items:center;justify-content:flex-end;padding:3px ' + (7 + nodeTextPad) + 'px;overflow:hidden;">' +
       '<span style="color:' + aboutCol + ';font-family:Arial,Helvetica,sans-serif;font-size:' + fn + ';' +
-      'font-weight:bold;text-align:right;line-height:1.25;padding-right:' + Math.max(14, accGutter) + 'px;position:relative;z-index:6;' + wrap + '">' + label + '</span>' +
+      'font-weight:bold;text-align:right;line-height:1.25;padding-left:' + aboutGut + 'px;padding-right:' + aboutGut + 'px;position:relative;z-index:6;' + wrap + '">' + label + '</span>' +
       grad(gradientExtent) + border() + acc() + '</div>';
   }
   if (g === 'Project') {
@@ -3203,9 +3206,17 @@ function measureProjectNodeHeight(nodeData, w) {
   return Math.max(lines * fontNode * 1.3 + 8, 8);
 }
 
+// Accordion gutter reserved on each side of a node's title (matches nodeBodyHtml), so the title never
+// runs under a chevron. Widening it also makes the title wrap to two rows sooner.
+function accGutterPx() {
+  var spec = (inlineMode && accordionIcon !== 'none') ? ACC_ICONS[accordionIcon] : null;
+  return (spec && spec.c) ? Math.round(accordionIconSize * (spec.mult || 1) * 0.7) + 16 : 0;
+}
+
 function measureThemeNodeHeight(nodeData, w) {
-  // Theme outer: padding:3px 7px → 6px vertical; span padding-right:14px → 28px horizontal
-  var containerW = Math.max(w - 28, 4);
+  // Theme/About: outer padding (7+nodeTextPad) each side + span gutter (both sides) clears both chevrons.
+  var gut = Math.max(14, accGutterPx());
+  var containerW = Math.max(w - 2 * (7 + nodeTextPad) - 2 * gut, 4);
   var label = String(nodeData.label || '');
   var labelFi = String(nodeData.label_fi || '');
   return measureNodeHeight(
@@ -3215,8 +3226,9 @@ function measureThemeNodeHeight(nodeData, w) {
 }
 
 function measureSkillNodeHeight(nodeData, w) {
-  // Skill outer: padding:4px 7px → 8px vertical, 14px horizontal
-  var containerW = Math.max(w - 14, 4);
+  // Skill: padding clears both chevrons (left + right), matching nodeBodyHtml's skillGut.
+  var skillGut = Math.max(7, accGutterPx()) + nodeTextPad;
+  var containerW = Math.max(w - 2 * skillGut, 4);
   var label = String(nodeData.label || '');
   var labelFi = String(nodeData.label_fi || '');
   var lines = [{ text: labelFi.length > label.length ? labelFi : label, fontSize: fontNode, fontWeight: 'bold', lineHeight: 1.25 }];
@@ -4206,7 +4218,13 @@ function bindInlineWheel() {
   }, { passive: false, capture: true });
   ga.addEventListener('touchmove', function (e) {
     if (_pinchD != null || e.touches.length !== 1) return;
-    if (dragMove(e.touches[0].clientX, e.touches[0].clientY)) e.preventDefault();
+    dragMove(e.touches[0].clientX, e.touches[0].clientY);
+    // Own the gesture from the very first move (not just past the 4px threshold): on touch devices the
+    // browser locks scrolling to whichever element it first sees move natively, and if we let the first
+    // sub-threshold move through on a description (selectable text), it hands the whole gesture to native
+    // scroll and our column-scroll only fights it — the "very slow" drag. Prevent every move while a
+    // drag is active so JS alone drives it, regardless of whether touch-action:none has loaded.
+    if (_drag) e.preventDefault();
   }, { passive: false, capture: true });
   ga.addEventListener('touchend', dragEnd);
   // Edge hover/click → highlight the Theme/Skill node the edge originates from, exactly like hovering
