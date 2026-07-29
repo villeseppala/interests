@@ -4,6 +4,7 @@ date: last-modified
 inline: true
 ---
 
+
 I feel that when punitive tariffs are used, they are usually based on general disagreements between countries. They might lead to a chain of retaliatory tariffs and worsen relations between the countries even more.
 
 We should encourage countries to set tariffs based on specific issues instead of antagonism. The tariff setter would have to specify a measurable topic the tariff is based on and could not hide behind ambiguity. For fairness, the setter should apply the same criteria to all the other countries as well and set the tariffs on each that meet the criteria. Explicit metrics would also let other countries to better evaluate how fair the tariffs are and whether to join the tariff setter in their implementation, as part of a tariff union. 

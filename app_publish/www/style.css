@@ -44,9 +44,16 @@ body.author-editable .inline-node-desc { cursor:text; }
 body.author-editable .inline-node-desc:hover { box-shadow:inset 0 0 0 1px rgba(120,180,255,0.4); }
 /* On touch devices a finger-drag on the description should scroll the column at the same speed as
    dragging the title — not get slowed by the browser's text-selection. Disable selection there on
-   touch only (desktop mouse keeps selectable text). Overrides the inline user-select on the node. */
+   touch only (desktop mouse keeps selectable text). Overrides the inline user-select on the node.
+   touch-action:none is the key: without it the browser claims the touch gesture on the text overlay
+   (native scroll/selection) before our JS threshold is crossed, so our column-scroll only partially
+   drives it and the scroll feels sluggish. Disabling native touch behaviour hands the whole gesture
+   to our capture-phase drag handler, matching the empty/canvas areas (Cytoscape sets its own
+   touch-action:none on the canvas). Links inside still tap fine (a tap has no drag to consume). */
 @media (pointer: coarse) {
-  .inline-node-desc { user-select:none !important; -webkit-user-select:none !important; -webkit-touch-callout:none; }
+  .inline-node-desc,
+  .inline-article-body { user-select:none !important; -webkit-user-select:none !important;
+    -webkit-touch-callout:none; touch-action:none !important; }
 }
 
 /* ── "Read full article →" link inside descriptions (inline node + sidebar + mobile) ── */
@@ -54,7 +61,10 @@ body.author-editable .inline-node-desc:hover { box-shadow:inset 0 0 0 1px rgba(1
   font-family:Arial,Helvetica,sans-serif; font-size:13px; font-weight:600; text-decoration:none;
   color:#0b3552; background:#78e6e7; pointer-events:auto !important; cursor:pointer; }
 .article-link:hover { background:#8ff0f1; }
-.inline-article-link { position:relative; z-index:7; }
+/* "Read more in window" — a plain underlined text link matching the "Read more here" toggle (not a pill) */
+.inline-article-link { position:relative; z-index:7; color:inherit; font-weight:600;
+  text-decoration:underline; opacity:0.9; white-space:nowrap; pointer-events:auto !important; cursor:pointer; }
+.inline-article-link:hover { opacity:1; }
 body.light-mode .article-link { background:#1a7a7b; color:#eafcff; }
 
 /* Article controls under a node description: "▸ Read here" toggle + external link on one row,
@@ -66,7 +76,7 @@ body.light-mode .article-link { background:#1a7a7b; color:#eafcff; }
   opacity:0.9; white-space:nowrap; }
 .inline-article-expand:hover { opacity:1; }
 .inline-article-body { position:relative; z-index:7; pointer-events:auto; margin-top:8px;
-  max-height:360px; overflow-y:auto; padding:8px 4px 2px; cursor:text;
+  padding:8px 4px 2px; cursor:text;   /* no max-height: the node grows to fit the whole article */
   border-top:1px solid rgba(255,255,255,0.28); }
 body.light-mode .inline-article-body { border-top-color:rgba(0,0,0,0.18); }
 
@@ -273,6 +283,8 @@ body.lang-fi span.fi-only, body.lang-fi b.fi-only, body.lang-fi a.fi-only { disp
   body:not(.unified-ui) #mob-panel { display:flex; padding-bottom:env(safe-area-inset-bottom, 0px); }
   /* Unified inline UI on a narrow screen: full-height graph, same as desktop inline. */
   body.unified-ui #graph-area { width:100%; height:100dvh; overflow:hidden; position:relative; }
+  /* On mobile (narrow) hide the page title to free header space; controls (theme/lang) stay. */
+  body.unified-ui #page-title { display:none !important; }
 }
 /* Unified UI: the old mobile chrome never appears, at any width. */
 body.unified-ui #mob-handle,
@@ -396,7 +408,9 @@ body.inline-mode #inline-header-right {
   position:fixed; top:0; left:10px; right:10px; min-height:46px; z-index:1001;
   display:flex; align-items:center; flex-wrap:wrap; column-gap:16px; row-gap:4px;
   align-content:center; padding:3px 0; box-sizing:border-box; }
-body.inline-mode #inline-header-right #inline-zoom { margin-left:auto; }
+/* Right cluster starts at the description-size control (leftmost right-aligned item), so the font
+   control and zoom sit together, next to each other, pushed to the right of the bar. */
+body.inline-mode #inline-header-right #inline-descfont { margin-left:auto; }
 /* Hidden for now on the graph page (desktop AND mobile — mobile is never .inline-mode):
    the nav brand ("Interests") and the "Draft/final projects" dropdown. Article pages keep theirs. */
 body:has(#graph-area) #site-nav .nav-brand,
@@ -452,3 +466,13 @@ body.inline-mode #inline-zoom-pct {
 body.light-mode.inline-mode .inline-zoombtn {
   background:rgba(226,234,243,0.95); color:rgba(0,0,0,0.8); border-color:rgba(0,0,0,0.25); }
 body.light-mode.inline-mode #inline-zoom-pct { color:rgba(0,0,0,0.6); }
+
+/* Description text-size control (A− / A+), styled like the zoom cluster, sitting next to it. */
+#inline-descfont { display:none; }
+body.inline-mode #inline-descfont { display:flex; align-items:center; gap:3px; }
+body.inline-mode #inline-descfont-val {
+  color:rgba(255,255,255,0.8); font-family:Arial,Helvetica,sans-serif; font-size:10.5px;
+  font-weight:bold; min-width:30px; text-align:center; }
+body.inline-mode .inline-descfont-sm { font-size:10px; }   /* small A = shrink */
+body.inline-mode .inline-descfont-lg { font-size:15px; }   /* big A = grow */
+body.light-mode.inline-mode #inline-descfont-val { color:rgba(0,0,0,0.6); }

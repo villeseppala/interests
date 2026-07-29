@@ -6,6 +6,197 @@
  * Author app: forceMobile preview mode via checkbox.
  */
 
+/* ── Self-contained QR Code generator (byte mode, ECC level M, versions 1–10) ──
+ * No dependencies; adapted from Project Nayuki's public-domain QR Code generator.
+ * window.QRMini.encode(text) → { size:int, modules:[[bool]] } (true = dark module).
+ * v1–10 at ECC M covers up to ~213 UTF-8 bytes — ample for any URL. Used only to draw the
+ * optional author-enabled QR overlay in the graph area (see renderGraphQr). */
+(function () {
+  'use strict';
+  // GF(256), primitive polynomial x^8+x^4+x^3+x^2+1 (0x11D).
+  var EXP = new Uint8Array(512), LOG = new Uint8Array(256);
+  (function () {
+    var x = 1;
+    for (var i = 0; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11D; }
+    for (i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+  })();
+  function gmul(a, b) { return (a === 0 || b === 0) ? 0 : EXP[LOG[a] + LOG[b]]; }
+
+  // ECC level M tables, versions 1..10 (index 0 = version 1).
+  var ECC_CW = [10, 16, 26, 18, 24, 16, 18, 22, 22, 26];
+  var ECC_NB = [ 1,  1,  1,  2,  2,  4,  4,  4,  5,  5];
+  var ECC_FORMAT_BITS = 0;   // level M
+
+  function numRawDataModules(ver) {
+    var r = (16 * ver + 128) * ver + 64;
+    if (ver >= 2) { var na = Math.floor(ver / 7) + 2; r -= (25 * na - 10) * na - 55; if (ver >= 7) r -= 36; }
+    return r;
+  }
+  function numDataCodewords(ver) {
+    return Math.floor(numRawDataModules(ver) / 8) - ECC_CW[ver - 1] * ECC_NB[ver - 1];
+  }
+  function rsDivisor(degree) {
+    var res = new Uint8Array(degree); res[degree - 1] = 1; var root = 1;
+    for (var i = 0; i < degree; i++) {
+      for (var j = 0; j < degree; j++) { res[j] = gmul(res[j], root); if (j + 1 < degree) res[j] ^= res[j + 1]; }
+      root = gmul(root, 2);
+    }
+    return res;
+  }
+  function rsRemainder(data, divisor) {
+    var res = new Uint8Array(divisor.length);
+    for (var i = 0; i < data.length; i++) {
+      var factor = data[i] ^ res[0];
+      for (var j = 0; j < res.length - 1; j++) res[j] = res[j + 1];
+      res[res.length - 1] = 0;
+      for (j = 0; j < res.length; j++) res[j] ^= gmul(divisor[j], factor);
+    }
+    return res;
+  }
+  function utf8Bytes(str) {
+    var out = [];
+    for (var i = 0; i < str.length; i++) {
+      var c = str.charCodeAt(i);
+      if (c < 0x80) out.push(c);
+      else if (c < 0x800) out.push(0xC0 | (c >> 6), 0x80 | (c & 0x3F));
+      else if (c >= 0xD800 && c <= 0xDBFF && i + 1 < str.length) {
+        var c2 = str.charCodeAt(++i), cp = 0x10000 + ((c - 0xD800) << 10) + (c2 - 0xDC00);
+        out.push(0xF0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3F), 0x80 | ((cp >> 6) & 0x3F), 0x80 | (cp & 0x3F));
+      } else out.push(0xE0 | (c >> 12), 0x80 | ((c >> 6) & 0x3F), 0x80 | (c & 0x3F));
+    }
+    return out;
+  }
+  function getBit(v, i) { return ((v >>> i) & 1) !== 0; }
+
+  function encode(text) {
+    var data = utf8Bytes(String(text == null ? '' : text));
+    var ver = -1, ndc = 0;
+    for (var v = 1; v <= 10; v++) {
+      var ccBits = v <= 9 ? 8 : 16;
+      if (4 + ccBits + data.length * 8 <= numDataCodewords(v) * 8) { ver = v; ndc = numDataCodewords(v); break; }
+    }
+    if (ver < 0) throw new Error('QR: content too long');
+    var size = ver * 4 + 17;
+
+    // ── Bit buffer → data codewords ──
+    var bb = [];
+    function appendBits(val, len) { for (var i = len - 1; i >= 0; i--) bb.push((val >>> i) & 1); }
+    appendBits(4, 4);                                   // byte mode
+    appendBits(data.length, ver <= 9 ? 8 : 16);         // char count
+    for (var i = 0; i < data.length; i++) appendBits(data[i], 8);
+    var cap = ndc * 8;
+    appendBits(0, Math.min(4, cap - bb.length));         // terminator
+    if (bb.length % 8 !== 0) appendBits(0, 8 - bb.length % 8);
+    for (var pad = 0xEC; bb.length < cap; pad ^= 0xEC ^ 0x11) appendBits(pad, 8);
+    var dcw = new Uint8Array(ndc);
+    for (i = 0; i < bb.length; i++) dcw[i >>> 3] |= bb[i] << (7 - (i & 7));
+
+    // ── Split into blocks, add Reed-Solomon ECC, interleave ──
+    var nb = ECC_NB[ver - 1], eccLen = ECC_CW[ver - 1];
+    var raw = Math.floor(numRawDataModules(ver) / 8);
+    var numShort = nb - raw % nb, shortLen = Math.floor(raw / nb) - eccLen;
+    var divisor = rsDivisor(eccLen), blocks = [], k = 0;
+    for (var b = 0; b < nb; b++) {
+      var dl = shortLen + (b < numShort ? 0 : 1);
+      var dat = dcw.slice(k, k + dl); k += dl;
+      blocks.push({ data: dat, ecc: rsRemainder(dat, divisor) });
+    }
+    var cw = [];
+    for (i = 0; i < shortLen + 1; i++) for (b = 0; b < nb; b++) if (i < blocks[b].data.length) cw.push(blocks[b].data[i]);
+    for (i = 0; i < eccLen; i++) for (b = 0; b < nb; b++) cw.push(blocks[b].ecc[i]);
+
+    // ── Module matrix ──
+    var mods = [], func = [];
+    for (i = 0; i < size; i++) { mods.push(new Array(size).fill(false)); func.push(new Array(size).fill(false)); }
+    function set(x, y, val) { if (x >= 0 && x < size && y >= 0 && y < size) { mods[y][x] = val; func[y][x] = true; } }
+    // timing
+    for (i = 0; i < size; i++) { set(6, i, i % 2 === 0); set(i, 6, i % 2 === 0); }
+    // finders + separators
+    function finder(cx, cy) {
+      for (var dy = -4; dy <= 4; dy++) for (var dx = -4; dx <= 4; dx++) {
+        var d = Math.max(Math.abs(dx), Math.abs(dy)); set(cx + dx, cy + dy, d !== 2 && d !== 4);
+      }
+    }
+    finder(3, 3); finder(size - 4, 3); finder(3, size - 4);
+    // alignment patterns
+    var pos = [];
+    if (ver >= 2) {
+      var na = Math.floor(ver / 7) + 2, step = Math.ceil((size - 13) / (na * 2 - 2)) * 2;
+      pos = [6];
+      for (var p = size - 7; pos.length < na; p -= step) pos.splice(1, 0, p);
+    }
+    for (i = 0; i < pos.length; i++) for (var j = 0; j < pos.length; j++) {
+      if ((i === 0 && j === 0) || (i === 0 && j === pos.length - 1) || (i === pos.length - 1 && j === 0)) continue;
+      for (var ay = -2; ay <= 2; ay++) for (var ax = -2; ax <= 2; ax++)
+        set(pos[i] + ax, pos[j] + ay, Math.max(Math.abs(ax), Math.abs(ay)) !== 1);
+    }
+    function drawFormat(mask) {
+      var fd = (ECC_FORMAT_BITS << 3) | mask, rem = fd;
+      for (var i2 = 0; i2 < 10; i2++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+      var bits = ((fd << 10) | rem) ^ 0x5412;
+      for (i2 = 0; i2 <= 5; i2++) set(8, i2, getBit(bits, i2));
+      set(8, 7, getBit(bits, 6)); set(8, 8, getBit(bits, 7)); set(7, 8, getBit(bits, 8));
+      for (i2 = 9; i2 < 15; i2++) set(14 - i2, 8, getBit(bits, i2));
+      for (i2 = 0; i2 < 8; i2++) set(size - 1 - i2, 8, getBit(bits, i2));
+      for (i2 = 8; i2 < 15; i2++) set(8, size - 15 + i2, getBit(bits, i2));
+      set(8, size - 8, true);   // always-dark module
+    }
+    function drawVersion() {
+      if (ver < 7) return;
+      var rem = ver;
+      for (var i2 = 0; i2 < 12; i2++) rem = (rem << 1) ^ ((rem >>> 11) * 0x1F25);
+      var bits = (ver << 12) | rem;
+      for (i2 = 0; i2 < 18; i2++) { var bit = getBit(bits, i2), a = size - 11 + i2 % 3, c = Math.floor(i2 / 3); set(a, c, bit); set(c, a, bit); }
+    }
+    drawFormat(0); drawVersion();   // reserve the format/version regions (real bits set below)
+
+    // ── Place data+ecc codewords in zig-zag ──
+    var bit = 0;
+    for (var right = size - 1; right >= 1; right -= 2) {
+      if (right === 6) right = 5;
+      for (var vert = 0; vert < size; vert++) for (j = 0; j < 2; j++) {
+        var x = right - j, up = ((right + 1) & 2) === 0, y = up ? size - 1 - vert : vert;
+        if (!func[y][x] && bit < cw.length * 8) { mods[y][x] = getBit(cw[bit >>> 3], 7 - (bit & 7)); bit++; }
+      }
+    }
+
+    // ── Masking (evaluate 8 patterns; pick lowest penalty) ──
+    function applyMask(m) {
+      for (var y = 0; y < size; y++) for (var x = 0; x < size; x++) {
+        if (func[y][x]) continue;
+        var inv;
+        switch (m) {
+          case 0: inv = (x + y) % 2 === 0; break;
+          case 1: inv = y % 2 === 0; break;
+          case 2: inv = x % 3 === 0; break;
+          case 3: inv = (x + y) % 3 === 0; break;
+          case 4: inv = (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0; break;
+          case 5: inv = (x * y) % 2 + (x * y) % 3 === 0; break;
+          case 6: inv = ((x * y) % 2 + (x * y) % 3) % 2 === 0; break;
+          default: inv = ((x + y) % 2 + (x * y) % 3) % 2 === 0; break;
+        }
+        if (inv) mods[y][x] = !mods[y][x];
+      }
+    }
+    // Penalty rules 1 (runs), 2 (2x2 blocks) and 4 (dark balance). Rule 3 (finder-like) is omitted;
+    // it only refines mask choice — every mask still yields a fully valid, scannable code.
+    function penalty() {
+      var pen = 0, x, y, run, col;
+      for (y = 0; y < size; y++) { run = 0; col = null; for (x = 0; x < size; x++) { if (mods[y][x] === col) { run++; if (run === 5) pen += 3; else if (run > 5) pen++; } else { col = mods[y][x]; run = 1; } } }
+      for (x = 0; x < size; x++) { run = 0; col = null; for (y = 0; y < size; y++) { if (mods[y][x] === col) { run++; if (run === 5) pen += 3; else if (run > 5) pen++; } else { col = mods[y][x]; run = 1; } } }
+      for (y = 0; y < size - 1; y++) for (x = 0; x < size - 1; x++) { var c = mods[y][x]; if (c === mods[y][x + 1] && c === mods[y + 1][x] && c === mods[y + 1][x + 1]) pen += 3; }
+      var dark = 0; for (y = 0; y < size; y++) for (x = 0; x < size; x++) if (mods[y][x]) dark++;
+      pen += (Math.ceil(Math.abs(dark * 20 - size * size * 10) / (size * size)) - 1) * 10;
+      return pen;
+    }
+    var best = 0, bestPen = Infinity;
+    for (var m = 0; m < 8; m++) { applyMask(m); drawFormat(m); var pn = penalty(); if (pn < bestPen) { bestPen = pn; best = m; } applyMask(m); }
+    applyMask(best); drawFormat(best);
+    return { size: size, modules: mods };
+  }
+  window.QRMini = { encode: encode };
+})();
+
 /* ── Static-mode shim: makes Shiny.* calls work without a Shiny server ───── */
 if (typeof Shiny === 'undefined') {
   window.Shiny = {
@@ -126,6 +317,9 @@ var projectMaxWidth = 0;     // inline: max project node width (px) before a lon
 var narrowGapMult = 1;       // on narrow screens, multiply the base column gap by this (tighter/looser)
 var narrowNodeMult = 1;      // on narrow screens, multiply all node widths by this. Together they set
                              // the gap:node proportion on phones (fit-zoom normalises absolute scale).
+var qrEnabled = false;       // author toggle: show a QR code overlay in the graph area (bottom-right)
+var qrUrl = '';              // URL the QR encodes (author-entered)
+var qrSize = 110;            // QR display size in px (author slider)
 var ptypePct = 10;
 var mobileData = null;
 var selectedNodeId = null;
@@ -774,6 +968,31 @@ function updateZoomLabel() {
   if (el) el.textContent = Math.round((uiZoom || 1) * 100) + '%';
 }
 
+// Reader-facing description font-size control (header, next to the zoom). The description container
+// and its em-based headings read descFontSize live on each render, so we just set it, re-measure the
+// open nodes' heights, reflow and repaint. Persisted per-browser so it survives reloads.
+var DESC_FONT_MIN = 12, DESC_FONT_MAX = 30;
+function updateDescFontLabel() {
+  var el = document.getElementById('inline-descfont-val');
+  if (el) el.textContent = Math.round(descFontSize) + 'px';
+}
+function setDescFontSize(px, skipStore) {
+  px = Math.max(DESC_FONT_MIN, Math.min(DESC_FONT_MAX, Math.round(px)));
+  if (px === descFontSize) { updateDescFontLabel(); return; }
+  descFontSize = px;
+  applySidebarFonts();                       // CSS vars (headings/titles elsewhere)
+  if (cy && inlineBase) {                     // re-measure every open node at the new size, then reflow
+    Object.keys(inlineExpandedMap).forEach(function (id) {
+      if (id === descEditId) setExpandedHeight(id, true);   // node being edited shows raw text
+      else setExpandedHeight(id, false);
+    });
+    reflowInline();
+    cy.emit('render');
+  }
+  updateDescFontLabel();
+  if (!skipStore && !authorEditable) { try { localStorage.setItem('descFontSize', String(px)); } catch (e) {} }
+}
+
 // Re-stack each column from its base layout, growing expanded nodes downward. A growing Theme/Skill
 // column first rises into the empty space above it (up to the Project column's top / header level)
 // before extending below, then scrolls independently if it still overflows.
@@ -1253,8 +1472,9 @@ function nodeBodyHtml(data, noGradient) {
 // Article controls under a node's description, shown when the feature is on and this node has an
 // article. `d` is a description record carrying hasArticle/articleUrl and (for opted-in articles)
 // articleInline — the body markdown for the on-node quick-read. Renders:
-//   • "▸ Read here" toggle (only when articleInline exists) that unfolds the article in place, and
-//   • "Read full article →" link to the external full-fidelity Quarto page.
+//   • "▸ Read more here" toggle (only when articleInline exists) that unfolds the article in place
+//     (the node grows to fit the whole text — no inner scroll), and
+//   • "Read in window →" link that opens the external full-fidelity Quarto page in a new tab.
 // `open` controls whether the inline body is currently unfolded.
 function articleControlsHtml(d, open) {
   if (!articlesEnabled || !d || !d.hasArticle) return '';
@@ -1262,12 +1482,12 @@ function articleControlsHtml(d, open) {
   var out = '<div class="inline-article-row">';
   if (hasInline) {
     var lbl = open ? ((currentLang === 'fi') ? '▾ Piilota' : '▾ Hide')
-                   : ((currentLang === 'fi') ? '▸ Lue tästä' : '▸ Read here');
+                   : ((currentLang === 'fi') ? '▸ Lue lisää tästä' : '▸ Read more here');
     out += '<span class="inline-article-expand" data-node-id="' + d.nodeId + '">' + lbl + '</span>';
   }
   if (d.articleUrl) {
-    var label = (currentLang === 'fi') ? 'Lue koko artikkeli →' : 'Read full article →';
-    out += '<a class="inline-article-link article-link" href="' + d.articleUrl + '">' + label + '</a>';
+    var label = (currentLang === 'fi') ? 'Lue lisää ikkunassa →' : 'Read more in window →';
+    out += '<a class="inline-article-link" href="' + d.articleUrl + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
   }
   out += '</div>';
   if (hasInline && open)
@@ -1403,7 +1623,7 @@ function startDescEdit(id) {
   ta.style.display = 'block';
   setExpandedHeight(id, true); reflowInline();
   positionDescEditor();
-  ta.focus();
+  ta.focus({ preventScroll: true });   // don't let focus scroll the overflow:hidden graph-area viewport
 }
 
 function positionDescEditor() {
@@ -1483,7 +1703,7 @@ function startArticleEdit(id) {
   ta.value = ex.art.articleInline || '';
   ta.style.display = 'block';
   positionArticleEditor();
-  ta.focus();
+  ta.focus({ preventScroll: true });   // don't let focus scroll the overflow:hidden graph-area viewport
 }
 
 // Keep the article editor aligned over its .inline-article-body region (re-run on every render).
@@ -2413,15 +2633,14 @@ function positionHeaders(data) {
   var hdrGroups = ['Theme', 'Project', 'Skill'];
   data.headers.forEach(function (h, i) {
     if (h.sub) return;                          // handled below (anchored to its About node)
-    // In inline mode a Theme/Skill column can rise into the space above; its header follows.
-    var shiftUp = inlineMode ? (inlineColShiftUp[hdrGroups[i]] || 0) : 0;
-    // ...and the header scrolls with its own column, so scrolled content never slides underneath it
-    // (it slips up out of view instead of sitting on top of the text or peeking between nodes).
-    var scrollOff = inlineMode ? (inlineColScroll[hdrGroups[i]] || 0) : 0;
-    var sx = h.x * zoom + pan.x, sy = (h.y - shiftUp - scrollOff) * zoom + pan.y;
+    // Inline: the header stays FIXED at the top of its column (it no longer scrolls away with the
+    // nodes), so its Open/Close buttons stay reachable. Nodes that scroll up pass under it and are
+    // hidden by the opaque top mask drawn further below. (Non-inline: shiftUp/scrollOff are 0 anyway.)
+    var sx = h.x * zoom + pan.x, sy = h.y * zoom + pan.y;
     var div = document.createElement('div');
     var hcolor = i === 0 ? colTheme : (i === 1 ? colProject : colSkill);
     div.className = 'col-hdr'; div.id = 'colhdr-' + i; div.style.color = hcolor;
+    div.style.zIndex = '11';   // above the top mask (10); nodes/sub-headers sit below it
     div.style.transform = 'scale(1)'; div.style.transformOrigin = 'top center';
     // Title/subtitle on the left, per-column Open all / Collapse all buttons on the right (stacked so
     // they fit within the existing two-line header height). openAllInline/collapseAllInline are global.
@@ -2437,7 +2656,7 @@ function positionHeaders(data) {
         '</div>' +
         '<div class="col-hdr-btns" style="font-size:' + btnFs + 'px;">' +
           '<button type="button" class="col-hdr-btn" onclick="openAllInline(\'' + hgrp + '\')">' + (currentLang === 'fi' ? 'Avaa kaikki' : 'Open all') + '</button>' +
-          '<button type="button" class="col-hdr-btn" onclick="collapseAllInline(\'' + hgrp + '\')">' + (currentLang === 'fi' ? 'Sulje kaikki' : 'Collapse all') + '</button>' +
+          '<button type="button" class="col-hdr-btn" onclick="collapseAllInline(\'' + hgrp + '\')">' + (currentLang === 'fi' ? 'Sulje kaikki' : 'Close all') + '</button>' +
         '</div>' +
       '</div>';
     div.style.visibility = 'hidden'; div.style.top = '0'; div.style.left = '0';
@@ -2460,6 +2679,7 @@ function positionHeaders(data) {
     var sx = an.position('x') * zoom + pan.x, sy = (ntop - gapCy) * zoom + pan.y;
     var div = document.createElement('div');
     div.className = 'col-hdr'; div.id = 'colhdr-sub-' + i; div.style.color = h.color || (lightMode ? '#5a6b7a' : '#c4d0da');
+    div.style.zIndex = '9';   // a mid-column label — scrolls with its nodes and hides under the top mask
     div.style.transform = 'scale(1)'; div.style.transformOrigin = 'top center';
     div.innerHTML = '<b style="font-size:' + fontHdr1 + 'px;white-space:nowrap">' + dualLabel(h.line1, h.line1_fi) + '</b>';
     div.style.visibility = 'hidden'; div.style.top = '0'; div.style.left = '0';
@@ -2471,6 +2691,29 @@ function positionHeaders(data) {
     div.style.top = Math.round(sy) + 'px'; div.style.visibility = '';
   });
 
+  // Inline: an opaque top mask (graph background) so nodes / edges scrolled upward vanish under the
+  // fixed column headers instead of showing above them. It reaches from the top of the graph area down
+  // to the topmost node's BASE top — the highest point any node can legitimately reach (rise-up aside);
+  // anything scrolled past that is hidden. z-index 10 sits above nodes (9) and below the headers (11).
+  var mask = document.getElementById('colhdr-mask');
+  if (inlineMode && cy) {
+    var topMost = Infinity;
+    cy.nodes().forEach(function (n) {
+      var g = n.data('group'); if (!isColNode(g)) return;
+      var b = inlineBase && inlineBase[n.id()];
+      var top = b ? (b.y - b.h / 2) : (n.position('y') - (n.data('h') || 46) / 2);
+      if (top < topMost) topMost = top;
+    });
+    if (topMost !== Infinity) {
+      if (!mask) { mask = document.createElement('div'); mask.id = 'colhdr-mask'; area.appendChild(mask); }
+      // pointer-events:auto so taps in the masked region don't reach the hidden nodes behind it; the
+      // header buttons (z-index 11) still sit above the mask, and a drag still bubbles to graph-area.
+      mask.style.cssText = 'position:absolute;left:0;right:0;top:0;height:' +
+        Math.max(0, Math.round(topMost * zoom + pan.y)) + 'px;background:' + colBg +
+        ';z-index:10;pointer-events:auto;';
+    } else if (mask) { mask.remove(); }
+  } else if (mask) { mask.remove(); }
+
   // Watermark bottom-left of graph area
   if (watermarkText) {
     var wm = document.createElement('div');
@@ -2481,6 +2724,35 @@ function positionHeaders(data) {
     wm.textContent = watermarkText;
     area.appendChild(wm);
   }
+}
+
+// Build an SVG data-URI QR code (black on white, 4-module quiet zone) for the given text.
+function qrSvgDataUri(text) {
+  if (!window.QRMini) return null;
+  var qr; try { qr = window.QRMini.encode(text); } catch (e) { return null; }
+  var n = qr.size, q = 4, dim = n + q * 2, path = '';
+  for (var y = 0; y < n; y++) for (var x = 0; x < n; x++)
+    if (qr.modules[y][x]) path += 'M' + (x + q) + ' ' + (y + q) + 'h1v1h-1z';
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + dim + ' ' + dim + '" shape-rendering="crispEdges">' +
+    '<rect width="' + dim + '" height="' + dim + '" fill="#fff"/>' +
+    '<path d="' + path + '" fill="#000"/></svg>';
+  return 'data:image/svg+xml,' + encodeURIComponent(svg);
+}
+
+// Draw (or remove) the optional author-enabled QR overlay in the graph area (bottom-right, fixed
+// screen size so it stays scannable regardless of graph zoom). Called on each data update.
+function renderGraphQr() {
+  var area = document.getElementById('graph-area');
+  if (!area) return;
+  var el = document.getElementById('graph-qr');
+  var uri = (qrEnabled && qrUrl) ? qrSvgDataUri(qrUrl) : null;
+  if (!uri) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('img'); el.id = 'graph-qr'; el.alt = 'QR code'; area.appendChild(el); }
+  el.src = uri;
+  var s = Math.max(48, Math.min(400, qrSize || 110));
+  el.style.cssText = 'position:absolute;bottom:12px;right:12px;width:' + s + 'px;height:' + s + 'px;' +
+    'z-index:10;pointer-events:none;background:#fff;padding:6px;border-radius:6px;' +
+    'box-shadow:0 1px 6px rgba(0,0,0,0.35);image-rendering:pixelated;box-sizing:content-box;';
 }
 
 /* ── Sidebar Resize ──────────────────────────────────────────────────────── */
@@ -2526,10 +2798,21 @@ function applyDataGlobals(data) {
   fontPtype = data.fontPtype || 12;
   fontSubs = data.fontSubs || 15;
   descFontSize = data.fontDesc || 18;
+  // Reader's own description-size choice (header A−/A+ control) overrides the author default and
+  // survives data refreshes (language toggle, etc.). Only in inline mode (the mobile path re-caps it).
+  if (inlineMode && !useMobileLayout() && !authorEditable) {
+    var _dfs = null; try { _dfs = localStorage.getItem('descFontSize'); } catch (e) {}
+    if (_dfs != null && !isNaN(+_dfs)) descFontSize = Math.max(DESC_FONT_MIN, Math.min(DESC_FONT_MAX, +_dfs));
+    if (typeof updateDescFontLabel === 'function') updateDescFontLabel();
+  }
   fontHdr1 = data.fontHdr1 || 22;
   fontHdr2 = data.fontHdr2 || 15;
   watermarkText = data.watermarkText || '';
   watermarkSize = data.watermarkSize || 10;
+  qrEnabled = !!data.qrEnabled;
+  qrUrl = data.qrUrl || '';
+  qrSize = data.qrSize || 110;
+  if (typeof renderGraphQr === 'function') renderGraphQr();
   var ph = document.getElementById('page-title');
   if (ph) { ph.style.fontSize = (data.fontHdr1 || 22) + 'px'; requestAnimationFrame(syncResizeHandle); }
   // Store dark and light color sets
@@ -3505,8 +3788,12 @@ function mdToHtml(text) {
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(t)) continue;  // horizontal rules / thematic breaks
     var m = line.match(/^\s*(#{1,6})\s+(.+)$/);      // ATX headings (space required after #s)
     if (m) {
-      var level = Math.min(m[1].length + 1, 6);
-      out.push('<h' + level + ' style="margin:12px 0 4px;font-size:' + (descFontSize + 2) + 'px;font-weight:bold;">' + processInline(m[2]) + '</h' + level + '>');
+      var mdLvl = m[1].length;                       // 1..6  (# .. ######)
+      var level = Math.min(mdLvl + 1, 6);            // shift down one so a lone # isn't a giant h1
+      // em (not px) so headings scale with the live description font size (reader font-size control).
+      // Ratios match the old px step at the 18px default: #→1.67em … ######→1.11em.
+      var em = [1.67, 1.5, 1.33, 1.22, 1.17, 1.11][mdLvl - 1];
+      out.push('<h' + level + ' style="margin:0.8em 0 0.3em;font-size:' + em + 'em;font-weight:bold;line-height:1.25;">' + processInline(m[2]) + '</h' + level + '>');
     } else if (t === '') {
       out.push('<br>');
     } else if (/^>\s?/.test(t)) {
@@ -3815,6 +4102,19 @@ function bindInlineWheel() {
   if (_inlineWheelBound) return;
   var ga = document.getElementById('graph-area');
   if (!ga) return;
+  // #graph-area / #cy are overflow:hidden pseudo-viewports whose scroll we drive ourselves (via
+  // inlineColScroll + applyInlinePositions). A focused inline editor (or caret movement while typing
+  // in it) can make the browser scrollIntoView, which natively scrolls one of these containers — that
+  // shifts all content and traps upward scrolling ("stuck editing high up"). Pin them back to 0.
+  var pinScroll = function (el) {
+    if (!el) return;
+    el.addEventListener('scroll', function () {
+      if (el.scrollTop !== 0) el.scrollTop = 0;
+      if (el.scrollLeft !== 0) el.scrollLeft = 0;
+    }, { passive: true });
+  };
+  pinScroll(ga);
+  pinScroll(document.getElementById('cy'));
   ga.addEventListener('wheel', function (e) {
     if (!inlineMode || !cy) return;     // only intercept in inline mode
     // Ctrl/⌘ + wheel (trackpad pinch sends this automatically) → magnify, focused on the cursor.
@@ -3943,8 +4243,8 @@ function ensureInlineSidebarBtn() {
   // Global controls: open / collapse every column at once (per-column controls now live in each
   // column's header). openAllInline()/collapseAllInline() with no group act on all columns.
   var wrap = document.createElement('div'); wrap.id = 'inline-allbtns';
-  wrap.appendChild(mkBtn('Open all',     function () { openAllInline(); }));
-  wrap.appendChild(mkBtn('Collapse all', function () { collapseAllInline(); }));
+  wrap.appendChild(mkBtn('Open all',  function () { openAllInline(); }));
+  wrap.appendChild(mkBtn('Close all', function () { collapseAllInline(); }));
 
   // Zoom controls (−  100%  +  ⤢). Pinch / Ctrl+wheel also zoom; ⤢ resets to fit width.
   var zc = document.createElement('div'); zc.id = 'inline-zoom';
@@ -3958,12 +4258,24 @@ function ensureInlineSidebarBtn() {
   zc.appendChild(zbtn('+', 'Zoom in', function () { setUiZoom((uiZoom || 1) * 1.2); }));
   zc.appendChild(zbtn('⤢', 'Reset zoom (fit width)', function () { uiZoom = 1; inlinePanX = 0; _zoomFocal = null; layoutInlineScroll(); }));
 
-  // Header cluster spanning the bar: title/controls on the LEFT, zoom + Open/Collapse on the RIGHT.
+  // Description text size controls (A−  18px  A+) — reader adjusts the font of open descriptions.
+  var fc = document.createElement('div'); fc.id = 'inline-descfont';
+  fc.title = 'Description text size';
+  var fMinus = zbtn('A', 'Smaller description text', function () { setDescFontSize(descFontSize - 1); });
+  fMinus.className = 'inline-zoombtn inline-descfont-sm';
+  var fPlus  = zbtn('A', 'Larger description text',  function () { setDescFontSize(descFontSize + 1); });
+  fPlus.className = 'inline-zoombtn inline-descfont-lg';
+  var fVal = document.createElement('span'); fVal.id = 'inline-descfont-val';
+  fVal.textContent = Math.round(descFontSize) + 'px';
+  fc.appendChild(fMinus); fc.appendChild(fVal); fc.appendChild(fPlus);
+
+  // Header cluster spanning the bar: title/controls on the LEFT, font + zoom + Open/Collapse on RIGHT.
   var hdr = document.getElementById('inline-header-right');
   if (!hdr) { hdr = document.createElement('div'); hdr.id = 'inline-header-right'; document.body.appendChild(hdr); }
   var sb = document.getElementById('info-sidebar');
   if (sb && sb.parentNode !== hdr) hdr.appendChild(sb);   // controls — left
-  hdr.appendChild(zc);                                    // zoom — pushed right (margin-left:auto)
+  hdr.appendChild(fc);                                    // description font size — pushed right
+  hdr.appendChild(zc);                                    // zoom — right of the font control
   hdr.appendChild(wrap);                                  // Open/Collapse toolbar — right
 }
 

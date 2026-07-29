@@ -249,7 +249,8 @@
       "id": 902,
       "group": "About",
       "title": "Influence my focus",
-      "title_fi": "Vaikuta painopisteisiini"
+      "title_fi": "Vaikuta painopisteisiini",
+      "hidden": true
     },
     {
       "id": 903,
@@ -613,7 +614,7 @@
     ]
   },
   "layout": {
-    "gap_v": 14,
+    "gap_v": 12,
     "gap_col": 50,
     "font_node": 21,
     "font_ptype": 21,
@@ -621,9 +622,9 @@
     "font_desc": 19,
     "font_hdr1": 30,
     "font_hdr2": 24,
-    "h_theme": 80,
+    "h_theme": 70,
     "h_project": 40,
-    "h_skill": 78,
+    "h_skill": 68,
     "w_project": 540,
     "w_node": 332,
     "ptype_pct": 18,
@@ -660,9 +661,12 @@
     "accordion_icon_size": 18,
     "watermark_text": "",
     "watermark_size": 10,
-    "col_bg": "#232f43",
+    "qr_enabled": false,
+    "qr_url": "",
+    "qr_size": 110,
+    "col_bg": "#232d3e",
     "col_sidebar_bg": "#373e48",
-    "col_node_bg": "#2f4b6a",
+    "col_node_bg": "#33455c",
     "col_theme": "#d6d6d6",
     "col_project": "#d6d6d6",
     "col_skill": "#d6d6d6",
