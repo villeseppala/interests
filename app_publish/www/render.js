@@ -258,6 +258,11 @@ var _zoomFocalY = null;      // cursor Y (relative to graph-area) — vertical f
 var inlineBase = null;       // id -> { y, h } base layout snapshot taken while expanding
 var inlineColScroll = { Theme: 0, Project: 0, Skill: 0 };  // per-column vertical scroll offset (cyto units)
 var inlineColShiftUp = { Theme: 0, Project: 0, Skill: 0 };  // per-column upward shift into the space above (cyto units)
+// True while a one-finger scroll or two-finger pinch is in progress. The node-overlay renderer skips
+// rebuilding node inner-HTML while set, so the element under the finger is never detached mid-gesture
+// (detaching it kills touch-event routing → dead scroll/pinch). A final render on touchend applies any
+// content change that was deferred.
+var _inlineGestureActive = false;
 // "About" nodes sit in the Theme column (below the themes) so they share its stacking/scroll while
 // staying a distinct group for styling + their own sub-header. stackCol maps a group to its column.
 function stackCol(g) { return g === 'About' ? 'Skill' : g; }
@@ -594,7 +599,9 @@ function saturateColor(hex, mult) {
           d.style.top = ((pos.y - h / 2) * zoom + pan.y) + 'px';
           d.style.width = w + 'px'; d.style.height = h + 'px';
           d.style.transform = 'scale(' + zoom + ')'; d.style.transformOrigin = 'top left';
-          if (entry.html !== html) { d.innerHTML = html; entry.html = html; }   // rebuild content only when it changed
+          // Rebuild content only when it changed — and never for an existing div mid-gesture (that would
+          // detach the element under the finger). Brand-new divs (entry.html === null) always fill.
+          if (entry.html !== html && (!_inlineGestureActive || entry.html === null)) { d.innerHTML = html; entry.html = html; }
         });
         Object.keys(_divCache).forEach(function (id) {   // remove divs for nodes that no longer exist
           if (!seen[id]) { var e = _divCache[id]; if (e.el && e.el.parentNode) e.el.parentNode.removeChild(e.el); delete _divCache[id]; }
@@ -4187,7 +4194,9 @@ function bindInlineWheel() {
   var _pinchD = null;
   function tDist(t) { var a = t[0], b = t[1]; return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
   ga.addEventListener('touchstart', function (e) {
-    if (inlineMode && !useMobileLayout() && e.touches.length === 2) _pinchD = tDist(e.touches);
+    if (!inlineMode || useMobileLayout()) return;
+    if (e.touches.length >= 1) _inlineGestureActive = true;      // freeze content rebuilds for the gesture
+    if (e.touches.length === 2) { _pinchD = tDist(e.touches); _drag = null; }  // 2nd finger → pinch, cancel any drag
   }, { passive: false, capture: true });
   ga.addEventListener('touchmove', function (e) {
     if (!inlineMode || useMobileLayout() || _pinchD == null || e.touches.length !== 2) return;
@@ -4197,7 +4206,17 @@ function bindInlineWheel() {
     if (_pinchD > 0) setUiZoom((uiZoom || 1) * Math.pow(d / _pinchD, 0.5), midX, midY);  // sqrt = half response
     _pinchD = d;
   }, { passive: false, capture: true });
-  ga.addEventListener('touchend', function (e) { if (e.touches.length < 2) _pinchD = null; }, { capture: true });
+  // Capture-phase end/cancel so they ALWAYS fire (the description overlay stopPropagation()'s touchend
+  // in the bubble phase, which would otherwise strand _drag/_pinchD set → next gesture misbehaves).
+  function touchEndReset(e) {
+    if (!e.touches || e.touches.length < 2) _pinchD = null;
+    if (!e.touches || e.touches.length === 0) {
+      _drag = null;
+      if (_inlineGestureActive) { _inlineGestureActive = false; if (cy) cy.emit('render'); }  // flush any deferred content
+    }
+  }
+  ga.addEventListener('touchend', touchEndReset, { capture: true });
+  ga.addEventListener('touchcancel', touchEndReset, { capture: true });
 
   // Drag to pan: horizontal moves the whole view (when zoomed in), vertical scrolls the column the
   // drag started over. A small move threshold preserves taps (node open/close) and text selection.
@@ -4242,7 +4261,7 @@ function bindInlineWheel() {
     // drag is active so JS alone drives it, regardless of whether touch-action:none has loaded.
     if (_drag) e.preventDefault();
   }, { passive: false, capture: true });
-  ga.addEventListener('touchend', dragEnd);
+  // (drag/pinch touchend + touchcancel are handled by touchEndReset above, in capture phase)
   // Edge hover/click → highlight the Theme/Skill node the edge originates from, exactly like hovering
   // that node. Edge paths carry data-hl (their Theme/Skill endpoint) and their own pointer-events, so
   // e.target identifies the edge even though the SVG overlay is rebuilt on every highlight change.
