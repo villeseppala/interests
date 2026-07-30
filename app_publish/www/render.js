@@ -569,24 +569,35 @@ function saturateColor(hex, mult) {
         // Let the article link navigate normally, but keep the tap from collapsing the node.
         if (t && t.closest && t.closest('.inline-article-link')) e.stopPropagation();
       }, false);
+      // Reuse one div per node across renders (keyed by id), instead of wiping ov.innerHTML each frame.
+      // Crucial for touch: a drag/pinch calls render() every frame; recreating the div under the finger
+      // detaches the touch target mid-gesture, after which the browser stops routing touchmove through
+      // #graph-area and the gesture dies (the "description scroll/pinch doesn't work on mobile" bug).
+      // Content HTML is only rebuilt when it actually changes; a pure scroll/pan just moves the div.
+      var _divCache = {};   // id -> { el, html }
       function upd() {
-        ov.innerHTML = '';
-        var pan = inst.pan(), zoom = inst.zoom();
+        var pan = inst.pan(), zoom = inst.zoom(), seen = {};
         inst.nodes().forEach(function (node) {
           var opt = opts[0]; if (!opt) return;
           var html = opt.tpl(node.data()); if (!html) return;
+          var id = node.id(); seen[id] = true;
           var pos = node.position(), w = node.data('w') || 160, h = node.data('h') || 44;
-          var d = document.createElement('div');
-          d.style.cssText = 'position:absolute;box-sizing:border-box;pointer-events:none;overflow:hidden;';
+          var entry = _divCache[id], d;
+          if (entry) { d = entry.el; }
+          else { d = document.createElement('div'); ov.appendChild(d); entry = _divCache[id] = { el: d, html: null }; }
           // Opaque node background so the edge ribbons (drawn beneath the labels) don't bleed over the
           // node body — they stay visible only in the gaps between columns.
           var _nbg = nodeBgSameAsGraph ? colBg : colNodeBg;
+          d.style.cssText = 'position:absolute;box-sizing:border-box;pointer-events:none;overflow:hidden;';
           d.style.background = node.hasClass('selected') ? blendWithWhite(_nbg, 0.15) : _nbg;
           d.style.left = ((pos.x - w / 2) * zoom + pan.x) + 'px';
           d.style.top = ((pos.y - h / 2) * zoom + pan.y) + 'px';
           d.style.width = w + 'px'; d.style.height = h + 'px';
           d.style.transform = 'scale(' + zoom + ')'; d.style.transformOrigin = 'top left';
-          d.innerHTML = html; ov.appendChild(d);
+          if (entry.html !== html) { d.innerHTML = html; entry.html = html; }   // rebuild content only when it changed
+        });
+        Object.keys(_divCache).forEach(function (id) {   // remove divs for nodes that no longer exist
+          if (!seen[id]) { var e = _divCache[id]; if (e.el && e.el.parentNode) e.el.parentNode.removeChild(e.el); delete _divCache[id]; }
         });
         if (typeof positionDescEditor === 'function') positionDescEditor();  // keep the desc editor aligned
         if (typeof positionArticleEditor === 'function') positionArticleEditor();  // and the article editor
