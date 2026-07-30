@@ -51,8 +51,12 @@ body.author-editable .inline-node-desc:hover { box-shadow:inset 0 0 0 1px rgba(1
    to our capture-phase drag handler, matching the empty/canvas areas (Cytoscape sets its own
    touch-action:none on the canvas). Links inside still tap fine (a tap has no drag to consume). */
 @media (pointer: coarse) {
-  .inline-node-desc,
-  .inline-article-body { user-select:none !important; -webkit-user-select:none !important;
+  /* The descendant selectors matter: touch-action does NOT inherit, so the rendered markdown children
+     (<p>, <a>, headings, list items) keep touch-action:auto and let the browser native-scroll them,
+     competing with our drag. Cover them all so the whole description is JS-driven like the title. */
+  .inline-node-desc, .inline-node-desc *,
+  .inline-article-body, .inline-article-body * {
+    user-select:none !important; -webkit-user-select:none !important;
     -webkit-touch-callout:none; touch-action:none !important; }
 }
 
@@ -153,7 +157,7 @@ body.light-mode .inline-article-body { border-top-color:rgba(0,0,0,0.18); }
 .col-hdr-btn {
   font-family:Arial,Helvetica,sans-serif; font-weight:bold; white-space:nowrap; cursor:pointer;
   color:inherit; background:rgba(255,255,255,0.10); border:1px solid currentColor;
-  border-radius:3px; padding:0 5px; line-height:1.5; }
+  border-radius:3px; padding:0 6px; line-height:1.5; }
 .col-hdr-btn:hover { background:rgba(255,255,255,0.22); }
 body.light-mode .col-hdr-btn { background:rgba(0,0,0,0.06); }
 body.light-mode .col-hdr-btn:hover { background:rgba(0,0,0,0.14); }
@@ -481,7 +485,8 @@ body.light-mode.inline-mode .inline-allbtn {
   body.unified-ui .inline-zoombtn { width:27px; height:27px; font-size:15px; }
   body.unified-ui #inline-descfont-val { min-width:24px; font-size:11px; }
   body.unified-ui #inline-header-right .inline-allbtn { font-size:12px; padding:6px 9px; }
-  body.unified-ui #inline-allbtns { gap:4px; }
+  /* Open all / Close all side by side (not stacked) so they don't eat vertical header space. */
+  body.unified-ui #inline-allbtns { flex-direction:row; gap:4px; }
 }
 /* Zoom control (−  100%  +  ⤢) — sits in the header cluster; pinch / Ctrl+wheel also zoom */
 #inline-zoom { display:none; }

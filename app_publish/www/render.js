@@ -1026,9 +1026,11 @@ function applyInlinePositions() {
     // Rise into the space above (Theme/Skill only; Project is already at the top)
     var shiftUp = Math.min(totalDelta, Math.max(0, firstTop - projTop));
     inlineColShiftUp[g] = shiftUp;
-    // Clamp this column's own scroll to what still overflows after the upward shift. A small bottom
-    // clearance lets the last node scroll fully into view instead of sitting flush against the edge.
-    var bottomClear = 20 / zoom;
+    // Clamp this column's own scroll to what still overflows after the upward shift. A bottom clearance
+    // lets the last node scroll fully into view instead of sitting flush against the edge. On mobile the
+    // clearance is larger so the last node clears the browser's bottom toolbar / home indicator (which
+    // overlaps the 100dvh graph area), fixing "doesn't scroll quite to the bottom".
+    var bottomClear = (isNarrow() ? 76 : 20) / zoom;
     var maxScroll = Math.max(0, (bottom - shiftUp) - viewportBottomCyto + bottomClear);
     var off = Math.min(Math.max(inlineColScroll[g] || 0, 0), maxScroll);
     inlineColScroll[g] = off;
@@ -2648,7 +2650,7 @@ function positionHeaders(data) {
     // Title/subtitle on the left, per-column Open all / Collapse all buttons on the right (stacked so
     // they fit within the existing two-line header height). openAllInline/collapseAllInline are global.
     var hgrp = hdrGroups[i];
-    var btnFs = Math.max(7, Math.round(fontHdr2 * 0.7));
+    var btnFs = Math.max(9, Math.round(fontHdr2 * 0.91));   // per-column Open all/Close all — 30% larger
     // More breathing room between the title and the buttons when the browser is wide; small on narrow.
     var hdrGap = Math.max(6, Math.min(32, Math.round(((area.clientWidth || window.innerWidth) - 700) / 55 + 8)));
     div.innerHTML =
@@ -4167,21 +4169,24 @@ function bindInlineWheel() {
     e.stopPropagation();
   }, { passive: false, capture: true });
 
-  // Two-finger pinch on a touchscreen laptop (inline mode; native pinch is disabled here) → magnify.
+  // Two-finger pinch → magnify. Capture phase (like the drag handlers below) so a pinch that starts ON
+  // a description still works: the description overlay stopPropagation()'s touchstart in the bubble phase
+  // (to keep its text selectable / taps from collapsing the node), which would otherwise stop this
+  // handler from ever seeing the gesture — the reason pinch behaved differently over the description.
   var _pinchD = null;
   function tDist(t) { var a = t[0], b = t[1]; return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
   ga.addEventListener('touchstart', function (e) {
     if (inlineMode && !useMobileLayout() && e.touches.length === 2) _pinchD = tDist(e.touches);
-  }, { passive: false });
+  }, { passive: false, capture: true });
   ga.addEventListener('touchmove', function (e) {
     if (!inlineMode || useMobileLayout() || _pinchD == null || e.touches.length !== 2) return;
-    e.preventDefault();
+    e.preventDefault(); e.stopPropagation();
     var d = tDist(e.touches), midX = (e.touches[0].clientX + e.touches[1].clientX) / 2,
         midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
     if (_pinchD > 0) setUiZoom((uiZoom || 1) * Math.pow(d / _pinchD, 0.5), midX, midY);  // sqrt = half response
     _pinchD = d;
-  }, { passive: false });
-  ga.addEventListener('touchend', function (e) { if (e.touches.length < 2) _pinchD = null; });
+  }, { passive: false, capture: true });
+  ga.addEventListener('touchend', function (e) { if (e.touches.length < 2) _pinchD = null; }, { capture: true });
 
   // Drag to pan: horizontal moves the whole view (when zoomed in), vertical scrolls the column the
   // drag started over. A small move threshold preserves taps (node open/close) and text selection.
