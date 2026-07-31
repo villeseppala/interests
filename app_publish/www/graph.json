@@ -6,7 +6,7 @@
       "title": "Russia/Ukraine",
       "edgeColor": "#5ED294",
       "title_fi": "Venäjä/Ukraina",
-      "lightEdgeColor": "#3F9B3E"
+      "lightEdgeColor": "#BA3F7E"
     },
     {
       "id": 101,
@@ -14,7 +14,7 @@
       "title": "Existential and catastropic risks",
       "edgeColor": "#5E67D2",
       "title_fi": "Eksistentiaaliset riskit ja longtermismi",
-      "lightEdgeColor": "#33AD86"
+      "lightEdgeColor": "#A1BA3F"
     },
     {
       "id": 104,
@@ -22,7 +22,7 @@
       "title": "Climate Change",
       "edgeColor": "#D2695E",
       "title_fi": "Ilmastonmuutos",
-      "lightEdgeColor": "#418EBC"
+      "lightEdgeColor": "#3F5BBA"
     },
     {
       "id": 105,
@@ -30,7 +30,7 @@
       "title": "Electricity markets",
       "edgeColor": "#7CD25E",
       "title_fi": "Sähkömarkkinat",
-      "lightEdgeColor": "#B33195"
+      "lightEdgeColor": "#8D3FBA"
     },
     {
       "id": 103,
@@ -38,7 +38,7 @@
       "title": "European Union",
       "edgeColor": "#D25EA7",
       "title_fi": "Euroopan Unioni",
-      "lightEdgeColor": "#B52430"
+      "lightEdgeColor": "#3FBAB0"
     },
     {
       "id": 102,
@@ -46,7 +46,7 @@
       "title": "Global harmony",
       "edgeColor": "#A95ED2",
       "title_fi": "Globaali harmonia",
-      "lightEdgeColor": "#B17D2D"
+      "lightEdgeColor": "#3FBA47"
     },
     {
       "id": 202,
@@ -127,7 +127,7 @@
       "subs": [],
       "edgeColor": "#4893D1",
       "title_fi": "Tekoäly",
-      "lightEdgeColor": "#B22B68"
+      "lightEdgeColor": "#D69B4E"
     },
     {
       "id": 301,
@@ -136,7 +136,7 @@
       "subs": [],
       "edgeColor": "#D14893",
       "title_fi": "Datavisualisointi ja graafinen suunnittelu",
-      "lightEdgeColor": "#AE5D35"
+      "lightEdgeColor": "#4ED69B"
     },
     {
       "id": 302,
@@ -145,7 +145,7 @@
       "subs": [],
       "edgeColor": "#D18648",
       "title_fi": "Dashboardit ja nettisivut",
-      "lightEdgeColor": "#B0BE34"
+      "lightEdgeColor": "#4E89D6"
     },
     {
       "id": 303,
@@ -154,7 +154,7 @@
       "subs": [],
       "edgeColor": "#93D148",
       "title_fi": "Videot ja striimaus",
-      "lightEdgeColor": "#42B233"
+      "lightEdgeColor": "#9B4ED6"
     },
     {
       "id": 305,
@@ -163,7 +163,7 @@
       "edgeColor": "#8648D1",
       "title_fi": "Sosiaalinen media",
       "subs": [],
-      "lightEdgeColor": "#3DB98F"
+      "lightEdgeColor": "#89D64E"
     },
     {
       "id": 205.5,
@@ -211,7 +211,7 @@
       "title": "Finnish economy",
       "title_fi": "Suomen talous",
       "edgeColor": "#5EBCD2",
-      "lightEdgeColor": "#799830"
+      "lightEdgeColor": "#BA6A3F"
     },
     {
       "id": 209.6,
@@ -234,7 +234,7 @@
       "group": "Skill",
       "title": "Economics",
       "edgeColor": "#48D186",
-      "lightEdgeColor": "#347FBA",
+      "lightEdgeColor": "#D64E89",
       "title_fi": "Taloustiede",
       "subs": []
     },
@@ -617,7 +617,7 @@
     "gap_v": 12,
     "gap_col": 50,
     "font_node": 21,
-    "font_ptype": 21,
+    "font_ptype": 19,
     "font_subs": 15,
     "font_desc": 19,
     "font_hdr1": 30,
@@ -625,7 +625,7 @@
     "h_theme": 70,
     "h_project": 40,
     "h_skill": 68,
-    "w_project": 540,
+    "w_project": 480,
     "w_node": 332,
     "ptype_pct": 18,
     "edge_width": 8,
@@ -637,10 +637,10 @@
     "edge_min_on": false,
     "edge_curve": 2.9,
     "edge_pin_header": false,
-    "fill_nodew": 26,
-    "fill_projw": 23,
+    "fill_nodew": 31,
+    "fill_projw": 27,
     "fill_colgap": 12,
-    "fill_nodepad": 7,
+    "fill_nodepad": 3,
     "narrow_gap_mult": 1,
     "narrow_node_mult": 1,
     "gradient_extent": 38,
@@ -666,16 +666,16 @@
     "qr_size": 110,
     "col_bg": "#232d3e",
     "col_sidebar_bg": "#373e48",
-    "col_node_bg": "#324862",
+    "col_node_bg": "#2e435c",
     "col_theme": "#d6d6d6",
     "col_project": "#d6d6d6",
     "col_skill": "#d6d6d6",
     "light_col_bg": "#ffffff",
     "light_col_sidebar_bg": "#ffffff",
     "light_col_node_bg": "#ffffff",
-    "light_col_theme": "#292929",
-    "light_col_project": "#292929",
-    "light_col_skill": "#292929",
+    "light_col_theme": "#2b2b2b",
+    "light_col_project": "#2b2b2b",
+    "light_col_skill": "#2b2b2b",
     "light_edge_color": "#4f4f4f",
     "mob_font_mult": 3,
     "mob_h_theme_mult": 1,

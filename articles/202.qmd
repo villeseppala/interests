@@ -4,6 +4,7 @@ date: last-modified
 inline: true
 ---
 
+
 ### Issues with the standard approach
 Most questionnaire studies concerning individual existential risks (such as artificial intelligence, engineered pandemics, nuclear weapons, climate change etc.) ask the respondents to estimate the probability of them causing humankind's extinction or, in case of catastrophic risks, a civilizational collapse. 
 

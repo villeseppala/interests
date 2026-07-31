@@ -488,7 +488,7 @@ body.light-mode.inline-mode .inline-allbtn {
   body.unified-ui #inline-zoom { display:none !important; }
   body.unified-ui #inline-descfont { gap:2px; }
   body.unified-ui .inline-zoombtn { width:27px; height:27px; font-size:15px; }
-  body.unified-ui #inline-descfont-val { min-width:24px; font-size:11px; }
+  body.unified-ui #inline-descfont-val { min-width:30px; font-size:11px; }
   body.unified-ui #inline-header-right .inline-allbtn { font-size:12px; padding:6px 9px; }
   /* Open all / Close all side by side (not stacked) so they don't eat vertical header space. */
   body.unified-ui #inline-allbtns { flex-direction:row; gap:4px; }
@@ -514,7 +514,7 @@ body.light-mode.inline-mode #inline-zoom-pct { color:rgba(0,0,0,0.6); }
 body.inline-mode #inline-descfont { display:flex; align-items:center; gap:3px; }
 body.inline-mode #inline-descfont-val {
   color:rgba(255,255,255,0.8); font-family:Arial,Helvetica,sans-serif; font-size:10.5px;
-  font-weight:bold; min-width:30px; text-align:center; }
+  font-weight:bold; min-width:34px; text-align:center; }
 body.inline-mode .inline-descfont-sm { font-size:10px; }   /* small A = shrink */
 body.inline-mode .inline-descfont-lg { font-size:15px; }   /* big A = grow */
 body.light-mode.inline-mode #inline-descfont-val { color:rgba(0,0,0,0.6); }

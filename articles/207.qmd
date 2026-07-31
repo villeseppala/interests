@@ -1,0 +1,24 @@
+---
+title: "Incentivizing new power interconnectors in Europe"
+date: last-modified
+inline: true
+---
+
+### Problem and motivation
+Sweden and Norway (hereafter, the North) have shown resistance to building new power interconnectors to Central Europe (links here). New connectors would increase the average electricity prices in these countries, since there is more demand for electricity in the central Europe. However, new connectors would benefit Europe as a whole. I strongly believe that the population weighted decrease in electricity prices in central Europe would be greater than the price increase in the North. 
+Decreasing electricity prices across Europe is important for Europe's industrial competetiveness and for household expenses.
+
+Could EU or the European countries within the same power market area create a system to encourage building new interconnectors?
+
+### My suggested solution (in progress)
+My idea for this: Countries who import electricity at any moment would pay to the countries that export it to them. 
+
+The size of payment would be determined by the contrafactual electricity prices for the case that there was no interconnector between the countries. This indicates the benefit of the interconnector to the importer and the harm to the exporter. The payment would not be 100% of the difference, since the exporting country benefits by having a greater power generation industry to tax. And because their own prices increase less than is the decrease in importing country, based on general demand/supply curves.
+
+This soluction would also incentivize countries to remove bureaucratical barriers from building new electricity generation if it is cheaper than payments to importers. Would decrease average electricity prices.
+
+This would incentivize building flexible power generation wherever possible, since it would fetch a better price than currently. Which would decrease average prices.
+
+The momentary wind energy production varies a lot more across Europe than across a single country. Stronger power connections between countries would help to balance this variation. This would make wind energy capture rates be higher. It is important that we can take the max. benefit from wind energy, since it is so cheap to produce.
+
+They would incentivize countries to build steady production electricity, since that would decrease their dependence from exporting countries when electricity is expensive.

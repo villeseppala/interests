@@ -258,6 +258,11 @@ var _zoomFocalY = null;      // cursor Y (relative to graph-area) — vertical f
 var inlineBase = null;       // id -> { y, h } base layout snapshot taken while expanding
 var inlineColScroll = { Theme: 0, Project: 0, Skill: 0 };  // per-column vertical scroll offset (cyto units)
 var inlineColShiftUp = { Theme: 0, Project: 0, Skill: 0 };  // per-column upward shift into the space above (cyto units)
+// Narrow (mobile) inline: the Theme/Skill node stacks are vertically CENTERED in the visible area so
+// their nodes sit alongside the projects they connect to. When enough nodes open that the centered
+// stack would overflow the bottom, we top-align that column instead and LATCH there (this flag) until
+// every node in the column is closed again — so the stack doesn't jump up/down as nodes open and close.
+var inlineColCenterLatch = { Theme: false, Skill: false };
 // True while a one-finger scroll or two-finger pinch is in progress. The node-overlay renderer skips
 // rebuilding node inner-HTML while set, so the element under the finger is never detached mid-gesture
 // (detaching it kills touch-event routing → dead scroll/pinch). A final render on touchend applies any
@@ -538,13 +543,14 @@ function saturateColor(hex, mult) {
           toggleArticleInline(xbtn.getAttribute('data-node-id'));
           return;
         }
-        // Author app: a single click on the unfolded article body edits its raw markdown in place
-        // (published/static just lets you read/select it). Text selection is preserved.
+        // Clicking the unfolded article body: author app edits its raw markdown in place; published/
+        // static folds the article away (same as the "▾ Hide" toggle). Text selection is preserved.
         var artBody = t && t.closest && t.closest('.inline-article-body');
-        if (inlineMode && authorEditable && artBody) {
+        if (inlineMode && artBody) {
           e.stopPropagation();
           if (window.getSelection && String(window.getSelection())) return;   // selecting text: leave as is
-          startArticleEdit(artBody.getAttribute('data-node-id'));
+          if (authorEditable) startArticleEdit(artBody.getAttribute('data-node-id'));   // author: edit markdown
+          else toggleArticleInline(artBody.getAttribute('data-node-id'));               // published: fold it away
           return;
         }
         // Published/static: clicking a description closes the node. Author app: a single click on the
@@ -879,11 +885,14 @@ function layoutInlineScroll() {
   var W = ga.clientWidth, viewH = ga.clientHeight || window.innerHeight;
   var baseBB = inlineBaseBBox();
   if (!baseBB || baseBB.w === 0) return;
+  // Side padding reserved left+right of the graph. Small on narrow screens so the columns fill the
+  // width (less wasted space at the edges); roomier on desktop.
+  var sideMargin = isNarrow() ? 8 : 20;
   var hm = (lastData && lastData.headerMargin) || 70;
   var prevZoom = cy.zoom();           // zoom before this re-fit (for the vertical focal shift below)
   // Fit BOTH dimensions of the base layout so the no-description view shows every node, then apply
   // the user's magnification (uiZoom). Columns still scroll vertically per-column at any zoom.
-  var fitW = (W - 40) / baseBB.w;
+  var fitW = (W - 2 * sideMargin) / baseBB.w;
   var fitH = (viewH - 28) / (baseBB.h + hm);
   // Desktop: fit the whole map (min of both). Narrow screens: fit to WIDTH only — the columns fill the
   // width (minimal side margins) and the content scrolls vertically. Width-only also keeps the zoom
@@ -902,12 +911,12 @@ function layoutInlineScroll() {
   // Horizontal placement: centre the leftover padding when the graph fits; once zoomed in past the
   // viewport width, use the (focal-adjusted) horizontal pan, clamped so both edges stay reachable.
   var contentW = baseBB.w * zoom;
-  if (contentW <= W - 40) {
-    inlinePanX = Math.max(20, (W - contentW) / 2) - baseBB.x1 * zoom;   // centred (min 20px each side)
+  if (contentW <= W - 2 * sideMargin) {
+    inlinePanX = Math.max(sideMargin, (W - contentW) / 2) - baseBB.x1 * zoom;   // centred (min sideMargin each side)
   } else {
     if (_zoomFocal) inlinePanX = _zoomFocal.cx - _zoomFocal.contentX * zoom;
-    var maxPanX = 20 - baseBB.x1 * zoom;                                // left edge at 20px
-    var minPanX = (W - 20) - (baseBB.x1 * zoom + contentW);             // right edge at W-20px
+    var maxPanX = sideMargin - baseBB.x1 * zoom;                                // left edge at sideMargin
+    var minPanX = (W - sideMargin) - (baseBB.x1 * zoom + contentW);             // right edge at W-sideMargin
     inlinePanX = Math.min(maxPanX, Math.max(minPanX, inlinePanX));
   }
   _zoomFocal = null;
@@ -915,7 +924,9 @@ function layoutInlineScroll() {
   cy.zoomingEnabled(false);           // then fully block wheel/gesture zoom while inline
   // Magnified past the vertical fit → capture the base so per-column scroll works even before any
   // node is expanded (otherwise you couldn't scroll down to nodes pushed off the bottom by zoom).
-  if (!inlineBase && baseBB.h * zoom > viewH - topPad - 8) captureInlineBase();
+  // Narrow screens also capture up-front so the Theme/Skill columns can be vertically centred (see
+  // applyInlinePositions) even when nothing overflows and no node is open yet.
+  if (!inlineBase && (isNarrow() || baseBB.h * zoom > viewH - topPad - 8)) captureInlineBase();
   // Vertical focal: shift every column's scroll by the same Δ so the point under the cursor stays put
   // while zooming. Node screen-Y = 8 + (layoutY − scroll)·zoom, so keeping a point fixed needs
   // Δscroll = (cursorY − 8)·(1/prevZoom − 1/zoom). Each column then clamps to its own range (a short
@@ -986,9 +997,10 @@ function updateZoomLabel() {
   if (el) el.textContent = Math.round((uiZoom || 1) * 100) + '%';
 }
 
-// Reader-facing description font-size control (header, next to the zoom). The description container
-// and its em-based headings read descFontSize live on each render, so we just set it, re-measure the
-// open nodes' heights, reflow and repaint. Persisted per-browser so it survives reloads.
+// ── Reader-facing description text-size control (header A−/A+) ─────────────────
+// Controls ONLY the description font. The description container + its em headings read descFontSize
+// live, so we set it, re-measure open nodes' description heights, reflow and repaint. Persisted per
+// browser. (Node-title sizing is handled separately by the one-time mobile auto-fill below.)
 var DESC_FONT_MIN = 12, DESC_FONT_MAX = 30;
 function updateDescFontLabel() {
   var el = document.getElementById('inline-descfont-val');
@@ -998,10 +1010,10 @@ function setDescFontSize(px, skipStore) {
   px = Math.max(DESC_FONT_MIN, Math.min(DESC_FONT_MAX, Math.round(px)));
   if (px === descFontSize) { updateDescFontLabel(); return; }
   descFontSize = px;
-  applySidebarFonts();                       // CSS vars (headings/titles elsewhere)
-  if (cy && inlineBase) {                     // re-measure every open node at the new size, then reflow
+  applySidebarFonts();
+  if (cy && inlineBase) {                     // re-measure every open node's description, then reflow
     Object.keys(inlineExpandedMap).forEach(function (id) {
-      if (id === descEditId) setExpandedHeight(id, true);   // node being edited shows raw text
+      if (id === descEditId) setExpandedHeight(id, true);
       else setExpandedHeight(id, false);
     });
     reflowInline();
@@ -1009,6 +1021,123 @@ function setDescFontSize(px, skipStore) {
   }
   updateDescFontLabel();
   if (!skipStore && !authorEditable) { try { localStorage.setItem('descFontSize', String(px)); } catch (e) {} }
+}
+
+// ── One-time mobile auto-fill of empty vertical space ─────────────────────────
+// On a narrow screen the map is fit to WIDTH, so on a tall screen the bottom is empty and text is small.
+// On the FIRST load we scale up the NODE-CONTENT fonts (titles, project-type, skill subs — NOT
+// descriptions, NOT headers) by uiFontScale and re-stack the columns (keeping node widths + column x
+// fixed) so they grow downward to fill the height. This is automatic and not user-adjustable — the
+// A−/A+ control governs description text only, which keeps the width/zoom auto-sizing simple.
+var FONT_AUTOFILL_MAX = 1.8;
+var uiFontScale = 1;            // node-content font multiplier from the auto-fill (session, not persisted)
+var _baseFonts = null;          // { node, ptype, subs, hdr1, hdr2 } — payload values before scaling
+
+// Effective node-content fonts = base × uiFontScale. Headers and descriptions are NOT scaled here.
+function applyNodeFontScale() {
+  var b = _baseFonts; if (!b) return;
+  var s = uiFontScale || 1;
+  fontNode = b.node * s; fontPtype = b.ptype * s; fontSubs = b.subs * s;
+  fontHdr1 = b.hdr1; fontHdr2 = b.hdr2;
+}
+
+// If any node of `group` wraps to ~2 or more rows, return the 2-row height for that group's nodes,
+// else 0. Lets a column read evenly — no stubby one-row nodes beside two-row ones.
+function twoRowFloorFor(group) {
+  if (!cy) return 0;
+  var lh = 1.25, vPad = (group === 'Skill') ? 8 : 6;
+  var oneRow = fontNode * lh + vPad, anyTwo = false;
+  cy.nodes().forEach(function (n) {
+    if (n.data('group') !== group) return;
+    if (collapsedNodeHeight(n.data()) > oneRow + fontNode * lh * 0.5) anyTwo = true;   // ≥ ~1.5 rows
+  });
+  return anyTwo ? Math.round(2 * fontNode * lh + vPad) : 0;
+}
+
+// Re-measure every collapsed node's height at the current node fonts and re-stack each column,
+// preserving inter-node gaps and each column's top — columns grow downward into the empty space.
+function restackAllColumnsForFonts() {
+  if (!cy || !inlineMode) return;
+  var useBase = !!inlineBase, cols = {};
+  var floorTheme = twoRowFloorFor('Theme'), floorSkill = twoRowFloorFor('Skill');   // even-height floor
+  cy.nodes().forEach(function (n) {
+    if (!isColNode(n.data('group'))) return;
+    if (useBase && !inlineBase[n.id()]) return;
+    var c = stackCol(n.data('group'));
+    (cols[c] = cols[c] || []).push(n);
+  });
+  Object.keys(cols).forEach(function (c) {
+    var arr = cols[c];
+    function yOf(n) { return useBase ? inlineBase[n.id()].y : n.position('y'); }
+    function hOf(n) { return useBase ? inlineBase[n.id()].h : (n.data('h') || 46); }
+    arr.sort(function (a, b) { return yOf(a) - yOf(b); });
+    var pob = null, pnb = null;
+    arr.forEach(function (n) {
+      var g = n.data('group');
+      var bh = hOf(n), by = yOf(n), oldTop = by - bh / 2, oldBottom = by + bh / 2;
+      var newH = collapsedNodeHeight(n.data());                 // re-measured at the scaled node fonts
+      if (g === 'Theme' && floorTheme) newH = Math.max(newH, floorTheme);   // even two-row minimum
+      else if (g === 'Skill' && floorSkill) newH = Math.max(newH, floorSkill);
+      var nTop = (pnb == null) ? oldTop : pnb + (oldTop - pob);  // keep the gap above this node
+      var newY = nTop + newH / 2;
+      if (useBase) { inlineBase[n.id()].y = newY; inlineBase[n.id()].h = newH; }
+      else { n.position('y', newY); n.data('h', newH); }
+      pob = oldBottom; pnb = nTop + newH;
+    });
+  });
+}
+
+// Choose the scale that grows the columns to roughly fill the viewport height (width-fit is unchanged).
+function computeAutoFillScale() {
+  var ga = document.getElementById('graph-area'); if (!ga || !cy) return 1;
+  var bb = inlineBaseBBox(); if (!bb || bb.w === 0 || bb.h === 0) return 1;
+  var W = ga.clientWidth, viewH = ga.clientHeight || window.innerHeight;
+  var hm = (lastData && lastData.headerMargin) || 70;
+  var fitW = (W - 40) / bb.w;
+  var topPadPx = 8 + hm * fitW;
+  var hdrBar = document.getElementById('inline-header-right');
+  if (hdrBar) { var hbH = hdrBar.getBoundingClientRect().height; if (hbH > 0) topPadPx = Math.max(topPadPx, hbH + 6); }
+  var availCytoH = (viewH - topPadPx - 12) / fitW;
+  // Fill to ~82% of the available height: leaves a comfortable bottom margin and absorbs the extra
+  // growth from wrapping + the Theme/Skill two-row floor (which computeAutoFillScale can't see here).
+  var s = (availCytoH / bb.h) * 0.82;
+  return Math.max(1, Math.min(FONT_AUTOFILL_MAX, s));
+}
+
+// Re-stack + re-fit the freshly (re)built graph (built at base-font heights) to the current uiFontScale,
+// re-measuring any open node's description as well.
+function applyNodeFontScaleLayout() {
+  if (!cy || !inlineMode || useMobileLayout()) return;
+  restackAllColumnsForFonts();
+  Object.keys(inlineExpandedMap).forEach(function (id) {
+    var node = cy.getElementById(id); if (!node || node.empty()) return;
+    var ex = inlineExpandedMap[id];
+    ex.origH = collapsedNodeHeight(node.data());
+    ex.h = ex.origH + (id === descEditId ? measureRawHeight(node, ex.raw || '') : measureDescHeight(node, ex.descHtml));
+    if (inlineBase && inlineBase[id]) inlineBase[id].h = ex.origH;
+  });
+  layoutInlineScroll();
+}
+
+// Called after every (re)build. Narrow screens: enlarge node fonts to fill the empty vertical space —
+// computed once (while the scale is still 1), then just re-applied to the rebuilt graph on later
+// refreshes. Wide screens: no fill (and undo any lingering narrow scale after a resize back to wide).
+function applyInitialFontScale() {
+  if (!inlineMode || useMobileLayout() || !cy) return;
+  if (!isNarrow()) {
+    if (Math.abs((uiFontScale || 1) - 1) > 1e-3) { uiFontScale = 1; applyNodeFontScale(); applyNodeFontScaleLayout(); }
+    return;
+  }
+  if (Math.abs((uiFontScale || 1) - 1) <= 1e-3) {   // not filled yet → compute the auto-fill scale
+    var s = computeAutoFillScale();
+    if (s > 1.03) uiFontScale = s;
+  }
+  // Always re-apply the (possibly unchanged) scale AND re-measure every node's height in the browser,
+  // so a title that wraps to 3–4 rows gets a box tall enough for it. Without this, when the content
+  // already fills the screen (no auto-fill), Theme/Skill nodes keep the server's one-row height estimate
+  // and long titles are clipped.
+  applyNodeFontScale();
+  applyNodeFontScaleLayout();
 }
 
 // Re-stack each column from its base layout, growing expanded nodes downward. A growing Theme/Skill
@@ -1020,45 +1149,91 @@ function applyInlinePositions() {
   var viewH = ga ? (ga.clientHeight || window.innerHeight) : window.innerHeight;
   var zoom = cy.zoom(), panY = cy.pan().y;
   var viewportBottomCyto = (viewH - panY) / zoom;
-  var cols = {};
+  var bottomClear = (isNarrow() ? 76 : 20) / zoom;
+  var narrowCenter = isNarrow() && !useMobileLayout();   // vertical centering only on narrow inline
+  var cols = {}, globalTop = Infinity;
   cy.nodes().forEach(function (n) {
-    if (inlineBase[n.id()]) { var c = stackCol(n.data('group')); (cols[c] = cols[c] || []).push(n); }
+    if (inlineBase[n.id()]) {
+      var b = inlineBase[n.id()];
+      globalTop = Math.min(globalTop, b.y - b.h / 2);
+      var c = stackCol(n.data('group')); (cols[c] = cols[c] || []).push(n);
+    }
   });
-  // Top of the Project column (base) — the highest level Theme/Skill columns may rise to.
-  var projTop = Infinity;
-  (cols.Project || []).forEach(function (n) { var b = inlineBase[n.id()]; if (b) projTop = Math.min(projTop, b.y - b.h / 2); });
-  if (!isFinite(projTop)) projTop = (inlineBaseBBox() || { y1: 0 }).y1;
+  // Visible node area (cyto units): from the topmost node base (which the pan maps just below the fixed
+  // column headers) down to the viewport bottom, minus the bottom clearance.
+  var availTop = isFinite(globalTop) ? globalTop : 0;
+  var availBottom = viewportBottomCyto - bottomClear;
+  // Span of the Project column (base): its top (highest level Theme/Skill columns may rise to) and its
+  // bottom. Themes/Skills are centred on THIS span (not the whole area) so their nodes line up with the
+  // projects they connect to — Projects are top-aligned and often don't reach the bottom of the area, so
+  // centring on the full area would drop Theme/Skill into the empty region below the projects.
+  var projTop = Infinity, projBottom = -Infinity;
+  (cols.Project || []).forEach(function (n) { var b = inlineBase[n.id()]; if (b) { projTop = Math.min(projTop, b.y - b.h / 2); projBottom = Math.max(projBottom, b.y + b.h / 2); } });
+  if (!isFinite(projTop)) { var _bb = inlineBaseBBox() || { y1: availTop, y2: availBottom }; projTop = _bb.y1; projBottom = _bb.y2; }
+  // Centring reference = the Project span, clamped to what's actually visible.
+  var refTop = Math.max(availTop, projTop);
+  var refBottom = Math.min(availBottom, projBottom);
+  var refH = Math.max(0, refBottom - refTop);
   Object.keys(cols).forEach(function (g) {
     var arr = cols[g];
     arr.sort(function (a, b) { return inlineBase[a.id()].y - inlineBase[b.id()].y; });
     var firstTop = inlineBase[arr[0].id()].y - inlineBase[arr[0].id()].h / 2;
-    // First pass: total growth + base-stacked bottom
-    var cum = 0, bottom = -Infinity;
+    // First pass: total growth + base-stacked bottom of the WHOLE column (drives scroll), plus separate
+    // "centring subset" metrics that EXCLUDE About nodes — so the Skill stack is centred on its skill
+    // nodes only. The About block rides the same offset and simply hangs below (a slightly bottom-heavy
+    // right column, which is intended). Theme has no About nodes, so its subset == the whole column.
+    var cum = 0, bottom = -Infinity, anyOpenCenter = false;
+    var centerBottomBase = -Infinity, centerExpBottom = -Infinity;
     arr.forEach(function (n) {
       var b = inlineBase[n.id()], ex = inlineExpandedMap[n.id()];
       var h = ex ? ex.h : b.h;
-      bottom = (b.y - b.h / 2) + cum + h;
+      var expBottom = (b.y - b.h / 2) + cum + h;
+      bottom = expBottom;
+      if (n.data('group') !== 'About') {
+        if (ex) anyOpenCenter = true;
+        centerBottomBase = Math.max(centerBottomBase, b.y + b.h / 2);
+        centerExpBottom = Math.max(centerExpBottom, expBottom);
+      }
       cum += (h - b.h);
     });
     var totalDelta = cum;
+    var currentColH = centerExpBottom - firstTop;        // skills-only expanded height (drives overflow latch)
+    var collapsedColH = centerBottomBase - firstTop;     // skills-only collapsed extent (drives centring)
+    // Vertical centering (narrow inline only, Theme/Skill columns). Centre the COLLAPSED stack's MIDDLE
+    // on the middle of the Project span so theme/skill nodes line up with the projects they connect to.
+    // Opening a node keeps this offset FIXED (the clicked node stays put; lower nodes grow downward). If
+    // an expansion would push the stack past the visible bottom, top-align instead and latch there until
+    // every node in the column is closed again.
+    var centerOff = 0;
+    if (narrowCenter && (g === 'Theme' || g === 'Skill')) {
+      if (inlineColCenterLatch[g] && !anyOpenCenter) inlineColCenterLatch[g] = false;   // all skills closed → re-centre
+      // Desired top so the collapsed stack's midpoint sits at the reference midpoint. Never above the
+      // area top (can't slide under the fixed header), so clamp the offset at 0.
+      var desiredTop = refTop + (refH - collapsedColH) / 2;
+      var centerCand = Math.max(0, desiredTop - firstTop);
+      if (!inlineColCenterLatch[g]) {
+        // Would the centred stack overflow the visible bottom? If so, drop to top-aligned and latch.
+        if (centerCand > 0 && firstTop + centerCand + currentColH > availBottom) inlineColCenterLatch[g] = true;
+        else centerOff = centerCand;
+      }
+    }
     // Rise into the space above (Theme/Skill only; Project is already at the top)
     var shiftUp = Math.min(totalDelta, Math.max(0, firstTop - projTop));
     inlineColShiftUp[g] = shiftUp;
-    // Clamp this column's own scroll to what still overflows after the upward shift. A bottom clearance
-    // lets the last node scroll fully into view instead of sitting flush against the edge. On mobile the
-    // clearance is larger so the last node clears the browser's bottom toolbar / home indicator (which
-    // overlaps the 100dvh graph area), fixing "doesn't scroll quite to the bottom".
-    var bottomClear = (isNarrow() ? 76 : 20) / zoom;
-    var maxScroll = Math.max(0, (bottom - shiftUp) - viewportBottomCyto + bottomClear);
+    // Clamp this column's own scroll to what still overflows after the upward shift + centre offset. A
+    // bottom clearance lets the last node scroll fully into view instead of sitting flush against the
+    // edge. On mobile the clearance is larger so the last node clears the browser's bottom toolbar / home
+    // indicator (which overlaps the 100dvh graph area), fixing "doesn't scroll quite to the bottom".
+    var maxScroll = Math.max(0, (bottom - shiftUp + centerOff) - viewportBottomCyto + bottomClear);
     var off = Math.min(Math.max(inlineColScroll[g] || 0, 0), maxScroll);
     inlineColScroll[g] = off;
-    // Second pass: apply positions (shifted up by shiftUp, then by the scroll offset)
+    // Second pass: apply positions (centre offset, shifted up by shiftUp, then by the scroll offset)
     cum = 0;
     arr.forEach(function (n) {
       var b = inlineBase[n.id()], ex = inlineExpandedMap[n.id()];
       var h = ex ? ex.h : b.h;
       n.data('h', h);
-      n.position('y', (b.y - b.h / 2) + cum + h / 2 - shiftUp - off);
+      n.position('y', (b.y - b.h / 2) + cum + h / 2 - shiftUp - off + centerOff);
       cum += (h - b.h);
     });
   });
@@ -1459,22 +1634,34 @@ function nodeBodyHtml(data, noGradient) {
     var ptypeRaw = data.ptype || '';
     var ptypeFi = { 'Text': 'Teksti', 'Text, long': 'Pitkä teksti', 'Text, short': 'Lyhyt teksti', 'Website': 'Nettisivu' };
     var ptypeLabel = dualLabel(ptypeRaw, ptypeFi[ptypeRaw] || ptypeRaw);
-    var ptypeFontSize = (fontPtype + 2) + 'px';
     var nodeW = data.w || projectNodeWidth;
     var ptypeColW = (!mobileMode && ptypeRaw) ? Math.round(nodeW * ptypePct / 100) : 0;
+    // Shrink the type label so it never overflows its fixed-width column (the column is a % of node
+    // width, but the font grows with the mobile auto-fill — so "Website" would clip to "Websit").
+    // Measure the WIDEST possible label (every EN + FI variant), not just this node's, so ALL project
+    // nodes end up with the SAME type-font size — shrinking "Website" shrinks "Text" to match.
+    var ptypeFontPx = fontPtype + 2;
+    if (ptypeColW > 0) {
+      var typeTextW = ptypeColW - 10;   // the type column has 0 5px padding (left+right)
+      var _cands = Object.keys(ptypeFi);
+      _cands = _cands.concat(_cands.map(function (k) { return ptypeFi[k]; }));
+      if (ptypeRaw && _cands.indexOf(ptypeRaw) < 0) _cands.push(ptypeRaw);
+      var wMax = 0;
+      _cands.forEach(function (s) { var w = measureTextPx(s, ptypeFontPx); if (w > wMax) wMax = w; });
+      if (wMax > typeTextW && typeTextW > 0) ptypeFontPx = Math.max(7, Math.floor(ptypeFontPx * typeTextW / wMax));
+    }
+    var ptypeFontSize = ptypeFontPx + 'px';
     // Title side padding: LEFT clears the accordion chevron; RIGHT is minimal (projects have no right
     // chevron), so the node fits a tighter horizontal space. autoFitProjectWidth matches these.
     var projPadL = Math.max(9, accGutter) + nodeTextPad;
     var projPadR = 9 + nodeTextPad;
     var availW = nodeW - ptypeColW - projPadL - projPadR;
-    var enText = data.label || '';
-    var fiText = data.label_fi || enText;
-    var enOneLine = measureTextPx(enText, fontNode) <= availW;
+    // Wrap decision follows the CURRENTLY shown language so the box height (measured for the same
+    // language) matches exactly — no empty space when the shown title is short, no clipping when it's
+    // long. setLanguage re-measures + re-lays-out on switch, so the box resizes to the new language.
+    var curText = (currentLang === 'fi' && data.label_fi) ? data.label_fi : (data.label || '');
+    var curOneLine = measureTextPx(curText, fontNode) <= availW;
     var projFn = fontNode;
-    if (enOneLine && currentLang === 'fi' && fiText !== enText) {
-      var fiW = measureTextPx(fiText, fontNode);
-      if (fiW > availW) projFn = Math.max(10, Math.floor(fontNode * availW / fiW));
-    }
     var typeCol = (!mobileMode && ptypeRaw)
       ? '<div style="width:' + ptypeColW + 'px;flex-shrink:0;border-left:1.1px solid ' + colProject + ';' +
         'display:flex;align-items:center;justify-content:center;padding:0 5px;' +
@@ -1486,7 +1673,7 @@ function nodeBodyHtml(data, noGradient) {
       '<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:4px ' + projPadR + 'px 4px ' + projPadL + 'px;' +
       'text-align:center;overflow:hidden;position:relative;z-index:6;">' +
       '<div style="color:' + colProject + ';font-family:Arial,Helvetica,sans-serif;font-size:' + projFn + 'px;' +
-      'font-weight:bold;line-height:1.3;white-space:' + (enOneLine ? 'nowrap' : 'normal') + ';' + wrap + '">' + label + '</div></div>' +
+      'font-weight:bold;line-height:1.3;white-space:' + (curOneLine ? 'nowrap' : 'normal') + ';' + wrap + '">' + label + '</div></div>' +
       typeCol + grad(gradientExtent / 2) + border() + acc() + '</div>';
   }
   return '';
@@ -1859,6 +2046,7 @@ function restoreInlineBase() {
   inlineBase = null;
   inlineColScroll = { Theme: 0, Project: 0, Skill: 0 };
   inlineColShiftUp = { Theme: 0, Project: 0, Skill: 0 };
+  inlineColCenterLatch = { Theme: false, Skill: false };
   if (cy) { cy.emit('render'); inlineRefreshView(); }
   syncOpenIdsToShiny();
 }
@@ -1878,7 +2066,7 @@ function collapseNodeInline(id) {
 }
 
 // Clear inline expansion state without moving anything (used when the graph is rebuilt).
-function resetInlineExpansion() { inlineExpandedMap = {}; inlineBase = null; inlineColScroll = { Theme: 0, Project: 0, Skill: 0 }; inlineColShiftUp = { Theme: 0, Project: 0, Skill: 0 }; }
+function resetInlineExpansion() { inlineExpandedMap = {}; inlineBase = null; inlineColScroll = { Theme: 0, Project: 0, Skill: 0 }; inlineColShiftUp = { Theme: 0, Project: 0, Skill: 0 }; inlineColCenterLatch = { Theme: false, Skill: false }; }
 
 // Expand a node inline from a description record
 // {nodeId, text, text_fi, group, hasArticle, articleUrl, articleInline}.
@@ -2762,8 +2950,9 @@ function qrSvgDataUri(text) {
   return 'data:image/svg+xml,' + encodeURIComponent(svg);
 }
 
-// Draw (or remove) the optional author-enabled QR overlay in the graph area (bottom-right, fixed
-// screen size so it stays scannable regardless of graph zoom). Called on each data update.
+// Draw (or remove) the optional author-enabled QR overlay in the graph area (bottom-left, under the
+// Theme column; fixed screen size so it stays scannable regardless of graph zoom). Called on each
+// data update.
 function renderGraphQr() {
   var area = document.getElementById('graph-area');
   if (!area) return;
@@ -2773,7 +2962,7 @@ function renderGraphQr() {
   if (!el) { el = document.createElement('img'); el.id = 'graph-qr'; el.alt = 'QR code'; area.appendChild(el); }
   el.src = uri;
   var s = Math.max(48, Math.min(400, qrSize || 110));
-  el.style.cssText = 'position:absolute;bottom:12px;right:12px;width:' + s + 'px;height:' + s + 'px;' +
+  el.style.cssText = 'position:absolute;bottom:12px;left:12px;width:' + s + 'px;height:' + s + 'px;' +
     'z-index:10;pointer-events:none;background:#fff;padding:6px;border-radius:6px;' +
     'box-shadow:0 1px 6px rgba(0,0,0,0.35);image-rendering:pixelated;box-sizing:content-box;';
 }
@@ -2817,19 +3006,20 @@ function pickData(payload) {
 }
 
 function applyDataGlobals(data) {
-  fontNode = data.fontNode || 12;
-  fontPtype = data.fontPtype || 12;
-  fontSubs = data.fontSubs || 15;
+  // Base (author) node fonts; effective node fonts = base × uiFontScale (the one-time mobile auto-fill).
+  // Headers stay at base; descriptions are governed separately by the A−/A+ control below.
+  _baseFonts = { node: data.fontNode || 12, ptype: data.fontPtype || 12, subs: data.fontSubs || 15,
+                 hdr1: data.fontHdr1 || 22, hdr2: data.fontHdr2 || 15 };
+  applyNodeFontScale();
   descFontSize = data.fontDesc || 18;
-  // Reader's own description-size choice (header A−/A+ control) overrides the author default and
-  // survives data refreshes (language toggle, etc.). Only in inline mode (the mobile path re-caps it).
+  // Reader's own description-size choice (header A−/A+) overrides the author default and survives data
+  // refreshes (language toggle, etc.). Reader (inline, non-author) UI only.
   if (inlineMode && !useMobileLayout() && !authorEditable) {
     var _dfs = null; try { _dfs = localStorage.getItem('descFontSize'); } catch (e) {}
     if (_dfs != null && !isNaN(+_dfs)) descFontSize = Math.max(DESC_FONT_MIN, Math.min(DESC_FONT_MAX, +_dfs));
-    if (typeof updateDescFontLabel === 'function') updateDescFontLabel();
   }
-  fontHdr1 = data.fontHdr1 || 22;
-  fontHdr2 = data.fontHdr2 || 15;
+  applySidebarFonts();
+  if (typeof updateDescFontLabel === 'function') updateDescFontLabel();
   watermarkText = data.watermarkText || '';
   watermarkSize = data.watermarkSize || 10;
   qrEnabled = !!data.qrEnabled;
@@ -3205,6 +3395,12 @@ function measureNodeHeight(lines, containerW, vPad) {
   return Math.max(hPx + (vPad || 8), 8);
 }
 
+// The node title for the CURRENTLY shown language (falls back to English when no Finnish title). Height
+// measurement uses this so the box fits exactly what's on screen; setLanguage re-measures on switch.
+function curLabelStr(nd) {
+  return (currentLang === 'fi' && nd.label_fi) ? String(nd.label_fi) : String(nd.label || '');
+}
+
 function measureProjectNodeHeight(nodeData, w) {
   // Text area width must match nodeBodyHtml's Project branch: node width minus the type column and
   // the asymmetric title padding (left clears the chevron, right minimal). Otherwise wrapped-line
@@ -3215,14 +3411,12 @@ function measureProjectNodeHeight(nodeData, w) {
   var padR = 9 + nodeTextPad;
   var ptypeColW = (!mobileMode && nodeData.ptype) ? Math.round(w * ptypePct / 100) : 0;
   var containerW = Math.max(w - ptypeColW - padL - padR, 4);   // 4px 8px vertical padding → vPad 8
-  var en = String(nodeData.label || ''), fi = String(nodeData.label_fi || '');
-  // Match nodeBodyHtml's Project branch exactly: if the English title fits on one line it renders
-  // nowrap (one row; a longer Finnish title is font-shrunk to fit), otherwise both wrap. Using the
-  // same whole-string test — not a word-by-word line count — avoids the tall-box artifact where a
-  // borderline title measured two rows but actually renders on one.
-  var lines = (measureTextPx(en, fontNode) <= containerW) ? 1
-            : Math.max(canvasTextLines(en, fontNode, 'bold', containerW),
-                       canvasTextLines(fi, fontNode, 'bold', containerW));
+  // Measure the CURRENTLY shown language (matches nodeBodyHtml's Project branch): one row if it fits on
+  // a single line (nowrap), otherwise its wrapped line count. Sizing to the shown language avoids empty
+  // space (was: max of EN/FI, so the shorter language left a gap); setLanguage re-measures on switch.
+  var cur = curLabelStr(nodeData);
+  var lines = (measureTextPx(cur, fontNode) <= containerW) ? 1
+            : canvasTextLines(cur, fontNode, 'bold', containerW);
   return Math.max(lines * fontNode * 1.3 + 8, 8);
 }
 
@@ -3237,10 +3431,8 @@ function measureThemeNodeHeight(nodeData, w) {
   // Theme/About: outer padding (7+nodeTextPad) each side + span gutter (both sides) clears both chevrons.
   var gut = Math.max(14, accGutterPx());
   var containerW = Math.max(w - 2 * (7 + nodeTextPad) - 2 * gut, 4);
-  var label = String(nodeData.label || '');
-  var labelFi = String(nodeData.label_fi || '');
   return measureNodeHeight(
-    [{ text: labelFi.length > label.length ? labelFi : label, fontSize: fontNode, fontWeight: 'bold', lineHeight: 1.25 }],
+    [{ text: curLabelStr(nodeData), fontSize: fontNode, fontWeight: 'bold', lineHeight: 1.25 }],
     containerW, 6
   );
 }
@@ -3249,9 +3441,7 @@ function measureSkillNodeHeight(nodeData, w) {
   // Skill: padding clears both chevrons (left + right), matching nodeBodyHtml's skillGut.
   var skillGut = Math.max(7, accGutterPx()) + nodeTextPad;
   var containerW = Math.max(w - 2 * skillGut, 4);
-  var label = String(nodeData.label || '');
-  var labelFi = String(nodeData.label_fi || '');
-  var lines = [{ text: labelFi.length > label.length ? labelFi : label, fontSize: fontNode, fontWeight: 'bold', lineHeight: 1.25 }];
+  var lines = [{ text: curLabelStr(nodeData), fontSize: fontNode, fontWeight: 'bold', lineHeight: 1.25 }];
   var subsStr = nodeData.subs || '';
   if (subsStr) {
     subsStr.split('||').forEach(function(item) {
@@ -3457,6 +3647,7 @@ function initCyGraph(data) {
   cy.nodeHtmlLabel([{ query: 'node', tpl: function (d) { return nodeHtml(d); } }]);
   snapshotInlineFillBase();   // base horizontal geometry for fill-space distribution
   fitGraph();
+  applyInitialFontScale();    // narrow screens: enlarge node fonts once to fill empty vertical space
   // Deep link: open the node named in ?node=<id> once the graph is ready
   if (pendingNodeParam) {
     var _pn = pendingNodeParam; pendingNodeParam = null; pendingScrollNode = String(_pn);
@@ -3659,7 +3850,7 @@ Shiny.addCustomMessageHandler('updateCy', function (data) {
   cy.layout({ name: 'preset' }).run(); positionHeaders(picked);
   snapshotInlineFillBase();   // base horizontal geometry for fill-space distribution
   if (prevSel) selectNode(prevSel); else drawEdgeOverlay();
-  if (inlineMode && !useMobileLayout()) { cy.userZoomingEnabled(false); cy.userPanningEnabled(false); layoutInlineScroll(); }
+  if (inlineMode && !useMobileLayout()) { cy.userZoomingEnabled(false); cy.userPanningEnabled(false); layoutInlineScroll(); applyInitialFontScale(); }
 });
 
 
@@ -3739,7 +3930,10 @@ function setLanguage(lang) {
   applyDescPanelLang();
   var titleStr = (lang === 'fi' ? langData.page_title_fi : langData.page_title_en) || langData.page_title_en;
   if (titleStr) document.title = titleStr;
-  if (cy && lastData) positionHeaders(lastData);
+  // Node heights are measured for the shown language, so re-measure + re-stack + re-fit on switch
+  // (keeps open nodes + scroll). Otherwise fall back to just repositioning the headers.
+  if (cy && inlineMode && !useMobileLayout()) applyNodeFontScaleLayout();
+  else if (cy && lastData) positionHeaders(lastData);
 }
 
 Shiny.addCustomMessageHandler('updateAccTitles', function(t) {
