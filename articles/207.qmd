@@ -4,6 +4,7 @@ date: last-modified
 inline: true
 ---
 
+
 ### Problem and motivation
 Sweden and Norway (hereafter, the North) have shown resistance to building new power interconnectors to Central Europe (links here). New connectors would increase the average electricity prices in these countries, since there is more demand for electricity in the central Europe. However, new connectors would benefit Europe as a whole. I strongly believe that the population weighted decrease in electricity prices in central Europe would be greater than the price increase in the North. 
 Decreasing electricity prices across Europe is important for Europe's industrial competetiveness and for household expenses.

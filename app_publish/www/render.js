@@ -263,6 +263,10 @@ var inlineColShiftUp = { Theme: 0, Project: 0, Skill: 0 };  // per-column upward
 // stack would overflow the bottom, we top-align that column instead and LATCH there (this flag) until
 // every node in the column is closed again — so the stack doesn't jump up/down as nodes open and close.
 var inlineColCenterLatch = { Theme: false, Skill: false };
+// Per-column downward centre offset (cyto units) applied to the stack this frame. positionHeaders shifts
+// each column's header down by the same amount so the header rides just above its (centred) node stack,
+// keeping the header→stack gap equal to the Project column's.
+var inlineColCenterOff = { Theme: 0, Project: 0, Skill: 0 };
 // True while a one-finger scroll or two-finger pinch is in progress. The node-overlay renderer skips
 // rebuilding node inner-HTML while set, so the element under the finger is never detached mid-gesture
 // (detaching it kills touch-event routing → dead scroll/pinch). A final render on touchend applies any
@@ -330,6 +334,8 @@ var narrowNodeMult = 1;      // on narrow screens, multiply all node widths by t
 var qrEnabled = false;       // author toggle: show a QR code overlay in the graph area (bottom-right)
 var qrUrl = '';              // URL the QR encodes (author-entered)
 var qrSize = 110;            // QR display size in px (author slider)
+var centerColsDesktop = false;  // author toggle: also vertically-centre Theme/Skill on desktop (mobile
+                                // always centres). Same centring formula either way — see applyInlinePositions.
 var ptypePct = 10;
 var mobileData = null;
 var selectedNodeId = null;
@@ -349,6 +355,13 @@ var previewHeight = 844;
 var sheetMode = null; // 'desc' | 'info' | null
 var MOBILE_BREAKPOINT = 768;
 var fontNode = 12;
+var fontProject = 12;        // project-title font — set separately from the theme/skill title font (fontNode)
+var headerFillPct = 90;      // author %: scale each column header to fill this fraction of the column node width
+var headerTitleMax = 1.5;    // author: cap the column-title font at this multiple of the node-title font
+var frameLineW = 2;          // author: column-frame outline thickness in px (0 = off)
+var frameCornerR = 14;       // author: column-frame corner radius in px
+var headersOnStack = false;  // author toggle: place Theme/Skill headers just above their (centred) node
+                             // stack, at the Project column's header→stack gap, instead of the graph-area top
 var fontPtype = 12;
 var fontSubs = 15;
 var fontHdr1 = 22;
@@ -924,9 +937,9 @@ function layoutInlineScroll() {
   cy.zoomingEnabled(false);           // then fully block wheel/gesture zoom while inline
   // Magnified past the vertical fit → capture the base so per-column scroll works even before any
   // node is expanded (otherwise you couldn't scroll down to nodes pushed off the bottom by zoom).
-  // Narrow screens also capture up-front so the Theme/Skill columns can be vertically centred (see
-  // applyInlinePositions) even when nothing overflows and no node is open yet.
-  if (!inlineBase && (isNarrow() || baseBB.h * zoom > viewH - topPad - 8)) captureInlineBase();
+  // Narrow screens (and desktop when column-centring is on) also capture up-front so the Theme/Skill
+  // columns can be vertically centred (see applyInlinePositions) even when nothing overflows / is open.
+  if (!inlineBase && (isNarrow() || centerColsDesktop || baseBB.h * zoom > viewH - topPad - 8)) captureInlineBase();
   // Vertical focal: shift every column's scroll by the same Δ so the point under the cursor stays put
   // while zooming. Node screen-Y = 8 + (layoutY − scroll)·zoom, so keeping a point fixed needs
   // Δscroll = (cursorY − 8)·(1/prevZoom − 1/zoom). Each column then clamps to its own range (a short
@@ -1031,13 +1044,13 @@ function setDescFontSize(px, skipStore) {
 // A−/A+ control governs description text only, which keeps the width/zoom auto-sizing simple.
 var FONT_AUTOFILL_MAX = 1.8;
 var uiFontScale = 1;            // node-content font multiplier from the auto-fill (session, not persisted)
-var _baseFonts = null;          // { node, ptype, subs, hdr1, hdr2 } — payload values before scaling
+var _baseFonts = null;          // { node, project, ptype, subs, hdr1, hdr2 } — payload values before scaling
 
 // Effective node-content fonts = base × uiFontScale. Headers and descriptions are NOT scaled here.
 function applyNodeFontScale() {
   var b = _baseFonts; if (!b) return;
   var s = uiFontScale || 1;
-  fontNode = b.node * s; fontPtype = b.ptype * s; fontSubs = b.subs * s;
+  fontNode = b.node * s; fontProject = b.project * s; fontPtype = b.ptype * s; fontSubs = b.subs * s;
   fontHdr1 = b.hdr1; fontHdr2 = b.hdr2;
 }
 
@@ -1150,7 +1163,9 @@ function applyInlinePositions() {
   var zoom = cy.zoom(), panY = cy.pan().y;
   var viewportBottomCyto = (viewH - panY) / zoom;
   var bottomClear = (isNarrow() ? 76 : 20) / zoom;
-  var narrowCenter = isNarrow() && !useMobileLayout();   // vertical centering only on narrow inline
+  // Vertically centre the Theme/Skill columns: always on narrow (mobile), and on desktop too when the
+  // author enabled it. Same formula in both cases (centred on the Project span, below).
+  var narrowCenter = (isNarrow() || centerColsDesktop) && !useMobileLayout();
   var cols = {}, globalTop = Infinity;
   cy.nodes().forEach(function (n) {
     if (inlineBase[n.id()]) {
@@ -1174,6 +1189,7 @@ function applyInlinePositions() {
   var refTop = Math.max(availTop, projTop);
   var refBottom = Math.min(availBottom, projBottom);
   var refH = Math.max(0, refBottom - refTop);
+  inlineColCenterOff.Theme = inlineColCenterOff.Project = inlineColCenterOff.Skill = 0;
   Object.keys(cols).forEach(function (g) {
     var arr = cols[g];
     arr.sort(function (a, b) { return inlineBase[a.id()].y - inlineBase[b.id()].y; });
@@ -1217,6 +1233,7 @@ function applyInlinePositions() {
         else centerOff = centerCand;
       }
     }
+    inlineColCenterOff[g] = centerOff;   // header (positionHeaders) rides down by the same amount
     // Rise into the space above (Theme/Skill only; Project is already at the top)
     var shiftUp = Math.min(totalDelta, Math.max(0, firstTop - projTop));
     inlineColShiftUp[g] = shiftUp;
@@ -1660,8 +1677,8 @@ function nodeBodyHtml(data, noGradient) {
     // language) matches exactly — no empty space when the shown title is short, no clipping when it's
     // long. setLanguage re-measures + re-lays-out on switch, so the box resizes to the new language.
     var curText = (currentLang === 'fi' && data.label_fi) ? data.label_fi : (data.label || '');
-    var curOneLine = measureTextPx(curText, fontNode) <= availW;
-    var projFn = fontNode;
+    var curOneLine = measureTextPx(curText, fontProject) <= availW;
+    var projFn = fontProject;
     var typeCol = (!mobileMode && ptypeRaw)
       ? '<div style="width:' + ptypeColW + 'px;flex-shrink:0;border-left:1.1px solid ' + colProject + ';' +
         'display:flex;align-items:center;justify-content:center;padding:0 5px;' +
@@ -2816,8 +2833,29 @@ function drawNodeConnector() {
 
 /* ── Column Headers — subtitle 15px ──────────────────────────────────────── */
 
+// Cache of the Theme header's fitted button font + natural width, so positionHeaders (which runs every
+// frame on scroll/drag) doesn't re-measure the DOM unless the fonts/labels/gap/language change.
+var _hdrMeasCache = null;
+
+// Inner HTML for a column header: title + subtitle on the left, Open all / Close all stacked on the
+// right. `btnFs` is the (already fitted) button font — see positionHeaders, which shrinks it so the two
+// stacked buttons never take more vertical space than the title + subtitle.
+function columnHeaderInnerHtml(h, hgrp, btnFs, hdrGap) {
+  return '<div class="col-hdr-inner" style="gap:' + hdrGap + 'px;">' +
+      '<div class="col-hdr-text">' +
+        '<b style="font-size:' + fontHdr1 + 'px;white-space:nowrap">' + dualLabel(h.line1, h.line1_fi) + '</b>' +
+        '<span style="font-size:' + fontHdr2 + 'px;white-space:nowrap">' + dualLabel(h.line2, h.line2_fi) + '</span>' +
+      '</div>' +
+      '<div class="col-hdr-btns" style="font-size:' + btnFs + 'px;">' +
+        '<button type="button" class="col-hdr-btn" onclick="openAllInline(\'' + hgrp + '\')">' + (currentLang === 'fi' ? 'Avaa kaikki' : 'Open all') + '</button>' +
+        '<button type="button" class="col-hdr-btn" onclick="collapseAllInline(\'' + hgrp + '\')">' + (currentLang === 'fi' ? 'Sulje kaikki' : 'Close all') + '</button>' +
+      '</div>' +
+    '</div>';
+}
+
 function positionHeaders(data) {
   document.querySelectorAll('.col-hdr').forEach(function (el) { el.remove(); });
+  document.querySelectorAll('.col-topline').forEach(function (el) { el.remove(); });
   var old_wm = document.getElementById('watermark-text'); if (old_wm) old_wm.remove();
   if (!cy || !data || !data.headers) return;
   var area = document.getElementById('graph-area');
@@ -2842,41 +2880,75 @@ function positionHeaders(data) {
     });
   }
   var hdrGroups = ['Theme', 'Project', 'Skill'];
+  var btnFsNominal = Math.max(9, Math.round(fontHdr2 * 0.91));   // per-column Open all / Close all base font
+  // More breathing room between the title and the buttons when the browser is wide; small on narrow.
+  var hdrGap = Math.max(6, Math.min(32, Math.round(((area.clientWidth || window.innerWidth) - 700) / 55 + 8)));
+  var _tn0 = cy.nodes('[group = "Theme"]').first();
+  var themeW = (_tn0 && _tn0.length) ? (_tn0.data('w') || 0) : 0;
+  var themeHdr = null;
+  for (var _hi = 0; _hi < data.headers.length; _hi++) { if (!data.headers[_hi].sub) { themeHdr = data.headers[_hi]; break; } }
+  function _hdrScaleFor(natW) { return (themeW > 0 && natW > 0) ? (themeW * zoom * (headerFillPct / 100) / natW) : zoom; }
+  // Measure the Theme header at a given button font: full width + the title-area / buttons-block heights.
+  function _measureHdr(btnFs) {
+    var t = document.createElement('div'); t.className = 'col-hdr';
+    t.style.cssText = 'position:absolute;visibility:hidden;top:0;left:0;transform:scale(1);';
+    t.innerHTML = columnHeaderInnerHtml(themeHdr, 'Theme', btnFs, hdrGap);
+    area.appendChild(t);
+    var txt = t.querySelector('.col-hdr-text'), bts = t.querySelector('.col-hdr-btns');
+    var r = { natW: t.offsetWidth, titleH: txt ? txt.offsetHeight : 0, btnsH: bts ? bts.offsetHeight : 0 };
+    area.removeChild(t); return r;
+  }
+  // Recompute the fitted button font + natural width only when something affecting them changed (fonts/
+  // labels/gap/language); the zoom-dependent fill scale below is then cheap arithmetic each frame.
+  var themeSig = [fontHdr1, fontHdr2, hdrGap, btnFsNominal, currentLang,
+    themeHdr ? (themeHdr.line1 + '§' + themeHdr.line2 + '§' + (themeHdr.line1_fi || '') + '§' + (themeHdr.line2_fi || '')) : ''].join('~');
+  if (!_hdrMeasCache || _hdrMeasCache.sig !== themeSig) {
+    _hdrMeasCache = { sig: themeSig, btnFs: btnFsNominal, natW: 0 };
+    if (themeHdr) {
+      // Shrink the (stacked) button font so the two buttons never take more vertical space than the
+      // title + subtitle. Start from the ratio estimate, then guarantee the fit by measuring.
+      var m = _measureHdr(btnFsNominal), btnFs = btnFsNominal;
+      if (m.titleH > 0 && m.btnsH > m.titleH) {
+        btnFs = Math.max(6, Math.floor(btnFsNominal * m.titleH / m.btnsH));
+        var guard = 0;
+        while (btnFs > 6 && _measureHdr(btnFs).btnsH > m.titleH && guard++ < 10) btnFs--;
+      }
+      _hdrMeasCache.btnFs = btnFs;
+      _hdrMeasCache.natW = _measureHdr(btnFs).natW;
+    }
+  }
+  var btnFs = _hdrMeasCache.btnFs;
+  var uniformHScale = (themeHdr && _hdrMeasCache.natW > 0) ? _hdrScaleFor(_hdrMeasCache.natW) : zoom;
+  // Cap the header so the column TITLE never renders larger than headerTitleMax× the node-title font.
+  // The whole header scales by uniformHScale, so this also scales the subtitle + Open all / Close all
+  // buttons down in proportion. Below the cap, the header still fills headerFillPct of the column width.
+  if (fontHdr1 > 0 && fontNode > 0) uniformHScale = Math.min(uniformHScale, headerTitleMax * fontNode * zoom / fontHdr1);
+  var frameHdrBox = {};   // per column: { midY, left, right } of the rendered title block (screen px)
   data.headers.forEach(function (h, i) {
     if (h.sub) return;                          // handled below (anchored to its About node)
     // Inline: the header stays FIXED at the top of its column (it no longer scrolls away with the
     // nodes), so its Open/Close buttons stay reachable. Nodes that scroll up pass under it and are
     // hidden by the opaque top mask drawn further below. (Non-inline: shiftUp/scrollOff are 0 anyway.)
-    var sx = h.x * zoom + pan.x, sy = h.y * zoom + pan.y;
+    // When the author enables "headers on stack" AND the column is vertically centred, the header rides
+    // DOWN by that column's centre offset so it sits just above the centred stack (same header→stack gap
+    // as the Project column). Otherwise it stays at the top of the graph area (the default).
+    var hOff = headersOnStack ? (inlineColCenterOff[hdrGroups[i]] || 0) : 0;
+    var sx = h.x * zoom + pan.x, sy = (h.y + hOff) * zoom + pan.y;
     var div = document.createElement('div');
     var hcolor = i === 0 ? colTheme : (i === 1 ? colProject : colSkill);
     div.className = 'col-hdr'; div.id = 'colhdr-' + i; div.style.color = hcolor;
-    div.style.zIndex = '11';   // above the top mask (10); nodes/sub-headers sit below it
+    div.style.zIndex = '12';   // above the top mask (10) and the column frame (11)
     div.style.transform = 'scale(1)'; div.style.transformOrigin = 'top center';
-    // Title/subtitle on the left, per-column Open all / Collapse all buttons on the right (stacked so
-    // they fit within the existing two-line header height). openAllInline/collapseAllInline are global.
-    var hgrp = hdrGroups[i];
-    var btnFs = Math.max(9, Math.round(fontHdr2 * 0.91));   // per-column Open all/Close all — 30% larger
-    // More breathing room between the title and the buttons when the browser is wide; small on narrow.
-    var hdrGap = Math.max(6, Math.min(32, Math.round(((area.clientWidth || window.innerWidth) - 700) / 55 + 8)));
-    div.innerHTML =
-      '<div class="col-hdr-inner" style="gap:' + hdrGap + 'px;">' +
-        '<div class="col-hdr-text">' +
-          '<b style="font-size:' + fontHdr1 + 'px;white-space:nowrap">' + dualLabel(h.line1, h.line1_fi) + '</b>' +
-          '<span style="font-size:' + fontHdr2 + 'px;white-space:nowrap">' + dualLabel(h.line2, h.line2_fi) + '</span>' +
-        '</div>' +
-        '<div class="col-hdr-btns" style="font-size:' + btnFs + 'px;">' +
-          '<button type="button" class="col-hdr-btn" onclick="openAllInline(\'' + hgrp + '\')">' + (currentLang === 'fi' ? 'Avaa kaikki' : 'Open all') + '</button>' +
-          '<button type="button" class="col-hdr-btn" onclick="collapseAllInline(\'' + hgrp + '\')">' + (currentLang === 'fi' ? 'Sulje kaikki' : 'Close all') + '</button>' +
-        '</div>' +
-      '</div>';
+    div.innerHTML = columnHeaderInnerHtml(h, hdrGroups[i], btnFs, hdrGap);
     div.style.visibility = 'hidden'; div.style.top = '0'; div.style.left = '0';
     area.appendChild(div);
-    var natW = div.offsetWidth;
+    var natW = div.offsetWidth, natH = div.offsetHeight;
     div.style.width = natW + 'px';  // lock width before moving left, prevents text-wrap shift
-    div.style.transform = 'scale(' + zoom + ')';
-    div.style.left = Math.round(sx - natW / 2) + 'px';
+    div.style.transform = 'scale(' + uniformHScale + ')';
+    div.style.left = Math.round(sx - natW / 2) + 'px';  // transformOrigin top-center keeps it centred on the column
     div.style.top = Math.round(sy) + 'px'; div.style.visibility = '';
+    frameHdrBox[hdrGroups[i]] = { midY: sy + natH * uniformHScale / 2,
+      left: sx - natW * uniformHScale / 2, right: sx + natW * uniformHScale / 2 };   // rendered title block
   });
 
   // Sub-headers (e.g. "About"): anchored just above their first node so they track the column's
@@ -2916,14 +2988,98 @@ function positionHeaders(data) {
       if (top < topMost) topMost = top;
     });
     if (topMost !== Infinity) {
+      var maskBottomPx = Math.round(topMost * zoom + pan.y);
       if (!mask) { mask = document.createElement('div'); mask.id = 'colhdr-mask'; area.appendChild(mask); }
       // pointer-events:auto so taps in the masked region don't reach the hidden nodes behind it; the
       // header buttons (z-index 11) still sit above the mask, and a drag still bubbles to graph-area.
       mask.style.cssText = 'position:absolute;left:0;right:0;top:0;height:' +
-        Math.max(0, Math.round(topMost * zoom + pan.y)) + 'px;background:' + colBg +
-        ';z-index:10;pointer-events:auto;';
+        Math.max(0, maskBottomPx) + 'px;background:' + colBg + ';z-index:10;pointer-events:auto;';
     } else if (mask) { mask.remove(); }
   } else if (mask) { mask.remove(); }
+
+  // Hairline white line marking the TOP of each column's node stack (node-width wide), sitting a small
+  // gap ABOVE the first node. It's drawn only while the column is at its topmost scroll position (can't
+  // scroll up any further) — so a visible line means "you're at the top". Once the column scrolls down
+  // even a little, the line is gone.
+  if (inlineMode && cy) {
+    var gapCy = 6;   // empty space (cyto units) between the line and the first node
+    var colTop = {};
+    cy.nodes().forEach(function (n) {
+      var g = n.data('group'); if (!isColNode(g)) return;
+      var c = stackCol(g), top = n.position('y') - (n.data('h') || 46) / 2;
+      if (!colTop[c] || top < colTop[c].top) colTop[c] = { top: top, x: n.position('x'), w: n.data('w') || 200 };
+    });
+    Object.keys(colTop).forEach(function (c) {
+      if ((inlineColScroll[c] || 0) > 0.5) return;   // scrolled down → at not-the-top → no line
+      var ct = colTop[c], line = document.createElement('div');
+      line.className = 'col-topline';
+      line.style.cssText = 'position:absolute;left:' + Math.round((ct.x - ct.w / 2) * zoom + pan.x) +
+        'px;top:' + Math.round((ct.top - gapCy) * zoom + pan.y) + 'px;width:' + Math.round(ct.w * zoom) +
+        'px;height:1px;background:rgba(140,140,140,0.85);z-index:12;pointer-events:none;';
+      area.appendChild(line);
+    });
+  }
+
+  // Column frames: a rounded outline grouping each column's nodes and rising UP to the sides of the
+  // title area. The top edge is OPEN where the title sits — the two sides come up to the title's
+  // vertical centre and stop just before the title (a gap), rather than running across below it. Colour
+  // = the column's text colour. Drawn at z 11 — ABOVE the top mask (10) so it reaches the title without
+  // the mask (which hides scrolled node text under the headers) covering it; the titles (12) stay on
+  // top. It therefore sits above the edge ribbons. Sliders: line thickness + corner radius (0 = off).
+  var frameSvg = document.getElementById('col-frames');
+  if (inlineMode && cy && frameLineW > 0) {
+    var fext = {};   // column -> { bottom, x1, x2 } (current rendered node extents; About excluded)
+    cy.nodes().forEach(function (n) {
+      var g = n.data('group');
+      if (g !== 'Theme' && g !== 'Project' && g !== 'Skill') return;   // About stays OUTSIDE the frame
+      var w = n.data('w') || 200, x = n.position('x');
+      var bot = n.position('y') + (n.data('h') || 46) / 2;
+      var e = fext[g] || (fext[g] = { bottom: -Infinity, x1: Infinity, x2: -Infinity });
+      e.bottom = Math.max(e.bottom, bot);
+      e.x1 = Math.min(e.x1, x - w / 2); e.x2 = Math.max(e.x2, x + w / 2);
+    });
+    if (!frameSvg) {
+      frameSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      frameSvg.id = 'col-frames';
+      frameSvg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:11;overflow:visible;';
+      area.insertBefore(frameSvg, document.getElementById('cy'));
+    }
+    frameSvg.setAttribute('width', area.clientWidth); frameSvg.setAttribute('height', area.clientHeight);
+    while (frameSvg.firstChild) frameSvg.removeChild(frameSvg.firstChild);
+    var fPad = 8;      // side padding (screen px) so the frame sits just outside the nodes
+    var fBotPad = 18;  // extra bottom clearance so the frame doesn't sit on the last node box
+    var fGapM = 8;     // gap margin: the top edge stops this many px before the title area
+    Object.keys(fext).forEach(function (c) {
+      var e = fext[c], box = frameHdrBox[c]; if (!box) return;
+      var color = c === 'Theme' ? colTheme : (c === 'Project' ? colProject : colSkill);
+      var left = e.x1 * zoom + pan.x - fPad, right = e.x2 * zoom + pan.x + fPad;
+      var top = box.midY, bottom = e.bottom * zoom + pan.y + fBotPad;
+      if (bottom - top < 4 || right - left < 4) return;
+      var r = Math.min(frameCornerR, (right - left) / 2, (bottom - top) / 2);
+      // Gap in the top edge where the title area is (clamped between the rounded top corners).
+      var gapL = Math.max(left + r, Math.min(box.left - fGapM, right - r));
+      var gapR = Math.max(left + r, Math.min(box.right + fGapM, right - r));
+      // Path: up the left side → TL corner → left top-edge segment → GAP → right top-edge segment →
+      // TR corner → down the right side → BR corner → bottom → BL corner → close. Open at the top gap.
+      var d = 'M ' + left + ' ' + (bottom - r) +
+        ' Q ' + left + ' ' + bottom + ' ' + (left + r) + ' ' + bottom +
+        ' L ' + (right - r) + ' ' + bottom +
+        ' Q ' + right + ' ' + bottom + ' ' + right + ' ' + (bottom - r) +
+        ' L ' + right + ' ' + (top + r) +
+        ' Q ' + right + ' ' + top + ' ' + (right - r) + ' ' + top +
+        ' L ' + gapR + ' ' + top +
+        ' M ' + gapL + ' ' + top +
+        ' L ' + (left + r) + ' ' + top +
+        ' Q ' + left + ' ' + top + ' ' + left + ' ' + (top + r) +
+        ' L ' + left + ' ' + (bottom - r);
+      var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('fill', 'none'); path.setAttribute('stroke', color);
+      path.setAttribute('stroke-width', frameLineW);
+      path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round');
+      frameSvg.appendChild(path);
+    });
+  } else if (frameSvg) { frameSvg.remove(); }
 
   // Watermark bottom-left of graph area
   if (watermarkText) {
@@ -3008,7 +3164,8 @@ function pickData(payload) {
 function applyDataGlobals(data) {
   // Base (author) node fonts; effective node fonts = base × uiFontScale (the one-time mobile auto-fill).
   // Headers stay at base; descriptions are governed separately by the A−/A+ control below.
-  _baseFonts = { node: data.fontNode || 12, ptype: data.fontPtype || 12, subs: data.fontSubs || 15,
+  _baseFonts = { node: data.fontNode || 12, project: data.fontProject || data.fontNode || 12,
+                 ptype: data.fontPtype || 12, subs: data.fontSubs || 15,
                  hdr1: data.fontHdr1 || 22, hdr2: data.fontHdr2 || 15 };
   applyNodeFontScale();
   descFontSize = data.fontDesc || 18;
@@ -3025,6 +3182,12 @@ function applyDataGlobals(data) {
   qrEnabled = !!data.qrEnabled;
   qrUrl = data.qrUrl || '';
   qrSize = data.qrSize || 110;
+  centerColsDesktop = !!data.centerCols;
+  headerFillPct = data.headerFillPct || 90;
+  headerTitleMax = data.headerTitleMax || 1.5;
+  frameLineW = (data.frameLineW != null) ? data.frameLineW : 2;
+  frameCornerR = (data.frameCornerR != null) ? data.frameCornerR : 14;
+  headersOnStack = !!data.headersOnStack;
   if (typeof renderGraphQr === 'function') renderGraphQr();
   var ph = document.getElementById('page-title');
   if (ph) { ph.style.fontSize = (data.fontHdr1 || 22) + 'px'; requestAnimationFrame(syncResizeHandle); }
@@ -3195,7 +3358,7 @@ function collapsedNodeHeight(nd) {
   else if (g === 'Skill') h = measureSkillNodeHeight(nd, w);
   else if (g === 'Theme' || g === 'About') h = measureThemeNodeHeight(nd, w);
   else return nd.h || 46;
-  if (g === 'Project' && isNarrow()) h = Math.max(h, Math.round(2 * fontNode * 1.3 + 8));  // two-row floor
+  if (g === 'Project' && isNarrow()) h = Math.max(h, Math.round(2 * fontProject * 1.3 + 8));  // two-row floor
   return h;
 }
 
@@ -3203,7 +3366,7 @@ function autoFitProjectWidth(data) {
   if (useMobileLayout()) return;
   var canvas = document.createElement('canvas');
   var ctx = canvas.getContext('2d');
-  ctx.font = 'bold ' + fontNode + 'px Arial,Helvetica,sans-serif';
+  ctx.font = 'bold ' + fontProject + 'px Arial,Helvetica,sans-serif';
 
   var maxTextW = 0, baseW = 0, baseH = 0, projNodes = [], themeNodes = [], skillNodes = [];
   (data.nodes || []).forEach(function(n) {
@@ -3293,7 +3456,7 @@ function autoFitProjectWidth(data) {
     nodes.forEach(function(n) { var h=n.data.h||46; y1=Math.min(y1,n.position.y-h/2); y2=Math.max(y2,n.position.y+h/2); });
     return y1 > y2 ? 0 : y2 - y1;
   }
-  var twoRowH = Math.max(Math.round(2 * fontNode * 1.35 + 20), Math.round(baseH * 1.2));
+  var twoRowH = Math.max(Math.round(2 * fontProject * 1.35 + 20), Math.round(baseH * 1.2));
   var projColHTwoRow = projNodes.length * twoRowH + (projNodes.length - 1) * gapV;
   var bbHTwoRow = Math.max(projColHTwoRow, colExtentH(themeNodes), colExtentH(skillNodes));
 
@@ -3415,9 +3578,9 @@ function measureProjectNodeHeight(nodeData, w) {
   // a single line (nowrap), otherwise its wrapped line count. Sizing to the shown language avoids empty
   // space (was: max of EN/FI, so the shorter language left a gap); setLanguage re-measures on switch.
   var cur = curLabelStr(nodeData);
-  var lines = (measureTextPx(cur, fontNode) <= containerW) ? 1
-            : canvasTextLines(cur, fontNode, 'bold', containerW);
-  return Math.max(lines * fontNode * 1.3 + 8, 8);
+  var lines = (measureTextPx(cur, fontProject) <= containerW) ? 1
+            : canvasTextLines(cur, fontProject, 'bold', containerW);
+  return Math.max(lines * fontProject * 1.3 + 8, 8);
 }
 
 // Accordion gutter reserved on each side of a node's title (matches nodeBodyHtml), so the title never
@@ -3490,12 +3653,14 @@ function applyMobileNodeSizes(data) {
 
   // Halve all graph font sizes for mobile starting point
   fontNode  = Math.round(fontNode  * 0.5 * 10) / 10;
+  fontProject = Math.round(fontProject * 0.5 * 10) / 10;
   fontSubs  = Math.round(fontSubs  * 0.5 * 10) / 10;
   // Extra 15% reduction on header fonts; extra 12% on small devices
   fontHdr1  = Math.round(fontHdr1  * 0.5 * 0.85 * 10) / 10;
   fontHdr2  = Math.round(fontHdr2  * 0.5 * 0.85 * 10) / 10;
   if (W < 400) {
     fontNode = Math.round(fontNode * 0.88 * 10) / 10;
+    fontProject = Math.round(fontProject * 0.88 * 10) / 10;
     fontSubs = Math.round(fontSubs * 0.88 * 10) / 10;
   }
   // Mobile payload fontDesc is scaled up for node layout — cap to readable sidebar size
@@ -3587,6 +3752,7 @@ function applyMobileNodeSizes(data) {
     var scale = Math.max(0.25, Math.min(4.0, targetBBH / maxColH));
     if (Math.abs(scale - 1) < 0.02) break;
     fontNode  = Math.max(5, Math.round(fontNode  * scale * 10) / 10);
+    fontProject = Math.max(5, Math.round(fontProject * scale * 10) / 10);
     fontSubs  = Math.max(4, Math.round(fontSubs  * scale * 10) / 10);
     fontHdr1  = Math.round(fontHdr1  * scale * 10) / 10;
     fontHdr2  = Math.round(fontHdr2  * scale * 10) / 10;
@@ -3836,7 +4002,18 @@ Shiny.addCustomMessageHandler('updateCy', function (data) {
   rawPayload = data;
   var picked = pickData(data);
   if (!cy) { initCyGraph(picked); return; }
-  resetInlineExpansion();   // rebuilt elements — drop any stale inline expansion state
+  // Preserve which inline nodes were open (+ each column's scroll) so a color/style edit doesn't close
+  // them — the author can see the new colors on the open nodes. Descriptions are colour-independent, so
+  // we re-open with the same stored content after the rebuild.
+  var _reopen = [];
+  Object.keys(inlineExpandedMap).forEach(function (id) {
+    var e = inlineExpandedMap[id];
+    _reopen.push({ id: id, descHtml: e.descHtml, raw: e.raw, lang: e.lang, articleLink: e.articleLink,
+                   art: e.art, openedAt: e.openedAt || 0 });
+  });
+  _reopen.sort(function (a, b) { return a.openedAt - b.openedAt; });   // keep original open order
+  var _savedScroll = { Theme: inlineColScroll.Theme, Project: inlineColScroll.Project, Skill: inlineColScroll.Skill };
+  resetInlineExpansion();   // rebuilt elements — drop stale inline state (re-applied below)
   lastData = picked; var prevSel = selectedNodeId;
   applyDataGlobals(picked);
   applyColors();
@@ -3850,7 +4027,20 @@ Shiny.addCustomMessageHandler('updateCy', function (data) {
   cy.layout({ name: 'preset' }).run(); positionHeaders(picked);
   snapshotInlineFillBase();   // base horizontal geometry for fill-space distribution
   if (prevSel) selectNode(prevSel); else drawEdgeOverlay();
-  if (inlineMode && !useMobileLayout()) { cy.userZoomingEnabled(false); cy.userPanningEnabled(false); layoutInlineScroll(); applyInitialFontScale(); }
+  if (inlineMode && !useMobileLayout()) {
+    cy.userZoomingEnabled(false); cy.userPanningEnabled(false);
+    // Re-open the previously-open nodes (skipReflow — one layout pass after), then restore the scroll.
+    _reopen.forEach(function (r) {
+      if (r.id != null) expandNodeInline(r.id, r.descHtml, r.raw, r.lang, r.articleLink, true, r.art);
+    });
+    if (_reopen.length) {
+      inlineColScroll.Theme = _savedScroll.Theme; inlineColScroll.Project = _savedScroll.Project; inlineColScroll.Skill = _savedScroll.Skill;
+      var _last = _reopen[_reopen.length - 1];
+      if (_last && cy.getElementById(String(_last.id)).length) hoveredNodeId = String(_last.id);
+    }
+    layoutInlineScroll(); applyInitialFontScale();
+    if (_reopen.length) applyHighlightState();
+  }
 });
 
 

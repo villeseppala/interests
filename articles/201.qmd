@@ -5,6 +5,8 @@ date: last-modified
 inline: true
 ---
 
+
+
 There is a considerable yet hard to define probability for humankind's extinction, or atleast a catastrophic civilizational collapse, within our lifetime. 
 
 Studies on the topic usually focus on probability estimates given by experts on either the individual risks or the total existential risk. Perhaps the most comprehensive queastionnaire study on topic by the Forecasting Research Institure presents median total extinction probabilities from 1% to 7% by year 2100, depending on the expert group*. Catastrophic risk probabilities, estimated by the same groups, ranged from 9% to 29%. 

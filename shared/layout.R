@@ -343,12 +343,14 @@ stack_extent <- function(y_map, seq_list) {
 shift_y <- function(y_map, delta) lapply(y_map, function(v) v + delta)
 
 build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
-                            font_node = 12, font_ptype = 12, font_subs = 15, font_desc = 18,
+                            font_node = 12, font_project = NULL, font_ptype = 12, font_subs = 15, font_desc = 18,
                             font_hdr1 = 22, font_hdr2 = 15,
                             h_theme = 46, h_project = 66, h_skill = 46,
                             w_project = NODE_W$Project, w_node = NULL, inline_mode = FALSE,
                             watermark_text = "", watermark_size = 10,
                             qr_enabled = FALSE, qr_url = "", qr_size = 110,
+                            center_cols = FALSE, header_fill_pct = 90, headers_on_stack = FALSE,
+                            header_title_max = 1.5, frame_line_w = 2, frame_corner_r = 14,
                             col_bg = "#0b3552", col_sidebar_bg = "#081626", col_node_bg = "#081626",
                             col_theme = "#3be37a", col_project = "#ffad33", col_skill = "#78e6e7",
                             light_col_bg = "#f0f4f8", light_col_sidebar_bg = "#e2eaf3", light_col_node_bg = "#e2eaf3",
@@ -537,10 +539,13 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
   }
   list(nodes=cy_nodes, edges=cy_edges, headers=headers, max_h1=max_h1,
        headerMargin=header_margin_total,
-       fontNode=font_node, fontPtype=font_ptype, fontSubs=font_subs, fontDesc=font_desc,
+       fontNode=font_node, fontProject=(font_project %||% font_node), fontPtype=font_ptype, fontSubs=font_subs, fontDesc=font_desc,
        fontHdr1=font_hdr1, fontHdr2=font_hdr2,
        watermarkText=watermark_text, watermarkSize=watermark_size,
        qrEnabled=isTRUE(qr_enabled), qrUrl=qr_url %||% "", qrSize=qr_size %||% 110,
+       centerCols=isTRUE(center_cols), headerFillPct=(header_fill_pct %||% 90), headersOnStack=isTRUE(headers_on_stack),
+       headerTitleMax=(header_title_max %||% 1.5),
+       frameLineW=(frame_line_w %||% 2), frameCornerR=(frame_corner_r %||% 14),
        colBg=col_bg, colSidebarBg=col_sidebar_bg, colNodeBg=col_node_bg,
        colTheme=col_theme, colProject=col_project, colSkill=col_skill,
        lightColBg=light_col_bg, lightColSidebarBg=light_col_sidebar_bg, lightColNodeBg=light_col_node_bg,
@@ -551,13 +556,15 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
 # ── Dual layout builder (desktop + mobile) ───────────────────────────────────
 
 build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
-                                 font_node = 12, font_ptype = 12, font_subs = 15, font_desc = 18,
+                                 font_node = 12, font_project = NULL, font_ptype = 12, font_subs = 15, font_desc = 18,
                                  font_hdr1 = 22, font_hdr2 = 15,
                                  h_theme = 46, h_project = 66, h_skill = 46,
                                  w_project = NODE_W$Project, w_node = NULL, inline_mode = FALSE,
                                  articles_enabled = FALSE, auto_fit_open = FALSE,
                                  watermark_text = "", watermark_size = 10,
                                  qr_enabled = FALSE, qr_url = "", qr_size = 110,
+                                 center_cols = FALSE, header_fill_pct = 90, headers_on_stack = FALSE,
+                                 header_title_max = 1.5, frame_line_w = 2, frame_corner_r = 14,
                                  col_bg = "#0b3552", col_sidebar_bg = "#081626", col_node_bg = "#081626",
                                  col_theme = "#3be37a", col_project = "#ffad33", col_skill = "#78e6e7",
                                  light_col_bg = "#f0f4f8", light_col_sidebar_bg = "#e2eaf3", light_col_node_bg = "#e2eaf3",
@@ -582,13 +589,15 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                    fi_hdr_skill_line1=fi_hdr_skill_line1, fi_hdr_skill_line2=fi_hdr_skill_line2)
   # Desktop build (unchanged)
   desktop <- do.call(build_cyto_data, c(list(g=g, gap_v=gap_v, gap_col=gap_col,
-                             font_node=font_node, font_ptype=font_ptype,
+                             font_node=font_node, font_project=font_project, font_ptype=font_ptype,
                              font_subs=font_subs, font_desc=font_desc,
                              font_hdr1=font_hdr1, font_hdr2=font_hdr2,
                              h_theme=h_theme, h_project=h_project, h_skill=h_skill,
                              w_project=w_project, w_node=w_node, inline_mode=inline_mode,
                              watermark_text=watermark_text, watermark_size=watermark_size,
                              qr_enabled=qr_enabled, qr_url=qr_url, qr_size=qr_size,
+                             center_cols=center_cols, header_fill_pct=header_fill_pct, headers_on_stack=headers_on_stack,
+                             header_title_max=header_title_max, frame_line_w=frame_line_w, frame_corner_r=frame_corner_r,
                              col_bg=col_bg, col_sidebar_bg=col_sidebar_bg, col_node_bg=col_node_bg,
                              col_theme=col_theme, col_project=col_project, col_skill=col_skill,
                              light_col_bg=light_col_bg, light_col_sidebar_bg=light_col_sidebar_bg, light_col_node_bg=light_col_node_bg,
@@ -598,6 +607,7 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
   mobile <- do.call(build_cyto_data, c(list(g=g, gap_v=gap_v*mob_gap_v_mult,
                             gap_col=gap_col*mob_gap_col_mult,
                             font_node =round(font_node *mob_font_mult,1),
+                            font_project=round((font_project %||% font_node)*mob_font_mult,1),
                             font_ptype=round(font_ptype*mob_font_mult,1),
                             font_subs =round(font_subs *mob_font_mult,1),
                             font_desc =round(font_desc *mob_font_mult,1),
@@ -643,9 +653,10 @@ parse_ep <- function(ep, cx, cy) {
   c(cx+as.numeric(sub("px","",p[1],fixed=TRUE)), cy+as.numeric(sub("px","",p[2],fixed=TRUE)))
 }
 
-generate_svg <- function(cd) {
+generate_svg <- function(cd, ptype_pct = 21) {
   nodes <- cd$nodes; edges <- cd$edges; headers <- cd$headers; pad <- 40
   fsize_node <- cd$fontNode %||% 12; fsize_ptype <- cd$fontPtype %||% 12; fsize_subs <- cd$fontSubs %||% 15
+  fsize_project <- cd$fontProject %||% fsize_node
   fsize_hdr1 <- cd$fontHdr1 %||% 22; fsize_hdr2 <- cd$fontHdr2 %||% 15
   wm_text <- cd$watermarkText %||% ""; wm_size <- cd$watermarkSize %||% 10
   svg_bg <- cd$colBg %||% "#0b3552"
@@ -691,12 +702,28 @@ generate_svg <- function(cd) {
                           x-w/2,y-h/2,w,h,fill,stroke))
     label <- n$data$label%||%""
     if (g=="Project") {
-      lines <- svg_wrap_text(label,38)
-      # Center project text vertically in SVG
+      # Type column on the right (Website/Text/Video), matching the client's nodeBodyHtml layout, so the
+      # exported PNG isn't missing it. The title fills the remaining left area (using fontProject).
+      ptype_lbl <- n$data$ptype %||% ""
+      has_ptype <- nzchar(ptype_lbl) && ptype_pct > 0
+      ptype_col_w <- if (has_ptype) w * ptype_pct / 100 else 0
+      wrap_chars <- max(6, round(38 * (w - ptype_col_w) / w))
+      lines <- svg_wrap_text(label, wrap_chars)
+      x_title <- x - ptype_col_w/2                 # centre in the (narrower) left title area
       base_y <- y - (length(lines)-1)*8.5 + 4
       for (li in seq_along(lines))
-        out <- c(out, sprintf('<text x="%g" y="%g" fill="%s" font-family="Arial,Helvetica,sans-serif" font-size="%d" font-weight="bold" text-anchor="middle">%s</text>',
-                              x,base_y+(li-1)*17,tcol,fsize_node,svg_esc(lines[li])))
+        out <- c(out, sprintf('<text x="%g" y="%g" fill="%s" font-family="Arial,Helvetica,sans-serif" font-size="%g" font-weight="bold" text-anchor="middle">%s</text>',
+                              x_title,base_y+(li-1)*17,tcol,fsize_project,svg_esc(lines[li])))
+      if (has_ptype) {
+        tx <- x + w/2 - ptype_col_w                # left edge of the type column
+        out <- c(out, sprintf('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" stroke-width="1.1" opacity="0.9"/>',
+                              tx, y-h/2, tx, y+h/2, tcol))
+        # Font = fontPtype + 2, shrunk (uniformly, using the widest label) to fit the type column.
+        fptype <- fsize_ptype + 2
+        if (11 * fptype * 0.6 > ptype_col_w - 6) fptype <- max(7, (ptype_col_w - 6) / (11 * 0.6))
+        out <- c(out, sprintf('<text x="%g" y="%g" fill="%s" font-family="Arial,Helvetica,sans-serif" font-size="%g" font-weight="bold" text-anchor="middle">%s</text>',
+                              x + w/2 - ptype_col_w/2, y + fptype*0.34, tcol, fptype, svg_esc(ptype_lbl)))
+      }
     } else if (g=="Theme") {
       lines <- svg_wrap_text(label,18); base_y <- y-(length(lines)-1)*8+4
       for (li in seq_along(lines))

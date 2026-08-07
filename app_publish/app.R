@@ -4,6 +4,12 @@
 library(shiny)
 library(here)
 
+# Auto-reload the app when www/render.js, style.css, app.R, or graph.json change on disk — so edits
+# show up without stopping + re-Sourcing. Set here (not just .Rprofile) so it's always active.
+# NB: do NOT watch .json — the author app rewrites JSON on startup, which would loop forever.
+options(shiny.autoreload = TRUE,
+        shiny.autoreload.pattern = "\\.(r|R|htm|html|js|css)$")
+
 # Ensure CWD is app_publish/ regardless of how Positron launches the app
 if (!file.exists("www/graph.json")) setwd(here("app_publish"))
 
@@ -181,7 +187,8 @@ server <- function(input, output, session) {
   ly <- g$layout
   cd <- build_dual_cyto_data(g,
                              gap_v = ly$gap_v %||% 18, gap_col = ly$gap_col %||% 400,
-                             font_node = ly$font_node %||% 12, font_ptype = ly$font_ptype %||% 12,
+                             font_node = ly$font_node %||% 12, font_project = ly$font_project %||% ly$font_node %||% 12,
+                             font_ptype = ly$font_ptype %||% 12,
                              font_subs = ly$font_subs %||% 15, font_desc = ly$font_desc %||% 18,
                              font_hdr1 = ly$font_hdr1 %||% 22, font_hdr2 = ly$font_hdr2 %||% 15,
                              h_theme = ly$h_theme %||% 46, h_project = ly$h_project %||% 66,
@@ -195,6 +202,12 @@ server <- function(input, output, session) {
                              qr_enabled = isTRUE(ly$qr_enabled %||% FALSE),
                              qr_url = ly$qr_url %||% "",
                              qr_size = ly$qr_size %||% 110,
+                             center_cols = isTRUE(ly$center_cols %||% FALSE),
+                             header_fill_pct = ly$header_fill_pct %||% 90,
+                             header_title_max = ly$header_title_max %||% 1.5,
+                             frame_line_w = ly$frame_line_w %||% 2,
+                             frame_corner_r = ly$frame_corner_r %||% 14,
+                             headers_on_stack = isTRUE(ly$headers_on_stack %||% FALSE),
                              col_bg = ly$col_bg %||% "#0b3552",
                              col_sidebar_bg = ly$col_sidebar_bg %||% "#081626",
                              col_node_bg = ly$col_node_bg %||% "#081626",
