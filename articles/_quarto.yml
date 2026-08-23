@@ -2,10 +2,15 @@ project:
   type: default
   output-dir: ../site/articles
 
+filters:
+  - shinylive
+
 format:
   html:
     theme: darkly
     css: article.css
+    grid:
+      body-width: 1050px
     toc: true
     toc-location: right
     include-before-body: _nav-header.html

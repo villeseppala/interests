@@ -40,3 +40,10 @@ site/shinylive/
 site/shinylive-sw.js
 site/app.json
 site/edit/
+
+# shinylive webR runtime (embedded in articles): commit the browser assets
+# (.js/.wasm/.data.gz/.tgz/fonts/css) but drop pure dev artifacts.
+site/articles/**/quarto-contrib/shinylive-*/**/*.d.ts
+site/articles/**/quarto-contrib/shinylive-*/**/*.map
+site/articles/**/quarto-contrib/shinylive-*/**/*.bak
+site/articles/**/quarto-contrib/shinylive-*/**/tests/

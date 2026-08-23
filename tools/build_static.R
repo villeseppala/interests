@@ -42,6 +42,7 @@ cd <- build_dual_cyto_data(g,
   header_title_max = ly$header_title_max %||% 1.5,
   frame_line_w     = ly$frame_line_w     %||% 2,
   frame_corner_r   = ly$frame_corner_r   %||% 14,
+  frame_fill_pct   = ly$frame_fill_pct   %||% 50,
   headers_on_stack = isTRUE(ly$headers_on_stack %||% FALSE),
   col_bg           = ly$col_bg           %||% "#0b3552",
   col_sidebar_bg   = ly$col_sidebar_bg   %||% "#081626",
@@ -83,6 +84,30 @@ cd <- build_dual_cyto_data(g,
 # Here we scan the sources to build the manifest (articles.json) and to mark which nodes
 # have an article. Rendering the HTML is a separate `quarto render articles` step.
 ARTICLES_DIR <- "articles"
+
+# ── Sync the interactive apps into their article's shinylive cells ────────────
+# Each app's single source of truth is app_<name>/app.R; inject it verbatim into
+# the matching marked shinylive-r cell in the article so the embedded copy never
+# drifts. Never hand-edit the cell — edit app_<name>/app.R and rebuild.
+inject_shinylive <- function(qmd_path, app_path, marker, height = 900) {
+  if (!file.exists(qmd_path) || !file.exists(app_path)) return(invisible())
+  qmd <- readLines(qmd_path, warn = FALSE)
+  s   <- grep(sprintf("<!-- %s:START -->", marker), qmd, fixed = TRUE)
+  e   <- grep(sprintf("<!-- %s:END -->",   marker), qmd, fixed = TRUE)
+  if (length(s) != 1 || length(e) != 1 || e <= s) {
+    cat(sprintf("  (%s markers not found in %s; skipped)\n", marker, qmd_path)); return(invisible())
+  }
+  cell <- c(sprintf("<!-- %s:START -->", marker),
+            "```{shinylive-r}", "#| standalone: true", sprintf("#| viewerHeight: %d", height),
+            readLines(app_path, warn = FALSE),
+            "```", sprintf("<!-- %s:END -->", marker))
+  tail <- if (e < length(qmd)) qmd[(e + 1):length(qmd)] else character(0)
+  writeLines(c(qmd[seq_len(s - 1)], cell, tail), qmd_path)
+  cat(sprintf("  synced %s -> %s (%s)\n", app_path, qmd_path, marker))
+}
+xrisk_qmd <- file.path(ARTICLES_DIR, "201.qmd")
+inject_shinylive(xrisk_qmd, file.path("app_xrisk",  "app.R"), "XRISK-APP",  900)
+inject_shinylive(xrisk_qmd, file.path("app_hazard", "app.R"), "HAZARD-APP", 900)
 
 # Render the .qmd sources to site/articles/<id>.html via Quarto (part of this one build).
 if (dir.exists(ARTICLES_DIR) && length(list.files(ARTICLES_DIR, pattern = "\\.qmd$"))) {

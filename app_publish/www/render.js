@@ -360,6 +360,10 @@ var headerFillPct = 90;      // author %: scale each column header to fill this 
 var headerTitleMax = 1.5;    // author: cap the column-title font at this multiple of the node-title font
 var frameLineW = 2;          // author: column-frame outline thickness in px (0 = off)
 var frameCornerR = 14;       // author: column-frame corner radius in px
+var frameFillPct = 50;       // author: column-frame fill level 0-100 (LOG-mapped to opacity; 0 = off)
+// Log-scale the 0-100 fill level → actual opacity, so the low (subtle) end gets most of the slider's
+// travel. 0→0, ~50→~0.09, 100→1. See frameFillPct.
+function frameFillAlpha() { return frameFillPct > 0 ? (Math.pow(101, frameFillPct / 100) - 1) / 100 : 0; }
 var headersOnStack = false;  // author toggle: place Theme/Skill headers just above their (centred) node
                              // stack, at the Project column's header→stack gap, instead of the graph-area top
 var fontPtype = 12;
@@ -2947,7 +2951,7 @@ function positionHeaders(data) {
     div.style.transform = 'scale(' + uniformHScale + ')';
     div.style.left = Math.round(sx - natW / 2) + 'px';  // transformOrigin top-center keeps it centred on the column
     div.style.top = Math.round(sy) + 'px'; div.style.visibility = '';
-    frameHdrBox[hdrGroups[i]] = { midY: sy + natH * uniformHScale / 2,
+    frameHdrBox[hdrGroups[i]] = { top: sy, midY: sy + natH * uniformHScale / 2,
       left: sx - natW * uniformHScale / 2, right: sx + natW * uniformHScale / 2 };   // rendered title block
   });
 
@@ -2979,6 +2983,7 @@ function positionHeaders(data) {
   // to the topmost node's BASE top — the highest point any node can legitimately reach (rise-up aside);
   // anything scrolled past that is hidden. z-index 10 sits above nodes (9) and below the headers (11).
   var mask = document.getElementById('colhdr-mask');
+  var maskBottomPx = null;   // screen-Y where the mask ends (topmost node base top); used by the frame fill
   if (inlineMode && cy) {
     var topMost = Infinity;
     cy.nodes().forEach(function (n) {
@@ -2988,7 +2993,7 @@ function positionHeaders(data) {
       if (top < topMost) topMost = top;
     });
     if (topMost !== Infinity) {
-      var maskBottomPx = Math.round(topMost * zoom + pan.y);
+      maskBottomPx = Math.round(topMost * zoom + pan.y);
       if (!mask) { mask = document.createElement('div'); mask.id = 'colhdr-mask'; area.appendChild(mask); }
       // pointer-events:auto so taps in the masked region don't reach the hidden nodes behind it; the
       // header buttons (z-index 11) still sit above the mask, and a drag still bubbles to graph-area.
@@ -3020,14 +3025,16 @@ function positionHeaders(data) {
     });
   }
 
-  // Column frames: a rounded outline grouping each column's nodes and rising UP to the sides of the
-  // title area. The top edge is OPEN where the title sits — the two sides come up to the title's
-  // vertical centre and stop just before the title (a gap), rather than running across below it. Colour
-  // = the column's text colour. Drawn at z 11 — ABOVE the top mask (10) so it reaches the title without
-  // the mask (which hides scrolled node text under the headers) covering it; the titles (12) stay on
-  // top. It therefore sits above the edge ribbons. Sliders: line thickness + corner radius (0 = off).
-  var frameSvg = document.getElementById('col-frames');
-  if (inlineMode && cy && frameLineW > 0) {
+  // Column frames: a rounded outline (in the column's text colour) grouping each column's nodes and
+  // rising UP to the sides of the title area (top edge OPEN where the title sits), plus an optional
+  // BLACK BACKGROUND FILL at a chosen opacity. The OUTLINE is at z 11 — above the top mask
+  // (10) so it reaches the title without the mask covering it (titles at 12 stay on top); it therefore
+  // sits above the edge ribbons. The FILL is at z 4 — a true background, BEHIND the ribbons + nodes.
+  // Sliders: line thickness, corner radius, fill opacity (each 0 = off).
+  var frameSvg = document.getElementById('col-frames');            // outlines (z 11)
+  var fillSvg = document.getElementById('col-frame-fills');        // node-region background fill (z 4, behind nodes)
+  var fillSvgHi = document.getElementById('col-frame-fills-hi');   // title-strip fill (z 11, above the mask)
+  if (inlineMode && cy && (frameLineW > 0 || frameFillPct > 0)) {
     var fext = {};   // column -> { bottom, x1, x2 } (current rendered node extents; About excluded)
     cy.nodes().forEach(function (n) {
       var g = n.data('group');
@@ -3038,14 +3045,36 @@ function positionHeaders(data) {
       e.bottom = Math.max(e.bottom, bot);
       e.x1 = Math.min(e.x1, x - w / 2); e.x2 = Math.max(e.x2, x + w / 2);
     });
-    if (!frameSvg) {
-      frameSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      frameSvg.id = 'col-frames';
-      frameSvg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:11;overflow:visible;';
-      area.insertBefore(frameSvg, document.getElementById('cy'));
-    }
-    frameSvg.setAttribute('width', area.clientWidth); frameSvg.setAttribute('height', area.clientHeight);
-    while (frameSvg.firstChild) frameSvg.removeChild(frameSvg.firstChild);
+    if (frameFillPct > 0) {
+      if (!fillSvg) {
+        fillSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        fillSvg.id = 'col-frame-fills';
+        fillSvg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:4;overflow:visible;';
+        area.insertBefore(fillSvg, document.getElementById('cy'));   // behind the cy layer (edges + nodes)
+      }
+      fillSvg.setAttribute('width', area.clientWidth); fillSvg.setAttribute('height', area.clientHeight);
+      while (fillSvg.firstChild) fillSvg.removeChild(fillSvg.firstChild);
+      // The title-strip fill sits ABOVE the mask (z 11) so the background reaches behind the title; there
+      // are no nodes up there, so it doesn't tint them (unlike the node-region fill, which stays at z 4).
+      if (!fillSvgHi) {
+        fillSvgHi = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        fillSvgHi.id = 'col-frame-fills-hi';
+        fillSvgHi.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:11;overflow:visible;';
+        area.insertBefore(fillSvgHi, document.getElementById('cy'));
+      }
+      fillSvgHi.setAttribute('width', area.clientWidth); fillSvgHi.setAttribute('height', area.clientHeight);
+      while (fillSvgHi.firstChild) fillSvgHi.removeChild(fillSvgHi.firstChild);
+    } else { if (fillSvg) { fillSvg.remove(); fillSvg = null; } if (fillSvgHi) { fillSvgHi.remove(); fillSvgHi = null; } }
+    if (frameLineW > 0) {
+      if (!frameSvg) {
+        frameSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        frameSvg.id = 'col-frames';
+        frameSvg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:11;overflow:visible;';
+        area.insertBefore(frameSvg, document.getElementById('cy'));
+      }
+      frameSvg.setAttribute('width', area.clientWidth); frameSvg.setAttribute('height', area.clientHeight);
+      while (frameSvg.firstChild) frameSvg.removeChild(frameSvg.firstChild);
+    } else if (frameSvg) { frameSvg.remove(); frameSvg = null; }
     var fPad = 8;      // side padding (screen px) so the frame sits just outside the nodes
     var fBotPad = 18;  // extra bottom clearance so the frame doesn't sit on the last node box
     var fGapM = 8;     // gap margin: the top edge stops this many px before the title area
@@ -3056,30 +3085,64 @@ function positionHeaders(data) {
       var top = box.midY, bottom = e.bottom * zoom + pan.y + fBotPad;
       if (bottom - top < 4 || right - left < 4) return;
       var r = Math.min(frameCornerR, (right - left) / 2, (bottom - top) / 2);
-      // Gap in the top edge where the title area is (clamped between the rounded top corners).
-      var gapL = Math.max(left + r, Math.min(box.left - fGapM, right - r));
-      var gapR = Math.max(left + r, Math.min(box.right + fGapM, right - r));
-      // Path: up the left side → TL corner → left top-edge segment → GAP → right top-edge segment →
-      // TR corner → down the right side → BR corner → bottom → BL corner → close. Open at the top gap.
-      var d = 'M ' + left + ' ' + (bottom - r) +
-        ' Q ' + left + ' ' + bottom + ' ' + (left + r) + ' ' + bottom +
-        ' L ' + (right - r) + ' ' + bottom +
-        ' Q ' + right + ' ' + bottom + ' ' + right + ' ' + (bottom - r) +
-        ' L ' + right + ' ' + (top + r) +
-        ' Q ' + right + ' ' + top + ' ' + (right - r) + ' ' + top +
-        ' L ' + gapR + ' ' + top +
-        ' M ' + gapL + ' ' + top +
-        ' L ' + (left + r) + ' ' + top +
-        ' Q ' + left + ' ' + top + ' ' + left + ' ' + (top + r) +
-        ' L ' + left + ' ' + (bottom - r);
-      var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', d);
-      path.setAttribute('fill', 'none'); path.setAttribute('stroke', color);
-      path.setAttribute('stroke-width', frameLineW);
-      path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round');
-      frameSvg.appendChild(path);
+      // Background fill in two pieces so it reaches behind the title without tinting the nodes:
+      //  • node-region piece (z 4, behind nodes) — a rounded rect whose top half is hidden by the mask;
+      //  • title-strip piece (z 11, above the mask) — from the title top down to the mask bottom, where
+      //    there are no nodes, so it fills behind the title only.
+      if (fillSvg) {
+        var fr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        fr.setAttribute('x', left); fr.setAttribute('y', top);
+        fr.setAttribute('width', right - left); fr.setAttribute('height', bottom - top);
+        fr.setAttribute('rx', r); fr.setAttribute('ry', r);
+        fr.setAttribute('fill', '#000'); fr.setAttribute('fill-opacity', frameFillAlpha());
+        fillSvg.appendChild(fr);
+      }
+      if (fillSvgHi && maskBottomPx != null) {
+        var bTop = box.top - 4, bBot = maskBottomPx;   // title top → mask bottom (no nodes in between)
+        if (bBot - bTop > 2) {
+          // Rounded TOP corners, square bottom (meets the node-region piece at the mask line).
+          var bp = 'M ' + left + ' ' + bBot +
+            ' L ' + left + ' ' + (bTop + r) +
+            ' Q ' + left + ' ' + bTop + ' ' + (left + r) + ' ' + bTop +
+            ' L ' + (right - r) + ' ' + bTop +
+            ' Q ' + right + ' ' + bTop + ' ' + right + ' ' + (bTop + r) +
+            ' L ' + right + ' ' + bBot + ' Z';
+          var bpath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          bpath.setAttribute('d', bp);
+          bpath.setAttribute('fill', '#000'); bpath.setAttribute('fill-opacity', frameFillAlpha());
+          fillSvgHi.appendChild(bpath);
+        }
+      }
+      if (frameSvg) {
+        // Gap in the top edge where the title area is (clamped between the rounded top corners).
+        var gapL = Math.max(left + r, Math.min(box.left - fGapM, right - r));
+        var gapR = Math.max(left + r, Math.min(box.right + fGapM, right - r));
+        // Path: up the left side → TL corner → left top-edge segment → GAP → right top-edge segment →
+        // TR corner → down the right side → BR corner → bottom → BL corner → close. Open at the top gap.
+        var d = 'M ' + left + ' ' + (bottom - r) +
+          ' Q ' + left + ' ' + bottom + ' ' + (left + r) + ' ' + bottom +
+          ' L ' + (right - r) + ' ' + bottom +
+          ' Q ' + right + ' ' + bottom + ' ' + right + ' ' + (bottom - r) +
+          ' L ' + right + ' ' + (top + r) +
+          ' Q ' + right + ' ' + top + ' ' + (right - r) + ' ' + top +
+          ' L ' + gapR + ' ' + top +
+          ' M ' + gapL + ' ' + top +
+          ' L ' + (left + r) + ' ' + top +
+          ' Q ' + left + ' ' + top + ' ' + left + ' ' + (top + r) +
+          ' L ' + left + ' ' + (bottom - r);
+        var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', d);
+        path.setAttribute('fill', 'none'); path.setAttribute('stroke', color);
+        path.setAttribute('stroke-width', frameLineW);
+        path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round');
+        frameSvg.appendChild(path);
+      }
     });
-  } else if (frameSvg) { frameSvg.remove(); }
+  } else {
+    if (frameSvg) frameSvg.remove();
+    if (fillSvg) fillSvg.remove();
+    if (fillSvgHi) fillSvgHi.remove();
+  }
 
   // Watermark bottom-left of graph area
   if (watermarkText) {
@@ -3187,6 +3250,7 @@ function applyDataGlobals(data) {
   headerTitleMax = data.headerTitleMax || 1.5;
   frameLineW = (data.frameLineW != null) ? data.frameLineW : 2;
   frameCornerR = (data.frameCornerR != null) ? data.frameCornerR : 14;
+  frameFillPct = (data.frameFillPct != null) ? data.frameFillPct : 50;
   headersOnStack = !!data.headersOnStack;
   if (typeof renderGraphQr === 'function') renderGraphQr();
   var ph = document.getElementById('page-title');

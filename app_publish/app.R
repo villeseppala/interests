@@ -207,6 +207,7 @@ server <- function(input, output, session) {
                              header_title_max = ly$header_title_max %||% 1.5,
                              frame_line_w = ly$frame_line_w %||% 2,
                              frame_corner_r = ly$frame_corner_r %||% 14,
+                             frame_fill_pct = ly$frame_fill_pct %||% 50,
                              headers_on_stack = isTRUE(ly$headers_on_stack %||% FALSE),
                              col_bg = ly$col_bg %||% "#0b3552",
                              col_sidebar_bg = ly$col_sidebar_bg %||% "#081626",
