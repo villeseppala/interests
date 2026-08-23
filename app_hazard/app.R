@@ -23,7 +23,7 @@ library(shiny)
 library(ggplot2)
 
 ## ---- constants + shared helpers -------------------------------------------
-SPANX <- c(10, 100, 1000); M <- 100; Wpx <- 1100; Hpx <- 619   # 16:9
+SPANX <- c(10, 100, 1000); M <- 100; Wpx <- 1240; Hpx <- 698   # 16:9, width matches x-risk app
 
 haz_to_fy <- function(h) {
   h <- pmin(1e-1, pmax(1e-5, h)); d <- floor(log10(h)); seg <- pmin(3, pmax(0, d + 5))
@@ -366,8 +366,8 @@ ui <- fluidPage(
      .irs--shiny .irs-min,.irs--shiny .irs-max,.irs--shiny .irs-from,.irs--shiny .irs-to,.irs--shiny .irs-single{color:#0b3552; background:#4fb8d6;}
      .irs--shiny .irs-grid-text{color:#9fb0bf;}
      .irs--shiny .irs-handle>i:first-child{background:#e8eef4;}
-     #plot img{display:block;} #plot{line-height:0;}
-     #overlay{position:absolute; top:0; left:0; z-index:10; touch-action:none;}
+     #plot img{display:block; width:100%; height:100%;} #plot{line-height:0; position:absolute; inset:0; width:100%; height:100%;}
+     #overlay{position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; touch-action:none;}
      #overlay text{user-select:none;}
      #popout .pcell{line-height:1.55; min-width:150px;}
      #popout .pcell b{color:#f18fbe;}
@@ -396,10 +396,10 @@ ui <- fluidPage(
   div(class = "cmprow",
       tags$button(id = "baseCur",  class = "cmpbtn", "Baseline = current"),
       tags$button(id = "basePrev", class = "cmpbtn", "Baseline = previous")),
-  div(style = sprintf("position:relative; width:%dpx; height:%dpx;", Wpx, Hpx),
-      plotOutput("plot", width = paste0(Wpx, "px"), height = paste0(Hpx, "px")),
-      HTML(sprintf('<svg id="overlay" style="width:%dpx;height:%dpx;"></svg>', Wpx, Hpx))),
-  div(id = "popout", style = sprintf("display:flex; gap:22px; flex-wrap:wrap; margin:12px 0; width:%dpx; font-size:12px; color:#e46ba6;", Wpx)),
+  div(style = sprintf("position:relative; width:100%%; max-width:%dpx; aspect-ratio:%d/%d;", Wpx, Wpx, Hpx),
+      plotOutput("plot", width = "100%", height = "100%"),
+      HTML('<svg id="overlay" style="width:100%;height:100%;"></svg>')),
+  div(id = "popout", style = sprintf("display:flex; gap:22px; flex-wrap:wrap; margin:12px 0; width:100%%; max-width:%dpx; font-size:12px; color:#e46ba6;", Wpx)),
   div(id = "live", style = "margin:8px 0; font-family:monospace; color:#cdd9e3;",
       "Grab a red or blue handle to drive that variable."),
   actionButton("reset", "Reset"),
