@@ -23,7 +23,9 @@ library(shiny)
 library(ggplot2)
 
 ## ---- constants + shared helpers -------------------------------------------
-SPANX <- c(10, 100, 1000); M <- 100; Wpx <- 1240; Hpx <- 698   # 16:9, width matches x-risk app
+SPANX <- c(10, 90, 900, 9000); M <- 100; Wpx <- 1240; Hpx <- 698   # 4 periods to 12026, width matches x-risk app
+YEARS   <- c(2026, 2036, 2126, 3026, 12026)                        # checkpoint calendar years (same as x-risk)
+year_lbl <- function(y) if (y >= 10000) format(y, big.mark = " ", scientific = FALSE) else as.character(y)
 
 haz_to_fy <- function(h) {
   h <- pmin(1e-1, pmax(1e-5, h)); d <- floor(log10(h)); seg <- pmin(3, pmax(0, d + 5))
@@ -35,15 +37,15 @@ herm <- function(px, x0, y0, m0, x1, y1, m1) {
   y0*(2*u^3-3*u^2+1) + m0*h*(u^3-2*u^2+u) + y1*(-2*u^3+3*u^2) + m1*h*(u^3-u^2)
 }
 default_atheta <- function(anchors) {
-  fy <- haz_to_fy(anchors); px <- (0:3)/3*Wpx; py <- (1-fy)*Hpx; th <- numeric(4)
-  for (i in 1:4) { lo <- max(1,i-1); hi <- min(4,i+1); th[i] <- atan2(py[hi]-py[lo], px[hi]-px[lo]) }
+  fy <- haz_to_fy(anchors); px <- (0:4)/4*Wpx; py <- (1-fy)*Hpx; th <- numeric(5)
+  for (i in 1:5) { lo <- max(1,i-1); hi <- min(5,i+1); th[i] <- atan2(py[hi]-py[lo], px[hi]-px[lo]) }
   th
 }
 sample_set <- function(anchors, thetaL, thetaR, fxc, cval, useCtrl, dYdv, clampV, log_time = FALSE) {
   tfrac <- function(u) if (log_time) (10^u - 1) / 9 else u   # log: single decade of time per span
   rows <- list()
-  for (s in 1:3) {
-    fxL <- (s-1)/3; fxR <- s/3; hL <- anchors[s]; hR <- anchors[s+1]
+  for (s in 1:4) {
+    fxL <- (s-1)/4; fxR <- s/4; hL <- anchors[s]; hR <- anchors[s+1]
     mL <- tan(thetaR[s])*Wpx/dYdv(hL); mR <- tan(thetaL[s+1])*Wpx/dYdv(hR); mC <- (hR-hL)/(fxR-fxL)
     fxC <- fxc[s]; hC <- cval[s]; ms <- if (s==1) 0:M else 1:M; fx <- fxL + (ms/M)*(fxR-fxL)
     u <- ms/M; dy <- SPANX[s] * (tfrac(u) - tfrac(u - 1/M))   # years covered by each sample
@@ -83,18 +85,22 @@ overlay_js <- HTML(r"---(
   const NS="http://www.w3.org/2000/svg";
   const HAZ="#e8836f", SUR="#4fb8d6", HBAR="#c96f5c", SBAR="#3f9ab5";
   const POP="#e46ba6", PBAR="#a84e7d";
+  const CYR="#6fcf97", CLY="#e8b04f", CLV="#b98fe0";   // cumulative: survived years / life-years / lives
   let popMax=1e10;    // population axis ceiling; grows by decades (10 B, 100 B, ...)
-  const POP_DEFAULT={ anchors:[8.3e9,8.3e9,8.3e9,8.3e9], thetaL:[0,0,0,0], thetaR:[0,0,0,0], fxc:[1/6,0.5,5/6], cval:[8.3e9,8.3e9,8.3e9] };
+  const POP_DEFAULT={ anchors:[8.3e9,8.3e9,8.3e9,8.3e9,8.3e9], thetaL:[0,0,0,0,0], thetaR:[0,0,0,0,0], fxc:[1/8,3/8,5/8,7/8], cval:[8.3e9,8.3e9,8.3e9,8.3e9] };
   const PAL=["#1a9850","#91cf60","#fdae61","#d73027"];
-  const SPANX=[10,100,1000], M=100, GRAB=15, LEV=34, LIN_EMIN=-5, LIN_EMAX=-1;
+  const YRS=[2026,2036,2126,3026,12026];
+  const SPANX=[10,90,900,9000], M=100, GRAB=15, LEV=34, LIN_EMIN=-5, LIN_EMAX=-1;
   let showPoints=true, useCtrl=false, split=true, linearY=true, logTime=false, driver="hazard";
+  let visHaz=true, visSurv=true, visPop=true, visCumYr=false, visCumLy=false, visCumLives=false;
   let minorGrid=[];
   function tFrac(u){ return logTime ? (Math.pow(10,u)-1)/9 : u; }   // log: single decade of time per span
   let linExp=-1, linMax=0.1, grewReach=false;   // grewReach: population one-grow-per-reach guard
   let W,H, hazSet={anchors:[],ctrls:[]}, survSet={anchors:[],ctrls:[]}, popSet={anchors:[],ctrls:[]}, hazS=[], survS=[], popS=[];
-  let yTicks=[], popTicks=[], infoTx=[], bandsG, bandSig="", svg, label, hazLine, surLine, popLine, expLine, readySent=false, drag=null;
-  let baseHazLine, baseSurLine, basePopLine, baseExpLine;
-  let baseMode="none", baseSnap=null, prevSnap=null;   // comparison: "none" | "current" | "previous"
+  let yTicks=[], popTicks=[], cumYrTicks=[], cumLyTicks=[], cumLvTicks=[], infoTx=[], bandsG, bandSig="", svg, label, hazLine, surLine, popLine, expLine, readySent=false, drag=null;
+  let baseHazLine, baseSurLine, basePopLine, baseExpLine, cumYrLine, cumLyLine, cumLvLine;
+  let baseCumYrLine, baseCumLyLine, baseCumLvLine;
+  let baseMode="previous", baseSnap=null, prevSnap=null;   // comparison: "none" | "current" | "previous"
 
   const clampHaz=h=>Math.max(1e-5,Math.min(1e-1,h)), clamp01=v=>Math.max(0,Math.min(1,v)), sX=fx=>fx*W;
   function hazToFyDec(h){ h=clampHaz(h); let seg=Math.min(3,Math.max(0,Math.floor(Math.log10(h))+5));
@@ -117,7 +123,7 @@ overlay_js <- HTML(r"---(
   function maxPopVal(){ let m=0; popSet.anchors.forEach(a=>{ if(a.val>m)m=a.val; }); popS.forEach(p=>{ if(p.val>m)m=p.val; }); return m; }
   function growPop(){ if(maxPopVal()<0.8*popMax) grewReach=false;                        // value came back down → re-arm
     if(!grewReach && maxPopVal()>=popMax && popMax<1e14){ popMax*=10; grewReach=true; } }
-  function fitPop(){ const mx=maxPopVal(); popMax=Math.max(1e10, Math.pow(10, Math.ceil(Math.log10(Math.max(1,mx))))); }
+  function fitPop(){ const mx=Math.max(maxPopVal(), baseMaxPop()); popMax=Math.max(1e10, Math.pow(10, Math.ceil(Math.log10(Math.max(1,mx))))); }
   // comparison baseline snapshot (sampled value arrays, aligned by index)
   function snap(){ return { fx:hazS.map(p=>p.fx), haz:hazS.map(p=>p.val), surv:survS.map(p=>p.val), pop:popS.map(p=>p.val), dy:popS.map(p=>p.dy) }; }
   function activeBase(){ return baseMode==="previous"?prevSnap:(baseMode==="current"?baseSnap:null); }
@@ -136,8 +142,11 @@ overlay_js <- HTML(r"---(
   function setFont(px){ let st=document.getElementById("ovFont"); if(!st){ st=document.createElement("style"); st.id="ovFont"; document.head.appendChild(st); }
     st.textContent="#overlay text{font-size:"+px+"px;}"; }   // one CSS rule overrides every SVG label
   function maxHaz(){ let m=0; hazSet.anchors.forEach(a=>{ if(a.val>m) m=a.val; }); return m; }
+  // when a baseline is shown, the scale must also cover its values so the ghost lines aren't clipped
+  function baseMaxHaz(){ const B=activeBase(); let m=0; if(B) B.haz.forEach(v=>{ if(v>m) m=v; }); return m; }
+  function baseMaxPop(){ const B=activeBase(); let m=0; if(B) B.pop.forEach(v=>{ if(v>m) m=v; }); return m; }
   function setLinExp(e){ e=Math.max(LIN_EMIN,Math.min(LIN_EMAX,e)); linExp=e; linMax=Math.pow(10,e); }
-  function fitLinExp(){ setLinExp(Math.floor(Math.log10(maxHaz()))+1); }
+  function fitLinExp(){ setLinExp(Math.floor(Math.log10(Math.max(maxHaz(), baseMaxHaz())))+1); }
 
   function paletteColor(i){ return PAL[Math.max(0,Math.min(3,i))]; }
   function rebuildBands(){ bandsG.innerHTML="";
@@ -153,7 +162,7 @@ overlay_js <- HTML(r"---(
 
   function sampleSet(set, desc){
     const out=[];
-    for(let s=0;s<3;s++){ const fxL=s/3,fxR=(s+1)/3,hL=set.anchors[s].val,hR=set.anchors[s+1].val;
+    for(let s=0;s<4;s++){ const fxL=s/4,fxR=(s+1)/4,hL=set.anchors[s].val,hR=set.anchors[s+1].val;
       const mL=Math.tan(set.anchors[s].thetaR)*W/desc.dYdv(hL), mR=Math.tan(set.anchors[s+1].thetaL)*W/desc.dYdv(hR);
       const fxC=set.ctrls[s].fxc,hC=set.ctrls[s].val,mC=(hR-hL)/(fxR-fxL);
       for(let m=(s===0?0:1);m<=M;m++){ const fx=fxL+(m/M)*(fxR-fxL), dy=SPANX[s]*(tFrac(m/M)-tFrac((m-1)/M));
@@ -176,8 +185,10 @@ overlay_js <- HTML(r"---(
     if(driver==="hazard"){ if(linearY) fitLinExp();
       hazS=sampleSet(hazSet,HDESC); survS=deriveSurv(hazS); syncSet(survSet,survS,SDESC); }
     else { survS=sampleSet(survSet,SDESC); let prev=1; survS.forEach(p=>{ p.val=Math.min(prev,Math.max(1e-6,p.val)); prev=p.val; });
-      hazS=deriveHaz(survS); if(linearY){ let mx=0; hazS.forEach(p=>{ if(p.val>mx) mx=p.val; }); setLinExp(Math.floor(Math.log10(mx))+1); }
-      syncSet(hazSet,hazS,HDESC); } }
+      hazS=deriveHaz(survS); if(linearY){ let mx=baseMaxHaz(); hazS.forEach(p=>{ if(p.val>mx) mx=p.val; }); setLinExp(Math.floor(Math.log10(mx))+1); }
+      syncSet(hazSet,hazS,HDESC); }
+    while(baseMaxPop()>popMax&&popMax<1e14) popMax*=10;   // grow pop scale to cover the baseline
+  }
 
   function styleSet(set, desc, active, hidden){
     let base=active?1:0.4, op=showPoints?base:0, oc=useCtrl?(showPoints?(active?1:base*0.6):0):0;
@@ -194,57 +205,78 @@ overlay_js <- HTML(r"---(
   function redraw(){
     const sig=linearY?("L"+linExp):"T"; if(sig!==bandSig){ rebuildBands(); bandSig=sig; }
     recompute(); updateYTicks();
-    hazLine.setAttribute("points", hazS.map(p=>sX(p.fx)+","+sYh(p.val)).join(" "));
-    surLine.setAttribute("points", survS.map(p=>sX(p.fx)+","+sYs(p.val)).join(" "));
-    popLine.setAttribute("points", popS.map(p=>sX(p.fx)+","+sYp(p.val)).join(" "));
-    expLine.setAttribute("points", popS.map((p,k)=>sX(p.fx)+","+sYp(p.val*survS[k].val)).join(" "));   // expected = potential x survival
+    hazLine.setAttribute("points", hazS.map(p=>sX(p.fx)+","+sYh(p.val)).join(" ")); hazLine.setAttribute("opacity", visHaz?1:0);
+    surLine.setAttribute("points", survS.map(p=>sX(p.fx)+","+sYs(p.val)).join(" ")); surLine.setAttribute("opacity", visSurv?1:0);
+    popLine.setAttribute("points", popS.map(p=>sX(p.fx)+","+sYp(p.val)).join(" ")); popLine.setAttribute("opacity", visPop?1:0);
+    expLine.setAttribute("points", popS.map((p,k)=>sX(p.fx)+","+sYp(p.val*survS[k].val)).join(" ")); expLine.setAttribute("opacity", visPop?1:0);   // expected = potential x survival
     popTicks.forEach(t=>t.el.textContent=fmtBig(t.fr*popMax));
     const gu = logTime ? [2,3,4,5,6,7,8,9].map(v=>Math.log10(v)) : [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9];
     minorGrid.forEach((ln,idx)=>{ const s=Math.floor(idx/9), j=idx%9;
-      if(j<gu.length){ const gx=sX((s+gu[j])/3); ln.setAttribute("x1",gx); ln.setAttribute("x2",gx); ln.setAttribute("opacity",1); } else ln.setAttribute("opacity",0); });
+      if(j<gu.length){ const gx=sX((s+gu[j])/4); ln.setAttribute("x1",gx); ln.setAttribute("x2",gx); ln.setAttribute("opacity",1); } else ln.setAttribute("opacity",0); });
     styleSet(hazSet,HDESC,true); styleSet(survSet,SDESC,false,true); styleSet(popSet,PDESC,true);   // survival hidden, pop active
     // comparison baseline curves (semi-transparent)
     const B=activeBase();
-    if(B){ baseHazLine.setAttribute("points", B.haz.map((v,k)=>sX(B.fx[k])+","+sYh(v)).join(" "));
-      baseSurLine.setAttribute("points", B.surv.map((v,k)=>sX(B.fx[k])+","+sYs(v)).join(" "));
-      basePopLine.setAttribute("points", B.pop.map((v,k)=>sX(B.fx[k])+","+sYp(v)).join(" "));
-      baseExpLine.setAttribute("points", B.pop.map((v,k)=>sX(B.fx[k])+","+sYp(v*B.surv[k])).join(" ")); }
+    if(B){ baseHazLine.setAttribute("points", B.haz.map((v,k)=>sX(B.fx[k])+","+sYh(v)).join(" ")); baseHazLine.setAttribute("opacity", visHaz?0.4:0);
+      baseSurLine.setAttribute("points", B.surv.map((v,k)=>sX(B.fx[k])+","+sYs(v)).join(" ")); baseSurLine.setAttribute("opacity", visSurv?0.4:0);
+      basePopLine.setAttribute("points", B.pop.map((v,k)=>sX(B.fx[k])+","+sYp(v)).join(" ")); basePopLine.setAttribute("opacity", visPop?0.4:0);
+      baseExpLine.setAttribute("points", B.pop.map((v,k)=>sX(B.fx[k])+","+sYp(v*B.surv[k])).join(" ")); baseExpLine.setAttribute("opacity", visPop?0.4:0); }
     else { [baseHazLine,baseSurLine,basePopLine,baseExpLine].forEach(l=>l.setAttribute("points","")); }
-    for(let i=0;i<4;i++){ const fx=i/3, px=sX(fx), anc=i===0?"start":(i===3?"end":"middle"), it=infoTx[i];
+    for(let i=0;i<5;i++){ const fx=i/4, px=sX(fx), anc=i===0?"start":(i===4?"end":"middle"), it=infoTx[i];
       const h=curveValAt(hazS,fx), s=curveValAt(survS,fx);
       const hb=B?curveValAt2(B.fx,B.haz,fx):null, sb=B?curveValAt2(B.fx,B.surv,fx):null;
       // hazard readout blocks (new + baseline), higher value higher
       let hz=[{val:h, y:Math.max(2,sYh(h)-32), base:false}];
       if(B) hz.push({val:hb, y:Math.max(2,sYh(hb)-32), base:true});
       stackByValue(hz,34);
-      hz.forEach(o=>{ const a1=o.base?it.bh1:it.h1, a2=o.base?it.bh2:it.h2;
-        a1.setAttribute("x",px);a1.setAttribute("y",o.y);a1.setAttribute("text-anchor",anc);a1.textContent="1 in "+ratio(o.val);
-        a2.setAttribute("x",px);a2.setAttribute("y",o.y+16);a2.setAttribute("text-anchor",anc);a2.textContent=(o.val*100).toFixed(4)+"%"; });
+      hz.forEach(o=>{ const a1=o.base?it.bh1:it.h1, a2=o.base?it.bh2:it.h2, hop=visHaz?(o.base?0.5:1):0;
+        a1.setAttribute("x",px);a1.setAttribute("y",o.y);a1.setAttribute("text-anchor",anc);a1.setAttribute("opacity",hop);a1.textContent="1 in "+ratio(o.val);
+        a2.setAttribute("x",px);a2.setAttribute("y",o.y+16);a2.setAttribute("text-anchor",anc);a2.setAttribute("opacity",hop);a2.textContent=(o.val*100).toFixed(4)+"%"; });
       if(!B){ it.bh1.textContent=""; it.bh2.textContent=""; }
       // survival labels (new + baseline), higher value higher
       let sv=[{val:s, y:Math.min(H-6,sYs(s)+22), base:false}];
       if(B) sv.push({val:sb, y:Math.min(H-6,sYs(sb)+22), base:true});
       stackByValue(sv,16);
       sv.forEach(o=>{ const el=o.base?it.bsurv:it.surv; el.setAttribute("x",px);el.setAttribute("y",o.y);el.setAttribute("text-anchor",anc);
-        el.setAttribute("opacity",(o.val>=0.99995)?0:(o.base?0.5:1)); el.textContent=(o.val*100).toFixed(2)+"% surv"; });
+        el.setAttribute("opacity",(!visSurv||o.val>=0.99995)?0:(o.base?0.5:1)); el.textContent=(o.val*100).toFixed(2)+"%"; });
       if(!B) it.bsurv.textContent=""; }
     // population outputs below the plot (with baseline "was ..." when comparing)
     let cumLY=[], acc=0;
     for(let k=0;k<popS.length;k++){ acc += popS[k].val*survS[k].val*popS[k].dy; cumLY.push({fx:popS[k].fx,val:acc}); }
     let bCum=null; if(B){ bCum=[]; let ba=0; for(let k=0;k<B.pop.length;k++){ ba+=B.pop[k]*B.surv[k]*B.dy[k]; bCum.push({fx:B.fx[k],val:ba}); } }
+    // cumulative curves: survived years, life-years, lives — each normalized to its own final value (shape only)
+    let cumYr=[], accYr=0;
+    for(let k=0;k<popS.length;k++){ accYr += survS[k].val*popS[k].dy; cumYr.push({fx:popS[k].fx,val:accYr}); }
+    // scale max includes the baseline so previous ghost lines are always fully shown
+    let bYr=null, maxYr=cumYr[cumYr.length-1].val||1, maxLy=cumLY[cumLY.length-1].val||1;
+    if(B){ bYr=[]; let bya=0; for(let k=0;k<B.pop.length;k++){ bya+=B.surv[k]*B.dy[k]; bYr.push({fx:B.fx[k],val:bya}); }
+      maxYr=Math.max(maxYr, bYr[bYr.length-1].val||1); maxLy=Math.max(maxLy, bCum[bCum.length-1].val||1); }
+    const bnorm=(arr,mx)=>arr.map(p=>sX(p.fx)+","+((1-p.val/mx)*H)).join(" ");
+    cumYrLine.setAttribute("points", visCumYr?bnorm(cumYr,maxYr):"");
+    cumLyLine.setAttribute("points", visCumLy?bnorm(cumLY,maxLy):"");
+    cumLvLine.setAttribute("points", visCumLives?bnorm(cumLY,maxLy):"");   // lives ∝ life-years → same normalized shape
+    if(B){ baseCumYrLine.setAttribute("points", visCumYr?bnorm(bYr,maxYr):"");
+      baseCumLyLine.setAttribute("points", visCumLy?bnorm(bCum,maxLy):"");
+      baseCumLvLine.setAttribute("points", visCumLives?bnorm(bCum,maxLy):""); }
+    else { [baseCumYrLine,baseCumLyLine,baseCumLvLine].forEach(l=>l.setAttribute("points","")); }
+    // right-side scale labels (top=max, mid, bottom=0) — reflect the shared scale max
+    function setLane(ticks, mx, on, unit){ const vals=[mx, mx/2, 0];
+      ticks.forEach((t,k)=>{ t.setAttribute("opacity",on?1:0); t.textContent=on?(fmtBig(vals[k])+unit):""; }); }
+    setLane(cumYrTicks, maxYr,    visCumYr,     " yr");
+    setLane(cumLyTicks, maxLy,    visCumLy,     " ly");
+    setLane(cumLvTicks, maxLy/75, visCumLives,  " lv");
     const po=document.getElementById("popout");
-    if(po){ let rows=""; const yy=[0,10,110,1110];
-      for(let i=0;i<4;i++){ const fx=i/3, pot=curveValAt(popS,fx), s2=curveValAt(survS,fx), ex=pot*s2, ly=curveValAt(cumLY,fx);
-        const pos = i===0 ? "left:0;text-align:left;" : (i===3 ? "right:0;text-align:right;" : "left:"+(fx*100)+"%;transform:translateX(-50%);text-align:center;");
-        let c="<div class='pcell' style='position:absolute;top:0;"+pos+"'><b>yr "+yy[i]+"</b><br>potential "+fmtM(pot)+" M<br>expected "+fmtM(ex)+" M<br>"+fmtBig(ly)+" life-yrs<br>"+fmtBig(ly/75)+" lives";
+    if(po){ let rows="";
+      for(let i=0;i<5;i++){ const fx=i/4, pot=curveValAt(popS,fx), s2=curveValAt(survS,fx), ex=pot*s2, ly=curveValAt(cumLY,fx);
+        const pos = i===0 ? "left:0;text-align:left;" : (i===4 ? "right:0;text-align:right;" : "left:"+(fx*100)+"%;transform:translateX(-50%);text-align:center;");
+        let c="<div class='pcell' style='position:absolute;top:0;"+pos+"'><b>"+YRS[i].toLocaleString()+"</b><br>potential "+fmtM(pot)+" M<br>expected "+fmtM(ex)+" M<br>"+fmtBig(ly)+" life-yrs<br>"+fmtBig(ly/75)+" lives";
         if(B){ const bp=curveValAt2(B.fx,B.pop,fx), bs=curveValAt2(B.fx,B.surv,fx), bly=curveValAt(bCum,fx);
           c+="<br><span class='was'>was "+fmtM(bp)+" / exp "+fmtM(bp*bs)+" M &middot; "+fmtBig(bly/75)+" lives</span>"; }
         c+="</div>"; rows+=c; }
       po.innerHTML=rows; } }
 
   function makeSet(){ const set={anchors:[],ctrls:[]};
-    for(let s=0;s<3;s++){ const k={fxc:0,val:0}; k.body=mk("circle",{r:8,fill:"rgba(255,255,255,0.92)",stroke:"#666","stroke-width":1.5,style:"cursor:move;"}); svg.appendChild(k.body); set.ctrls.push(k); }
-    for(let i=0;i<4;i++){ const a={fx:i/3,val:0,thetaL:0,thetaR:0};
+    for(let s=0;s<4;s++){ const k={fxc:0,val:0}; k.body=mk("circle",{r:8,fill:"rgba(255,255,255,0.92)",stroke:"#666","stroke-width":1.5,style:"cursor:move;"}); svg.appendChild(k.body); set.ctrls.push(k); }
+    for(let i=0;i<5;i++){ const a={fx:i/4,val:0,thetaL:0,thetaR:0};
       a.barL=mk("line",{"stroke-width":8,"stroke-linecap":"round",style:"cursor:grab;"});
       a.barR=mk("line",{"stroke-width":8,"stroke-linecap":"round",style:"cursor:grab;"});
       a.dot =mk("circle",{r:6,stroke:"#fff","stroke-width":1.5,style:"cursor:ns-resize;"});
@@ -257,17 +289,17 @@ overlay_js <- HTML(r"---(
     svg=document.getElementById("overlay"); svg.setAttribute("viewBox","0 0 "+W+" "+H); svg.innerHTML="";
     bandsG=mk("g",{}); svg.appendChild(bandsG); bandSig="";
     minorGrid=[];                                    // minor time gridlines (positioned per log/linear in redraw)
-    for(let s=0;s<3;s++) for(let k=0;k<9;k++){ const ln=mk("line",{y1:0,y2:H,stroke:"rgba(255,255,255,0.08)"}); svg.appendChild(ln); minorGrid.push(ln); }
-    for(let s=1;s<3;s++) svg.appendChild(mk("line",{x1:sX(s/3),y1:0,x2:sX(s/3),y2:H,stroke:"rgba(255,255,255,0.18)"}));
+    for(let s=0;s<4;s++) for(let k=0;k<9;k++){ const ln=mk("line",{y1:0,y2:H,stroke:"rgba(255,255,255,0.08)"}); svg.appendChild(ln); minorGrid.push(ln); }
+    for(let s=1;s<4;s++) svg.appendChild(mk("line",{x1:sX(s/4),y1:0,x2:sX(s/4),y2:H,stroke:"rgba(255,255,255,0.18)"}));
     yTicks=[];
     for(let k=0;k<=4;k++){ const py=(1-k/4)*H;
       const th=mk("text",{x:6,y:py-3,"font-size":11,fill:HAZ}); svg.appendChild(th); yTicks.push(th);
       const ts=mk("text",{x:W-6,y:py-3,"text-anchor":"end","font-size":11,fill:SUR}); ts.textContent=(k/4).toFixed(2); svg.appendChild(ts); }
-    const yrs=[0,10,110,1110];
-    for(let s=0;s<=3;s++){ const px=sX(s/3);
-      const t=mk("text",{x:Math.min(W-4,Math.max(4,px)),y:H-6,"text-anchor":s===0?"start":(s===3?"end":"middle"),"font-size":11,fill:"#9fb0bf"}); t.textContent="yr "+yrs[s]; svg.appendChild(t); }
     popTicks=[];
     [[1,10],[0.5,H/2],[0,H-4]].forEach(fy=>{ const t=mk("text",{x:W-72,y:fy[1],"text-anchor":"end","font-size":10,fill:POP}); svg.appendChild(t); popTicks.push({el:t,fr:fy[0]}); });
+    // right-side lanes for the cumulative variables (max / mid / 0), further in so they don't overlap survival & population
+    function mkLane(x,col){ const arr=[]; [12,H/2,H-4].forEach(y=>{ const t=mk("text",{x:x,y:y,"text-anchor":"end","font-size":10,fill:col,opacity:0}); svg.appendChild(t); arr.push(t); }); return arr; }
+    cumYrTicks=mkLane(W-150,CYR); cumLyTicks=mkLane(W-250,CLY); cumLvTicks=mkLane(W-250,CLV);
     baseHazLine=mk("polyline",{fill:"none",stroke:HAZ,"stroke-width":1.6,opacity:0.4,points:""}); svg.appendChild(baseHazLine);
     baseSurLine=mk("polyline",{fill:"none",stroke:SUR,"stroke-width":1.6,opacity:0.4,points:""}); svg.appendChild(baseSurLine);
     basePopLine=mk("polyline",{fill:"none",stroke:POP,"stroke-width":1.6,opacity:0.4,points:""}); svg.appendChild(basePopLine);
@@ -276,10 +308,16 @@ overlay_js <- HTML(r"---(
     surLine=mk("polyline",{fill:"none",stroke:SUR,"stroke-width":1.8,points:""}); svg.appendChild(surLine);
     popLine=mk("polyline",{fill:"none",stroke:POP,"stroke-width":1.8,points:""}); svg.appendChild(popLine);
     expLine=mk("polyline",{fill:"none",stroke:POP,"stroke-width":1.8,points:"","stroke-dasharray":"6,4"}); svg.appendChild(expLine);
+    baseCumYrLine=mk("polyline",{fill:"none",stroke:CYR,"stroke-width":1.6,opacity:0.4,points:""}); svg.appendChild(baseCumYrLine);
+    baseCumLyLine=mk("polyline",{fill:"none",stroke:CLY,"stroke-width":1.6,opacity:0.4,points:""}); svg.appendChild(baseCumLyLine);
+    baseCumLvLine=mk("polyline",{fill:"none",stroke:CLV,"stroke-width":1.6,opacity:0.4,points:""}); svg.appendChild(baseCumLvLine);
+    cumYrLine=mk("polyline",{fill:"none",stroke:CYR,"stroke-width":2,points:""}); svg.appendChild(cumYrLine);   // cumulative survived years
+    cumLyLine=mk("polyline",{fill:"none",stroke:CLY,"stroke-width":2,points:""}); svg.appendChild(cumLyLine);   // cumulative life-years
+    cumLvLine=mk("polyline",{fill:"none",stroke:CLV,"stroke-width":2,points:""}); svg.appendChild(cumLvLine);   // cumulative lives
     survSet=makeSet(); hazSet=makeSet(); popSet=makeSet();
     loadSet(hazSet,d.haz); loadSet(survSet,d.surv); loadSet(popSet,POP_DEFAULT);
     infoTx=[];                                          // persistent readouts at each threshold
-    for(let i=0;i<4;i++){
+    for(let i=0;i<5;i++){
       const bh1=mk("text",{"text-anchor":"middle",fill:HAZ,opacity:0.5}), bh2=mk("text",{"text-anchor":"middle",fill:HAZ,opacity:0.5}), bts=mk("text",{"text-anchor":"middle",fill:SUR,opacity:0.5});
       const h1=mk("text",{"text-anchor":"middle","font-weight":"bold",fill:HAZ});   // row 1: 1 in x
       const h2=mk("text",{"text-anchor":"middle","font-weight":"bold",fill:HAZ});   // row 2: probability %
@@ -288,6 +326,7 @@ overlay_js <- HTML(r"---(
       svg.appendChild(h1); svg.appendChild(h2); svg.appendChild(ts);
       infoTx.push({h1:h1,h2:h2,surv:ts,bh1:bh1,bh2:bh2,bsurv:bts}); }
     fitLinExp(); redraw();
+    prevSnap=snap();                                 // seed a "previous" baseline so it shows before any drag
     const bc=document.getElementById("baseCur"), bp=document.getElementById("basePrev");
     if(bc) bc.onclick=()=>{ baseMode = baseMode==="current"?"none":"current"; if(baseMode==="current") baseSnap=snap(); updateCmpBtns(); redraw(); };
     if(bp) bp.onclick=()=>{ baseMode = baseMode==="previous"?"none":"previous"; if(baseMode==="previous"&&!prevSnap) prevSnap=snap(); updateCmpBtns(); redraw(); };
@@ -311,6 +350,25 @@ overlay_js <- HTML(r"---(
     surv:{anchors:survSet.anchors.map(a=>a.val),thetaL:survSet.anchors.map(a=>a.thetaL),thetaR:survSet.anchors.map(a=>a.thetaR),fxc:survSet.ctrls.map(k=>k.fxc),cval:survSet.ctrls.map(k=>k.val)},
     t:Date.now()}, {priority:"event"}); }
 
+  // scale grow/shrink with detach: dragging a value past the ceiling grows the scale a
+  // decade and snaps the value to 105% of the old ceiling; dragging the whole curve down
+  // into the bottom decade shrinks the scale and snaps to 95% of the new ceiling. Returns
+  // {val,msg} when it fired (caller applies val + detaches), else null.
+  function scaleSnap(setName, curVal, otherMax){
+    if(setName==="hazard"&&linearY){
+      if(curVal>=linMax*0.99999&&linExp<LIN_EMAX){ const o=linMax; setLinExp(linExp+1);
+        return {val:clampHaz(1.05*o), msg:"scale → 1 in "+ratio(linMax)+"; value = 105% of old ceiling — re-grab"}; }
+      if(curVal<=linMax*0.1&&otherMax<linMax*0.1&&linExp>LIN_EMIN){ setLinExp(linExp-1);
+        return {val:clampHaz(0.95*linMax), msg:"scale → 1 in "+ratio(linMax)+"; value = 95% of new ceiling — re-grab"}; }
+    } else if(setName==="pop"){
+      if(curVal>=popMax*0.99999&&popMax<1e14){ const o=popMax; popMax*=10;
+        return {val:Math.max(0,1.05*o), msg:"pop scale → "+fmtBig(popMax)+"; value = 105% of old ceiling — re-grab"}; }
+      if(curVal<=popMax*0.1&&otherMax<popMax*0.1&&popMax>1e10){ popMax/=10;
+        return {val:Math.max(0,0.95*popMax), msg:"pop scale → "+fmtBig(popMax)+"; value = 95% of new ceiling — re-grab"}; }
+    }
+    return null;
+  }
+
   function attach(){
     svg.onpointerdown = e => { const m=mouse(e), p=pick(m.x,m.y); if(!p) return;
       e.preventDefault(); prevSnap=snap(); drag=p; svg.setPointerCapture(e.pointerId); redraw(); };   // snapshot pre-drag; driver stays "hazard"
@@ -319,20 +377,22 @@ overlay_js <- HTML(r"---(
       const cx=sX(set.anchors[i]?set.anchors[i].fx:0), cy=set.anchors[i]?desc.yOf(set.anchors[i].val):0;
       if(drag.type==="a"){
         const nv=desc.clampV(desc.invY(m.y));
-        if(drag.set==="hazard"&&linearY&&nv>=linMax*0.99999&&linExp<LIN_EMAX){   // hit ceiling → grow a decade, value=105% of old ceiling, detach
-          const oldMax=linMax; setLinExp(linExp+1); set.anchors[i].val=clampHaz(1.05*oldMax); commit(); drag=null; redraw();
-          document.getElementById("live").textContent="scale → 1 in "+ratio(linMax)+"; value set to 105% of old ceiling — re-grab to continue"; return; }
-        set.anchors[i].val=nv; if(drag.set==="pop") growPop(); redraw();
-        document.getElementById("live").textContent=drag.set+" yr "+[0,10,110,1110][i]+": "+desc.ratioLbl(set.anchors[i].val);
+        let mo=0; set.anchors.forEach((a,k)=>{ if(k!==i && a.val>mo) mo=a.val; });   // other anchors (for shrink check)
+        mo=Math.max(mo, drag.set==="hazard"?baseMaxHaz():(drag.set==="pop"?baseMaxPop():0));   // don't shrink below the baseline
+        const sn=scaleSnap(drag.set, nv, mo);
+        if(sn){ set.anchors[i].val=sn.val; commit(); drag=null; redraw(); document.getElementById("live").textContent=sn.msg; return; }
+        set.anchors[i].val=nv; redraw();
+        document.getElementById("live").textContent=drag.set+" "+YRS[i]+": "+desc.ratioLbl(set.anchors[i].val);
       } else if(drag.type==="rR"){ const a=foldClamp(Math.atan2(m.y-cy,m.x-cx)); set.anchors[i].thetaR=a; if(!split) set.anchors[i].thetaL=a; redraw();
-        document.getElementById("live").textContent=drag.set+" yr "+[0,10,110,1110][i]+(split?": outgoing slope":": slope");
+        document.getElementById("live").textContent=drag.set+" "+YRS[i]+(split?": outgoing slope":": slope");
       } else if(drag.type==="rL"){ const a=foldClamp(Math.atan2(cy-m.y,cx-m.x)); set.anchors[i].thetaL=a; if(!split) set.anchors[i].thetaR=a; redraw();
-        document.getElementById("live").textContent=drag.set+" yr "+[0,10,110,1110][i]+(split?": incoming slope":": slope");
-      } else { const s=i, pxL=sX(s/3), pxR=sX((s+1)/3);
+        document.getElementById("live").textContent=drag.set+" "+YRS[i]+(split?": incoming slope":": slope");
+      } else { const s=i, pxL=sX(s/4), pxR=sX((s+1)/4);
         const nv=desc.clampV(desc.invY(m.y));
-        if(drag.set==="hazard"&&linearY&&nv>=linMax*0.99999&&linExp<LIN_EMAX){
-          const oldMax=linMax; setLinExp(linExp+1); set.ctrls[s].val=clampHaz(1.05*oldMax); commit(); drag=null; redraw();
-          document.getElementById("live").textContent="scale → 1 in "+ratio(linMax)+"; value set to 105% of old ceiling — re-grab to continue"; return; }
+        let mo=0; set.anchors.forEach(a=>{ if(a.val>mo) mo=a.val; });
+        mo=Math.max(mo, drag.set==="hazard"?baseMaxHaz():(drag.set==="pop"?baseMaxPop():0));
+        const sn=scaleSnap(drag.set, nv, mo);
+        if(sn){ set.ctrls[s].val=sn.val; commit(); drag=null; redraw(); document.getElementById("live").textContent=sn.msg; return; }
         set.ctrls[s].fxc=Math.max((pxL+10)/W,Math.min((pxR-10)/W,m.x/W)); set.ctrls[s].val=nv; redraw();
         document.getElementById("live").textContent=drag.set+" segment "+(s+1)+" control: through "+desc.ratioLbl(set.ctrls[s].val); }
     };
@@ -347,6 +407,7 @@ overlay_js <- HTML(r"---(
   Shiny.addCustomMessageHandler("init_points", build);
   Shiny.addCustomMessageHandler("set_curve", function(d){ driver=d.driver; loadSet(hazSet,d.haz); loadSet(survSet,d.surv); loadSet(popSet,POP_DEFAULT); popMax=1e10; if(linearY) fitLinExp(); redraw(); });
   Shiny.addCustomMessageHandler("set_params", function(p){ showPoints=p.points; useCtrl=p.useCtrl; linearY=p.linearY; logTime=p.logTime; const w=split; split=p.split;
+    visHaz=p.visHaz; visSurv=p.visSurv; visPop=p.visPop; visCumYr=p.visCumYr; visCumLy=p.visCumLy; visCumLives=p.visCumLives;
     if(p.font) setFont(p.font);
     if(!split&&w){ [hazSet,survSet].forEach(S=>S.anchors.forEach(a=>{ const avg=(a.thetaL+a.thetaR)/2; a.thetaL=avg; a.thetaR=avg; })); }
     if(svg){ if(linearY) fitLinExp(); redraw(); commit(); } });
@@ -354,6 +415,15 @@ overlay_js <- HTML(r"---(
 )---")
 
 ## ---- UI -------------------------------------------------------------------
+# a row of the 5 checkpoint years, positioned at the graph's x fractions (0,1/4,…,1)
+year_row <- function() do.call(tags$div, c(list(class = "yearrow"),
+  lapply(0:4, function(i) {
+    pos <- if (i == 0) "left:0;text-align:left;"
+           else if (i == 4) "right:0;text-align:right;"
+           else sprintf("left:%s%%;transform:translateX(-50%%);text-align:center;", format(i / 4 * 100))
+    tags$span(class = "ylbl", style = paste0("position:absolute;", pos), year_lbl(YEARS[i + 1]))
+  })))
+
 ui <- fluidPage(
   tags$head(tags$style(HTML(
     "body,.container-fluid{background:#0b3552; color:#e8eef4; font-family:Arial,Helvetica,sans-serif;}
@@ -377,44 +447,54 @@ ui <- fluidPage(
      .cmpbtn{background:#12405f;color:#e8eef4;border:1px solid #2a6a8f;border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer;margin-right:8px;}
      .cmpbtn:hover{background:#175981;}
      .cmpbtn.active{background:#1f77a8;border-color:#8fd6f2;color:#fff;box-shadow:0 0 0 1px #8fd6f2 inset;}
-     .legendrow{display:flex;gap:26px;flex-wrap:wrap;margin:4px 0 10px;font-size:13.5px;}"))),
+     .legendrow{display:flex;align-items:center;gap:2px 22px;flex-wrap:wrap;margin:4px 0 10px;font-size:13.5px;}
+     .legendrow .checkbox,.legendrow>.shiny-input-container{margin:0;width:auto !important;}
+     .ctrlbar{display:flex;flex-wrap:wrap;align-items:center;gap:4px 26px;margin:6px 0 12px;}
+     .ctrlbar>.shiny-input-container,.ctrlbar .checkbox{margin:0;width:auto !important;}
+     .ctrlbar .fontctl .control-label{margin:0 0 1px;font-weight:400;}
+     .ctrlbar .fontctl .form-group{margin:0;}
+     .ctrlbar .fontctl .irs{margin:0;}
+     .yearrow{position:relative;width:100%;max-width:1240px;height:26px;font-size:20px;font-weight:700;color:#cdd9e3;}
+     .ylbl{position:absolute;white-space:nowrap;}"))),
   tags$h3("Extinction probability threshold controls"),
-  tags$p(HTML("Drag the <b style='color:#e8836f'>extinction-probability</b> handles to shape the per-year risk curve. ",
-              "The <b style='color:#4fb8d6'>survival</b> curve is derived from it (output only). ",
-              "Each threshold shows its extinction probability (1 in x and %) and survival %.")),
-  fluidRow(
-    column(3, checkboxInput("no_ctrl", "No control point", TRUE)),
-    column(3, checkboxInput("split_slope", "Split slopes", TRUE)),
-    column(3, checkboxInput("linear_y", "Linear y scale (10x ceiling)", TRUE)),
-    column(3, checkboxInput("lines_only", "Lines only", FALSE))
-  ),
-  fluidRow(column(6, checkboxInput("log_time", "Logarithmic time within each period", FALSE))),
-  fluidRow(column(4, sliderInput("font", "Font size (px)", min = 8, max = 28, value = 15, step = 1, width = "100%"))),
+  div(class = "ctrlbar",
+    checkboxInput("no_ctrl", "No control point", TRUE),
+    checkboxInput("split_slope", "Split slopes", TRUE),
+    checkboxInput("linear_y", "Linear y scale (10x ceiling)", TRUE),
+    checkboxInput("lines_only", "Lines only", FALSE),
+    checkboxInput("log_time", "Logarithmic time within each period", FALSE),
+    div(class = "fontctl",
+        sliderInput("font", "Font size (px)", min = 8, max = 28, value = 15, step = 1, width = "220px"))),
   div(class = "legendrow",
-      tags$span(style = "color:#e8836f;font-weight:700;", "Extinction probability, per year (1 in x, %)"),
-      tags$span(style = "color:#4fb8d6;font-weight:700;", "Survival probability, by year"),
-      tags$span(style = "color:#e46ba6;font-weight:700;", "Population — potential (solid) / expected (dashed)")),
+      checkboxInput("vis_haz",      HTML("<b style='color:#e8836f'>Extinction probability</b>"),          TRUE),
+      checkboxInput("vis_surv",     HTML("<b style='color:#4fb8d6'>Survival probability</b>"),            TRUE),
+      checkboxInput("vis_pop",      HTML("<b style='color:#e46ba6'>Population (potential / expected)</b>"), TRUE),
+      checkboxInput("vis_cumyr",    HTML("<b style='color:#6fcf97'>Cumulative survived years</b>"),        FALSE),
+      checkboxInput("vis_cumly",    HTML("<b style='color:#e8b04f'>Cumulative life-years</b>"),            FALSE),
+      checkboxInput("vis_cumlives", HTML("<b style='color:#b98fe0'>Cumulative lives (&divide;75)</b>"),    FALSE)),
   div(class = "cmprow",
       tags$button(id = "baseCur",  class = "cmpbtn", "Baseline = current"),
-      tags$button(id = "basePrev", class = "cmpbtn", "Baseline = previous")),
+      tags$button(id = "basePrev", class = "cmpbtn", "Baseline = previous"),
+      actionButton("reset", "Reset", class = "cmpbtn")),
+  year_row(),
   div(style = sprintf("position:relative; width:100%%; max-width:%dpx; aspect-ratio:%d/%d;", Wpx, Wpx, Hpx),
       plotOutput("plot", width = "100%", height = "100%"),
       HTML('<svg id="overlay" style="width:100%;height:100%;"></svg>')),
+  year_row(),
   div(id = "popout", style = sprintf("position:relative; margin:12px 0; width:100%%; max-width:%dpx; min-height:140px; font-size:12px; color:#e46ba6;", Wpx)),
   div(id = "live", style = "margin:8px 0; font-family:monospace; color:#cdd9e3;"),
-  actionButton("reset", "Reset"),
   tags$script(overlay_js)
 )
 
 ## ---- server ---------------------------------------------------------------
 server <- function(input, output, session) {
 
-  # hazard peaks around year 20 (seg-1 control sits at year 20)
-  hz_anchors <- c(1e-4, 1e-3, 2e-4, 5e-5)
+  # default hazard: rises early then declines over the long tail (5 checkpoints, 4 segments)
+  hz_anchors <- c(1e-4, 7e-4, 3e-4, 8e-5, 3e-5)          # 2036 = 0.07%
   hz0 <- list(anchors = hz_anchors, thetaL = default_atheta(hz_anchors), thetaR = default_atheta(hz_anchors),
-              fxc = c(0.5/3, (1 + (20-10)/100)/3, 2.5/3), cval = c((1e-4+1e-3)/2, 4e-3, (2e-4+5e-5)/2))
-  sv0 <- list(anchors = c(0.97, 0.85, 0.55, 0.30), thetaL = c(0,0,0,0), thetaR = c(0,0,0,0),
-              fxc = ((1:3)-0.5)/3, cval = c(0.9, 0.7, 0.4))
+              fxc = ((1:4)-0.5)/4, cval = c((1e-4+7e-4)/2, (7e-4+3e-4)/2, (3e-4+8e-5)/2, (8e-5+3e-5)/2))
+  sv0 <- list(anchors = c(0.98, 0.92, 0.75, 0.50, 0.30), thetaL = rep(0, 5), thetaR = rep(0, 5),
+              fxc = ((1:4)-0.5)/4, cval = c(0.95, 0.83, 0.62, 0.40))
 
   rv <- reactiveValues(driver = "hazard", haz = hz0, surv = sv0)
 
@@ -423,10 +503,19 @@ server <- function(input, output, session) {
   send_params <- function() session$sendCustomMessage("set_params",
                     list(points = !isTRUE(input$lines_only), useCtrl = !isTRUE(input$no_ctrl),
                          split = isTRUE(input$split_slope), linearY = isTRUE(input$linear_y),
-                         logTime = isTRUE(input$log_time), font = input$font))
+                         logTime = isTRUE(input$log_time), font = input$font,
+                         visHaz = isTRUE(input$vis_haz), visSurv = isTRUE(input$vis_surv),
+                         visPop = isTRUE(input$vis_pop), visCumYr = isTRUE(input$vis_cumyr),
+                         visCumLy = isTRUE(input$vis_cumly), visCumLives = isTRUE(input$vis_cumlives)))
 
   observeEvent(input$client_ready, { send_init(); send_params() })
-  observeEvent(list(input$lines_only, input$no_ctrl, input$split_slope, input$linear_y, input$log_time, input$font), send_params())
+  observeEvent(list(input$lines_only, input$no_ctrl, input$split_slope, input$linear_y, input$log_time, input$font,
+                    input$vis_haz, input$vis_surv, input$vis_pop, input$vis_cumyr, input$vis_cumly, input$vis_cumlives),
+               send_params())
+
+  # cumulative life-years and cumulative lives are mutually exclusive
+  observeEvent(input$vis_cumly,    if (isTRUE(input$vis_cumly))    updateCheckboxInput(session, "vis_cumlives", value = FALSE))
+  observeEvent(input$vis_cumlives, if (isTRUE(input$vis_cumlives)) updateCheckboxInput(session, "vis_cumly",    value = FALSE))
 
   parse_set <- function(x) list(anchors = as.numeric(unlist(x$anchors)),
     thetaL = as.numeric(unlist(x$thetaL)), thetaR = as.numeric(unlist(x$thetaR)),
@@ -444,10 +533,13 @@ server <- function(input, output, session) {
 
   output$plot <- renderPlot({
     d <- compute_both(rv$haz, rv$surv, rv$driver, !isTRUE(input$no_ctrl), isTRUE(input$linear_y), isTRUE(input$log_time))
-    ggplot(d, aes(fx)) +
-      geom_area(aes(y = fy), fill = "#e8836f", alpha = 0.15) +
-      geom_line(aes(y = fy),   colour = "#e8836f", linewidth = 0.6) +
-      geom_line(aes(y = surv), colour = "#4fb8d6", linewidth = 0.7) +
+    p <- ggplot(d, aes(fx)) + geom_blank(aes(y = fy))   # base layer so an all-cumulative view still renders
+    if (!isFALSE(input$vis_haz))                       # default (NULL before first send) shows it
+      p <- p + geom_area(aes(y = fy), fill = "#e8836f", alpha = 0.15) +
+               geom_line(aes(y = fy), colour = "#e8836f", linewidth = 0.6)
+    if (!isFALSE(input$vis_surv))
+      p <- p + geom_line(aes(y = surv), colour = "#4fb8d6", linewidth = 0.7)
+    p +
       coord_cartesian(xlim = c(0, 1), ylim = c(0, 1), expand = FALSE) +
       theme_minimal(base_size = 13) +
       theme(axis.title = element_blank(), axis.text = element_blank(),

@@ -213,7 +213,7 @@ gcell_edit <- function(col, cur, ref, kind, vi, to_disp, decimals, suffix,
       div(class = "vmain digits", style = paste0("color:", color, ";"),
           build_slots(cur, to_disp, decimals, suffix, pad, TRUE)),
       div(class = "vdelta digits",
-          build_slots(dv, to_disp, decimals, suffix, pad, TRUE,
+          build_slots(dv, to_disp, decimals, suffix, pad, FALSE,   # no ▲/▼ on deltas — number-key entry only
                       digit_color = digit_color, sign_char = sgn, sign_color = dcol))),
     if (!is.null(sub)) div(class = "vsub", HTML(sub)))
 }
@@ -443,8 +443,8 @@ document.addEventListener('keydown', function(e){
   if(/^[0-9]$/.test(k)){ e.preventDefault(); typeDigit(+k); return; }
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].indexOf(k) < 0) return;
   e.preventDefault();
-  if(k === 'ArrowUp')   { change(1);  return; }
-  if(k === 'ArrowDown') { change(-1); return; }
+  if(k === 'ArrowUp')   { if(!sel.delta) change(1);  return; }   // ▲/▼ change values only, not deltas
+  if(k === 'ArrowDown') { if(!sel.delta) change(-1); return; }
   var cells = allCells(), cell = cellOf(sel); if(!cell) return;
   var digs = digsOf(cell), idx = nearestDig(digs, sel.place), ci = cells.indexOf(cell);
   if(k === 'ArrowRight'){
@@ -479,6 +479,7 @@ var wheelAcc = 0;
 document.addEventListener('wheel', function(e){
   var dig = e.target.closest('.dig'); if(!dig){ wheelAcc = 0; return; }
   var cell = dig.closest('.xedit'); if(!cell){ wheelAcc = 0; return; }
+  if(dig.closest('.vdelta')){ wheelAcc = 0; return; }   // deltas: no wheel change (number keys only)
   e.preventDefault();
   var d = e.deltaY;
   if(e.deltaMode === 1) d *= 33; else if(e.deltaMode === 2) d *= 400;   // lines/pages → px
