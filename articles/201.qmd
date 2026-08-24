@@ -7,13 +7,11 @@ inline: false
 
 ### Abstract and motivation for the site project
 
-I am creating a website that allows the user to input existential risk probabilities for different time periods. The site then calculates the expected longevity of humankind (measured in expected years the humankind will exist or in expected human lives left, for example). Results are accompanied by graphs.
+I am creating a website that allows the user to input existential risk probabilities for different time periods. The site then calculates the expected longevity of humankind (measured in expected years the humankind will exist or in expected human lives left, for example). Results are also visualized.
 
-The motivation behind the site is to help demonstrate in a concise and easily digestible manner that even very small improvements in existential risk will pay off immensely in the long run, in terms of humankind’s longevity. This should encourage us to pursue these improvements in various ways.
+The motivation behind the site is to demonstrate, in a concise and easily digestible manner, that even very small improvements in existential risk will pay off immensely in the long run, in terms of humankind’s expected longevity. This should encourage us to pursue these improvements in various ways.
 
-Below, I will get into more detail about the site, presenting some early sketches of site and additional features/motivation.
-
-### Layout options
+### Layout sketches and prototypes
 
 Layout of the site plays an important role in the site functonality. Below, there are different sketches and prototypes for the layout of the site. I'm not sure yet if I want to focus on any one kind of layout, or develop multiple at one time. This might depend on the time/funding I have to work on the project.
 
@@ -21,9 +19,9 @@ Layout of the site plays an important role in the site functonality. Below, ther
 ![Layout type](images/uu2.png)
 
 
-### Interactive prototype
+Below are two early, fully interactive version of the site, that I produced with Claude Code. They are still running entirely in browser instead of external server, so the first load takes a few seconds while the R runtime downloads and they might feel a bit sluggish. 
 
-An early, fully interactive version of the site, still running entirely in browser instead of external server (the first load takes a few seconds while the R runtime downloads). Click any extinction probability, survival probability or potential-population digit and adjust it with the arrows, arrow keys, or by typing a number.
+The first one focuses on presenting a lot of variables (inputs/outputs). Click any extinction probability, survival probability or potential-population digit and adjust it with the arrows, arrow keys, or by typing a number.
 
 <!-- XRISK-APP:START -->
 ```{shinylive-r}
@@ -642,7 +640,7 @@ shinyApp(ui, server)
 
 ### Threshold curve editor
 
-An alternative prototype where you sketch the whole risk profile as a curve rather than typing numbers. Drag the red **extinction-probability-per-year** handles or the blue population handles across the timeline (years 0–1110 over three log-spaced spans).
+Below is an alternative prototype where you sketch the whole risk profile as a curve rather than typing numbers. Drag the red **extinction-probability-per-year** handles or the blue population handles across the timeline (years 0–1110 over three log-spaced spans). This allows more customizability on what x-risk probabilities the user sets for which time period. 
 
 <!-- HAZARD-APP:START -->
 ```{shinylive-r}
@@ -1113,40 +1111,37 @@ shinyApp(ui, server)
 ```
 <!-- HAZARD-APP:END -->
 
-They layout below shows another type of layout that focuses more on graphical representation and different timescales. It also shows different options on the left hand side menu.
+They layout sketch below focuses more on graphical representation and different timescales. It also shows different options on the left hand side menu and how they could be presented at the site:
 
 ![Anothey layout type](images/gen.png)
 
 
-### Planned details and features not presented in slides or prototypes
+### Planned details and features not yet presented in slides or prototypes
 
-The options in layout above show some planned features: 
+The options in layout above show some planned features of the site: 
 
-- User can choose which variables to use and show. I will consider what possible outcome variables to set as options (in which to use on by default), not limited to ones shown in the graphs.
+- User can choose which variables to use and show. I'm still considering what kind of variables to have as options (and which to have on by default), not limited to ones shown in the graphs. In terms of input variables, user could also choose if they want to look at annual x-risk or annual survival risk for the per year variable. Same goes for by year-variable, user could choose if they look at extinction by year x, rather than survival by year x, as in the sketches/prototypes. 
 
-- User can select how long of a timeline to use. 
+- User can select how long of a timeline to use. Choosig a long timeline can help to grasp the far reaching magnitude of changes in our own times. On the other hand, the longer time scale x-risk probabilities may be harder to evaluate, or at least there is little precedence of that in studies. This could also be a novelty of the site (see below about collecting estimates from experts). 
 
-- The user can also simulate a number of possible paths for humankind, given the chosen probabilities, that are shown in the graphs. This can give a more tangible impressions of existential risk than expected/average values.
+- User can also choose the "inflection" time points themselves. Now, they are set at a power-of-ten intervals (2026-2036-2126 and so on...) but this can easily be made optional. 
 
-- User can set estimates on how much removing a certain risk factor would reduce the overall x-risk. I have explored here why I think this could be a useful approach: https://villeseppala.github.io/interests/articles/202.html
+- The user can also simulate a number of possible futures/paths for humankind, given the chosen probabilities. Showing these paths, especially the extinction events depicted in them, can give a more tangible impressions of existential risk than the standard expected values.
 
-- Site can also be used to collect expert and general population estimates on existential risk, since users can export their selected probabilities to the site's server. Expert evaluations could be filtered using some simple authentications mechanisms, such as identification codes. Estimates from experts or the general public can be used to set default values for the site and their distribution can be shown to the user.
+- User can set estimates on how much removing a certain risk factor would reduce the overall x-risk. I have explored here why I think this could be a useful approach to individual x-risk: https://villeseppala.github.io/interests/articles/202.html
+It is a policy relevant angle and also helps circumvent the problem of risk being intertwined. 
 
-Besides the ones in graphs above, some other features that will be implemented or considered to be implemented:
+- Site can also be used to collect expert and general population estimates on existential risk, since users can export their selected probabilities to the site's server. Expert evaluations could be filtered using some simple authentications mechanisms, such as identification codes. Estimates from experts or the general public can be used to set default values for the site, and their distribution can be shown to the user. This can be done while also giving the users the ability to set what variables they control and with what timelines, as the results can be interpolated. 
 
--   User could choose if they want to look at annual x-risk or annual survival risk for the per year variable. Same goes for by year-variable, user could choose if they look at extinction by year x, rather than survival by year x, as in the sketches/prototypes.
-
--   User can choose the inflection points themselves. 
 
 <!-- -->
 
 
-
-
 ### Site default values from x-risk literature (XPT, etc.)
 
-Default values used for the risk probabilities can influence the user on what they think the actual probabilities are, even if this is not the main point of the site. Therefore, I want to set the default values to reflect the studies on the topic. These studies usually focus on probability estimates given by experts on either the individual risks or the total existential risk, usually by year 2100. Perhaps the most comprehensive queastionnaire study on topic by the Forecasting Research Institure from 2023 presents median total extinction probabilities from 1% to 7% by year 2100, depending on the expert group\*. Catastrophic risk probabilities, estimated by the same groups, ranged from 9% to 29%. This study is valuable in a sense that the participants also evaluated probabilities for 2030 and 2050, as well as the year in which \*\*\*\* . Using the FRI dataset\*\* I aim to interpolate annual extinction and survival estimates for each participants and use them to calculate a representative path to use as the site default (and possibly extrapolate the estimates after the year).
+Default values used for the risk probabilities can influence the user on what they think the actual probabilities are, even if this is not the main point of the site. Therefore, I want to set the default values to reflect the studies on the topic. These studies usually focus on probability estimates given by experts on either the individual risks or the total existential risk, usually by year 2100. 
 
+Arguably the most comprehensive queastionnaire study on topic by the Forecasting Research Institure from 2023 presents median total extinction probabilities from 1% to 7% by year 2100, depending on the expert group\*. Catastrophic risk probabilities, estimated by the same groups, ranged from 9% to 29%. This study is valuable in a sense that the participants also evaluated probabilities for 2030 and 2050, as well as an overall estimate of year in which humans go extinct. Using the FRI dataset, I aim to interpolate annual extinction and survival estimates for each participants and use them to calculate a representative path to use as the site default (and possibly extrapolate the estimates after the year).
 
 I will also look into other studies on the topic.
 
@@ -1158,9 +1153,9 @@ The site is made using R language and its Shiny (meant for creating dashboard we
 
 The site will be hosted on Digital Ocean or some other hosting server and a suitable domain will be purchased for it. Pre-release builds will be hosted on Github, using its Github Pages functionality.
 
-The code will be made public to github, allowing others to build on it. The site will not be monetized.
+The code will be made public to Github, allowing others to build on it. The site will not be monetized.
 
 So far, I have only developed the desktop version. Some kind of mobile interface will be added later, but in general, users will be encouraged to use the desktop version.
 
-Claude Code is used to coding the site. 
+Claude Code is used as assistant in coding the site. 
 
