@@ -24,7 +24,7 @@ CPS       <- c(2026, 2036, 2126, 3026, 12026)   # checkpoint (column) years
 SEG_START <- c(2027, 2037, 2127, 3027)          # first year of each period
 SEG_END   <- c(2036, 2126, 3026, 12026)         # last  year of each period
 SEG_LEN   <- SEG_END - SEG_START + 1            # 10, 90, 900, 9000
-DEF_RATES <- c(0.000340, 0.000510, 0.000250, 0.000024)
+DEF_RATES <- c(0.0005, 0.0005, 0.0001, 0.00005)   # 0.05%, 0.05%, 0.01%, 0.005% per year
 POP_CPS   <- rep(8.3e9, 5)                       # constant 8300 M default at every checkpoint
 LIFE_EXP  <- 75
 
@@ -75,7 +75,7 @@ compute <- function(rates, pop_cps) {
 f_rate  <- function(x) paste0(formatC(x * 100, digits = 4, format = "f"), "%")
 f_pct   <- function(x) paste0(formatC(x * 100, digits = 4, format = "f"), "%")
 f_int   <- function(x) formatC(round(x), format = "f", digits = 0, big.mark = " ")
-f_years <- function(x) paste0(formatC(x, digits = 3, format = "f", big.mark = " "), "y")
+f_years <- function(x) paste0(formatC(x, digits = 4, format = "f", big.mark = " "), "y")
 f_pop_m <- function(x) paste0(f_int(x / 1e6), "m")
 f_ly    <- function(x) paste0(f_int(x), " ly")
 
@@ -85,13 +85,14 @@ GOOD <- "#7fd18f"; BAD <- "#ee4d4d"; ZERO <- "#8a97a3"
 
 # delta pill: kind = "more_good" (up is green) or "more_bad" (up is red)
 fmt_delta <- function(cur, ref, kind, fmt) {
-  d <- cur - ref
-  if (abs(d) < 1e-9)
+  d  <- cur - ref
+  ds <- fmt(abs(d))
+  if (abs(d) < 1e-9 || !grepl("[1-9]", ds))            # no change, or rounds to 0 in display → grey ±0
     return(span(class = "d0", "±0"))                    # ±0
   good <- (d > 0) == (kind == "more_good")
   sgn  <- if (d > 0) "+" else "−"                       # − for minus
   span(style = paste0("color:", if (good) GOOD else BAD, ";"),
-       paste0(sgn, fmt(abs(d))))
+       paste0(sgn, ds))
 }
 
 # plain (non-editable) value cell on the grid (spans 2 half-columns)
@@ -102,6 +103,9 @@ gcell <- function(col, main, delta = NULL, sub = NULL, color = "#e8eef4") {
       if (!is.null(delta)) div(class = "vdelta", delta)),
     if (!is.null(sub)) div(class = "vsub", HTML(sub)))
 }
+
+# calendar year: thin-space separator only for 5+ digit years (12026 → "12 026")
+fmt_year <- function(y) { y <- as.integer(y); if (y >= 10000) group3(as.character(y)) else as.character(y) }
 
 # insert thin-space thousands separators into a plain digit string
 group3 <- function(s) {
@@ -121,10 +125,12 @@ group3 <- function(s) {
 build_slots <- function(native, to_disp, decimals, suffix, pad = NULL, editable = TRUE,
                         digit_color = NULL, sign_char = NULL, sign_color = NULL) {
   a <- abs(native)
-  if (!is.null(pad))
-    s <- group3(formatC(round(a * to_disp), format = "d", width = pad, flag = "0"))
-  else
-    s <- formatC(a * to_disp, format = "f", digits = decimals, big.mark = " ")
+  whole <- formatC(a * to_disp, format = "f", digits = decimals)   # non-scientific; rounds
+  parts <- strsplit(whole, ".", fixed = TRUE)[[1]]
+  ip    <- parts[1]
+  if (!is.null(pad) && nchar(ip) < pad) ip <- paste0(strrep("0", pad - nchar(ip)), ip)
+  ip    <- group3(ip)                                              # thin-space thousands on integer part
+  s     <- if (length(parts) > 1) paste0(ip, ".", parts[2]) else ip
   chars <- strsplit(s, "")[[1]]
   n     <- length(chars)
   dot   <- match(".", chars); if (is.na(dot)) dot <- n + 1
@@ -144,28 +150,48 @@ build_slots <- function(native, to_disp, decimals, suffix, pad = NULL, editable 
   for (p in seq_len(n)) if (grepl("[0-9]", chars[p])) {
     if (!seen && chars[p] == "0") lead[p] <- TRUE else seen <- TRUE
   }
+  # editable digits carry ▲/▼ arrows (with matching spacers on separators so rows line up);
+  # read-only digits carry neither, so those rows have no wasted vertical space.
   mkslot <- function(p) {
     ch <- chars[p]
     if (!is.na(place[p])) {
       col <- if (!is.null(digit_color)) digit_color(ch == "0", lead[p])
              else if (!is.null(pad) && lead[p]) "#5f7484" else NULL
       tags$span(class = "dig", `data-delta` = formatC(place[p], format = "e", digits = 6),
-        if (editable) span(class = "ar up", HTML("&#9650;")) else span(class = "arsp"),
+        if (editable) span(class = "ar up", HTML("&#9650;")),
         tags$b(class = "dch", style = if (!is.null(col)) paste0("color:", col, ";"), ch),
-        if (editable) span(class = "ar dn", HTML("&#9660;")) else span(class = "arsp"))
+        if (editable) span(class = "ar dn", HTML("&#9660;")))
     } else
-      tags$span(class = "sep", span(class = "arsp"),
-        tags$b(class = "dch", if (ch == " ") HTML("&nbsp;") else ch), span(class = "arsp"))
+      tags$span(class = "sep",
+        if (editable) span(class = "arsp"),
+        tags$b(class = "dch", if (ch == " ") HTML("&nbsp;") else ch),
+        if (editable) span(class = "arsp"))
   }
-  slots <- lapply(seq_len(n), mkslot)
-  if (!is.null(sign_char))
-    slots <- c(list(tags$span(class = "sep", span(class = "arsp"),
+  # split positions into thousands-groups (a space starts a new group; the dot +
+  # decimals stay with their group). Each group is one non-breaking wrap unit, so a
+  # number wraps only between groups — never mid-group — on narrow widths.
+  groups <- list(); cur_g <- integer(0)
+  for (p in seq_len(n)) {
+    if (chars[p] == " ") { if (length(cur_g)) groups <- c(groups, list(cur_g)); cur_g <- p }
+    else cur_g <- c(cur_g, p)
+  }
+  if (length(cur_g)) groups <- c(groups, list(cur_g))
+
+  sign_slot <- if (!is.null(sign_char))
+    tags$span(class = "sep", if (editable) span(class = "arsp"),
       tags$b(class = "dch sgn", style = if (!is.null(sign_color)) paste0("color:", sign_color, ";"),
-             HTML(sign_char)), span(class = "arsp"))), slots)
-  if (nzchar(suffix))
-    slots <- c(slots, list(tags$span(class = "sep", span(class = "arsp"),
-      tags$b(class = "dch suf", HTML(suffix)), span(class = "arsp"))))
-  slots
+             HTML(sign_char)), if (editable) span(class = "arsp")) else NULL
+  suffix_slot <- if (nzchar(suffix))
+    tags$span(class = "sep", if (editable) span(class = "arsp"),
+      tags$b(class = "dch suf", HTML(suffix)), if (editable) span(class = "arsp")) else NULL
+
+  ng <- length(groups)
+  lapply(seq_len(ng), function(gi) {
+    items <- lapply(groups[[gi]], mkslot)
+    if (gi == 1  && !is.null(sign_slot))   items <- c(list(sign_slot), items)     # sign stays with the leading digit
+    if (gi == ng && !is.null(suffix_slot)) items <- c(items, list(suffix_slot))   # suffix stays with the trailing digit
+    do.call(tags$span, c(list(class = "dgroup"), items))
+  })
 }
 
 # editable value cell: per-digit spinner
@@ -174,8 +200,11 @@ gcell_edit <- function(col, cur, ref, kind, vi, to_disp, decimals, suffix,
   dv   <- cur - ref
   cpos <- if (good == "more_good") GOOD else BAD    # colour when delta positive
   cneg <- if (good == "more_good") BAD  else GOOD
-  dcol <- if (abs(dv) < 1e-12) ZERO else if (dv > 0) cpos else cneg
-  sgn  <- if (abs(dv) < 1e-12) "±" else if (dv > 0) "+" else "−"
+  dshow <- if (!is.null(pad)) formatC(round(abs(dv) * to_disp), format = "d", width = pad, flag = "0")
+           else formatC(abs(dv) * to_disp, format = "f", digits = decimals)
+  disp_zero <- abs(dv) < 1e-12 || !grepl("[1-9]", dshow)   # exact, or rounds to 0 in display → grey
+  dcol <- if (disp_zero) ZERO else if (dv > 0) cpos else cneg
+  sgn  <- if (disp_zero) "±" else if (dv > 0) "+" else "−"
   digit_color <- function(is0, lead) if (lead) ZERO else dcol
   tags$div(class = "vcell xedit", style = paste0("grid-column:", col, "/span 2;"),
     `data-kind` = kind, `data-i` = vi - 1,
@@ -188,6 +217,42 @@ gcell_edit <- function(col, cur, ref, kind, vi, to_disp, decimals, suffix,
                       digit_color = digit_color, sign_char = sgn, sign_color = dcol))),
     if (!is.null(sub)) div(class = "vsub", HTML(sub)))
 }
+
+# read-only value cell: value + a digit-aligned (non-editable) delta below it.
+# The delta shows one grey zero under each value digit when there is no change,
+# and the signed change (leading zeros greyed) when there is.
+gcell_ro <- function(col, cur, ref, to_disp, decimals, suffix, kind = "more_good",
+                     sub = NULL, color, delta = TRUE) {
+  dv   <- cur - ref
+  cpos <- if (kind == "more_good") GOOD else BAD
+  cneg <- if (kind == "more_good") BAD  else GOOD
+  vwhole <- formatC(abs(cur) * to_disp, format = "f", digits = decimals)
+  pad    <- nchar(strsplit(vwhole, ".", fixed = TRUE)[[1]][1])       # value's integer-digit width
+  dshow  <- formatC(abs(dv) * to_disp, format = "f", digits = decimals)
+  disp_zero <- abs(dv) < 1e-9 || !grepl("[1-9]", dshow)             # exact, or rounds to 0 in display
+  dcol <- if (disp_zero) ZERO else if (dv > 0) cpos else cneg
+  sgn  <- if (disp_zero) "±" else if (dv > 0) "+" else "−"
+  digit_color <- function(is0, lead) if (lead) ZERO else dcol
+  tags$div(class = "vcell", style = paste0("grid-column:", col, "/span 2;"),
+    div(class = "vstack",
+      # value carries an invisible sign slot when a delta follows, so value and delta
+      # are the same width and wrap in lockstep (no ragged extra line).
+      div(class = "vmain digits", style = paste0("color:", color, ";"),
+          build_slots(cur, to_disp, decimals, suffix, pad, FALSE,
+                      sign_char = if (delta) "±" else NULL, sign_color = "transparent")),
+      if (delta) div(class = "vdelta digits",
+          build_slots(dv, to_disp, decimals, suffix, pad, FALSE,
+                      digit_color = digit_color, sign_char = sgn, sign_color = dcol))),
+    if (!is.null(sub)) div(class = "vsub", HTML(sub)))
+}
+
+# big-operator (∏ / ∑) with limits stacked over/under the symbol
+bigop <- function(sym, lo, up)
+  sprintf('<span class="bigop"><span class="lim up">%s</span><span class="op">%s</span><span class="lim lo">%s</span></span>',
+          up, sym, lo)
+
+# colour a variable symbol (with its subscript) to match its metric's colour
+mv <- function(txt, col) sprintf('<span style="color:%s;">%s</span>', col, txt)
 
 # a full metric row (label in column 1, then its value cells).
 # cls = "erow" tints the whole row (label included) to flag it as editable.
@@ -209,6 +274,7 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
 .controls .btn{background:#12405f;color:#e8eef4;border:1px solid #2a6a8f;border-radius:6px;
   padding:6px 13px;font-size:13px;cursor:pointer;}
 .controls .btn:hover{background:#175981;}
+.controls .btn:disabled{opacity:0.35;cursor:default;background:#12405f;box-shadow:none;}
 .controls .btn.active{background:#1f77a8;border-color:#8fd6f2;color:#fff;box-shadow:0 0 0 1px #8fd6f2 inset;}
 .khint{font-size:12.5px;color:#9fb0bf;}
 .kbd{display:inline-block;background:#0a2438;border:1px solid #2a6a8f;border-radius:4px;
@@ -218,27 +284,34 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
   border-bottom:1px solid rgba(255,255,255,.05);}
 .grow.ghead{border-bottom:1px solid rgba(255,255,255,.18);}
 .grow.erow{background:rgba(255,255,255,.05);border-radius:7px;margin:3px 0;}
-.rlabel{grid-column:1;text-align:left;font-size:12.5px;line-height:1.35;font-weight:600;
-  padding:9px 12px 9px 0;border-right:1px solid rgba(255,255,255,.10);}
+.rlabel{grid-column:1;grid-row:1;text-align:right;font-size:12.5px;line-height:1.35;font-weight:600;
+  align-self:stretch;padding:9px 12px 9px 0;border-right:1px solid rgba(255,255,255,.10);}
 .acc{cursor:pointer;color:#8fa3b3;font-size:10px;margin-right:6px;display:inline-block;user-select:none;}
 .acc:hover{color:#ffd27f;}
 .grow.collapsed .acc{transform:rotate(-90deg);}
 .grow.collapsed .vcell{display:none;}
 .grow.collapsed .rformula{display:none;}
 .grow.collapsed{margin:1px 0;}
-.rformula{font-size:12px;color:#cbb68e;margin-top:4px;padding-left:16px;font-weight:400;
+.rformula{font-size:12px;color:#cbb68e;margin-top:4px;padding-left:0;font-weight:400;
   line-height:1.6;font-family:Cambria,Georgia,"Times New Roman",serif;font-style:italic;}
 .rformula sub{font-size:8.5px;font-style:normal;}
 .rformula sup{font-size:8.5px;font-style:normal;}
+.rformula .bigop{display:inline-flex;flex-direction:column;align-items:center;
+  vertical-align:middle;font-style:normal;line-height:1;margin:0 3px;}
+.rformula .bigop .op{font-size:20px;line-height:1;}
+.rformula .bigop .lim{font-size:8px;line-height:1;font-style:normal;white-space:nowrap;}
+.rformula .bigop .lim.up{margin-bottom:1px;}
+.rformula .bigop .lim.lo{margin-top:3px;}
 .ycol{text-align:center;padding:2px 6px 7px;}
 .ycol .yr{font-size:21px;font-weight:700;}
 .ivlcell{text-align:center;font-size:11px;color:#9fb0bf;padding:3px 4px;align-self:center;
   white-space:nowrap;}
-.vcell{grid-row:1;padding:8px 7px;display:flex;flex-direction:column;align-items:center;text-align:center;}
-.vstack{display:inline-flex;flex-direction:column;align-items:stretch;}
-.vmain{font-size:15px;line-height:1.2;font-weight:700;word-break:break-word;font-variant-numeric:tabular-nums;text-align:right;}
+.ivlrng{font-size:11px;font-style:italic;color:#8496a4;margin-top:3px;white-space:nowrap;}
+.vcell{grid-row:1;padding:8px 7px;display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0;}
+.vstack{display:inline-flex;flex-direction:column;align-items:stretch;max-width:100%;}
+.vmain{font-size:13px;line-height:1.2;font-weight:700;word-break:break-word;font-variant-numeric:tabular-nums;text-align:right;}
 .vmain .per{font-size:10px;color:#9fb0bf;font-weight:400;}
-.vdelta{font-size:15px;margin-top:1px;font-weight:600;font-variant-numeric:tabular-nums;text-align:right;line-height:1.15;}
+.vdelta{font-size:13px;margin-top:1px;font-weight:600;font-variant-numeric:tabular-nums;text-align:right;line-height:1.15;}
 .vdelta .d0{color:#8a97a3;}
 .vsub{font-size:11px;color:#8496a4;margin-top:3px;font-style:italic;line-height:1.35;}
 .vgrowth{grid-row:1;align-self:start;margin-top:22px;text-align:center;font-size:12px;color:#8496a4;
@@ -249,10 +322,11 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
 .rng{font-size:12px;font-style:italic;color:#8496a4;}
 .vtop{line-height:1.1;margin-bottom:1px;}
 .ital{font-style:italic;font-weight:400;opacity:.85;}
-.digits{display:flex;justify-content:flex-end;align-items:flex-end;flex-wrap:nowrap;}
+.digits{display:flex;justify-content:flex-end;align-items:flex-end;flex-wrap:wrap;}
+.dgroup{display:inline-flex;align-items:flex-end;}   /* a thousands-group: never breaks internally */
 .dig,.sep{display:flex;flex-direction:column;align-items:center;line-height:1;}
 .dig{width:1ch;}                 /* digit width fixed; larger arrows overflow it */
-.dch{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;padding:0;}
+.dch{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;padding:0;}
 .dch.suf{color:#9fb0bf;}
 .dig.lead .dch{color:#5f7484;}
 .ar{cursor:pointer;font-size:11px;color:#5f7484;user-select:none;height:13px;line-height:13px;padding:0;}
@@ -270,12 +344,38 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
 )"
 
 js <- r"(
-var rates = [0.000340, 0.000510, 0.000250, 0.000024];
+var rates = [0.0005, 0.0005, 0.0001, 0.00005];
 var pops  = [8.3e9, 8.3e9, 8.3e9, 8.3e9, 8.3e9];
 var LEN   = [10, 90, 900, 9000];                 // interval lengths (years)
 var baseRates = rates.slice(), basePops = pops.slice();   // comparison baseline (from server)
 var sel   = {kind:'rate', i:1, place:0.00001, delta:false};  // value/delta + which digit
-function pushState(){ if(window.Shiny) Shiny.setInputValue('state', {rates:rates, pops:pops}, {priority:'event'}); }
+
+// ── undo / redo history: client-side snapshots of {rates, pops} ──
+var histStack = [{rates: rates.slice(), pops: pops.slice()}];
+var histIdx = 0, histSuppress = false;
+function histEq(a,b){ return a.rates.every(function(v,i){return v===b.rates[i];}) && a.pops.every(function(v,i){return v===b.pops[i];}); }
+function updateHistBtns(){
+  var u = document.getElementById('undoBtn'), r = document.getElementById('redoBtn');
+  if(u) u.disabled = (histIdx <= 0);
+  if(r) r.disabled = (histIdx >= histStack.length - 1);
+}
+function recordHistory(){
+  if(histSuppress) return;
+  var cur = {rates: rates.slice(), pops: pops.slice()};
+  if(histEq(cur, histStack[histIdx])) return;        // no actual change
+  histStack = histStack.slice(0, histIdx + 1);         // drop any redo tail
+  histStack.push(cur); histIdx = histStack.length - 1;
+  updateHistBtns();
+}
+function restoreHist(){
+  var s = histStack[histIdx];
+  histSuppress = true; rates = s.rates.slice(); pops = s.pops.slice(); pushState(); histSuppress = false;
+  applyHighlight(); updateHistBtns();
+}
+function undo(){ if(histIdx > 0){ histIdx--; restoreHist(); } }
+function redo(){ if(histIdx < histStack.length - 1){ histIdx++; restoreHist(); } }
+
+function pushState(){ if(window.Shiny) Shiny.setInputValue('state', {rates:rates, pops:pops}, {priority:'event'}); recordHistory(); }
 function cellOf(s){ return document.querySelector('.xedit[data-kind="'+s.kind+'"][data-i="'+s.i+'"]'); }
 function digsOf(c){ if(!c) return []; return Array.prototype.slice.call(c.querySelectorAll((sel.delta ? '.vdelta' : '.vmain') + ' .dig')); }
 function allCells(){ return Array.prototype.slice.call(document.querySelectorAll('.xedit')); }
@@ -389,8 +489,8 @@ document.addEventListener('wheel', function(e){
   sel = {kind:cell.getAttribute('data-kind'), i:+cell.getAttribute('data-i'),
          place:digDelta(dig), delta: !!dig.closest('.vdelta')};
   var n = 0;
-  while(wheelAcc <= -STEP && n < 8){ wheelAcc += STEP; change(1);  n++; }
-  while(wheelAcc >=  STEP && n < 8){ wheelAcc -= STEP; change(-1); n++; }
+  while(wheelAcc <= -STEP && n < 8){ wheelAcc += STEP; change(-1); n++; }
+  while(wheelAcc >=  STEP && n < 8){ wheelAcc -= STEP; change(1);  n++; }
   if(n >= 8) wheelAcc = 0;   // guard against a pathological single event
 }, {passive:false});
 var collapsed = {};                              // row id -> hidden?
@@ -405,7 +505,16 @@ document.addEventListener('click', function(e){
   var r = g.getAttribute('data-row'); collapsed[r] = !collapsed[r]; applyCollapsed();
 });
 $(document).on('shiny:value', function(ev){ if(ev.name === 'panel') setTimeout(function(){ applyHighlight(); applyCollapsed(); }, 0); });
-$(document).on('shiny:connected', function(){ pushState(); setTimeout(function(){ applyHighlight(); applyCollapsed(); }, 60); });
+$(document).on('shiny:connected', function(){ pushState(); setTimeout(function(){ applyHighlight(); applyCollapsed(); updateHistBtns(); }, 60); });
+document.addEventListener('click', function(e){
+  if(e.target.closest('#undoBtn')){ undo(); }
+  else if(e.target.closest('#redoBtn')){ redo(); }
+});
+document.addEventListener('keydown', function(e){
+  var z = (e.key === 'z' || e.key === 'Z'), y = (e.key === 'y' || e.key === 'Y');
+  if((e.ctrlKey || e.metaKey) && z && !e.shiftKey){ e.preventDefault(); undo(); }
+  else if((e.ctrlKey || e.metaKey) && (y || (z && e.shiftKey))){ e.preventDefault(); redo(); }
+});
 if(window.Shiny){
   Shiny.addCustomMessageHandler('setState', function(v){
     rates = v.rates.slice(); pops = v.pops.slice(); pushState(); applyHighlight();
@@ -425,6 +534,10 @@ ui <- fluidPage(
       "probability, expected population, and cumulative human life lived. ",
       "Deltas compare against the frozen baseline."),
     div(class = "controls",
+      tags$button(id = "undoBtn", type = "button", class = "btn", title = "Undo (Ctrl+Z)",
+                  disabled = NA, HTML("&#8630;&nbsp;Undo")),
+      tags$button(id = "redoBtn", type = "button", class = "btn", title = "Redo (Ctrl+Y)",
+                  disabled = NA, HTML("Redo&nbsp;&#8631;")),
       actionButton("surv100", "100% survival", class = "btn"),
       uiOutput("basebtns", inline = TRUE),
       actionButton("reset", "Reset to defaults", class = "btn"),
@@ -437,10 +550,7 @@ ui <- fluidPage(
         "Survival edits backtrace into the earlier extinction rates."))),
     uiOutput("panel"),
     uiOutput("summary"),
-    div(class = "foot", HTML(
-      "Potential population is interpolated geometrically between the ",
-      "checkpoints 8.2 / 8.9 / 10 / 10 / 10&nbsp;bn, so it stays internally ",
-      "consistent. Lives = cumulative life-years &divide; 75.")),
+    uiOutput("foot"),
     tags$script(HTML(js)))
 )
 
@@ -454,7 +564,7 @@ server <- function(input, output, session) {
     else            list(rates = as.numeric(s$rates), pops = as.numeric(s$pops))
   })
 
-  mode       <- reactiveVal("current")           # "current" | "previous"
+  mode       <- reactiveVal("previous")          # "current" | "previous"
   ref_static <- reactiveVal(DEF_STATE)            # frozen baseline (current mode)
   hist       <- reactiveValues(prev = DEF_STATE, last = DEF_STATE)
 
@@ -483,7 +593,7 @@ server <- function(input, output, session) {
     session$sendCustomMessage("setState",
       list(rates = as.numeric(DEF_RATES), pops = as.numeric(POP_CPS)))
     ref_static(DEF_STATE); hist$prev <- DEF_STATE; hist$last <- DEF_STATE
-    mode("current")
+    mode("previous")
   })
 
   output$basebtns <- renderUI({
@@ -508,21 +618,21 @@ server <- function(input, output, session) {
       tags$div(class = "rlabel", "")),
       lapply(1:5, function(j)
         tags$div(class = "ycol", style = paste0("grid-column:", ycol(j), "/span 2;"),
-          div(class = "yr", CPS[j])))))
+          div(class = "yr", fmt_year(CPS[j]))))))
 
-    # interval row: "← N years →" centered in each gap
+    # interval row: "← N years →" over each gap, with the calendar year-range below it
     intervals <- do.call(tags$div, c(list(class = "grow",
       tags$div(class = "rlabel", "")),
       lapply(1:4, function(i)
         tags$div(class = "ivlcell", style = paste0("grid-column:", gcol(i), "/span 2;"),
-          HTML(paste0("&larr; ", SEG_LEN[i], " years &rarr;"))))))
+          div(HTML(paste0("&larr; ", SEG_LEN[i], " years &rarr;"))),
+          div(class = "ivlrng", HTML(paste0(fmt_year(SEG_START[i]), "&ndash;", fmt_year(SEG_END[i]))))))))
 
     # 1 · annual extinction probability — editable, sits in the gaps between years
     rate_cells <- lapply(1:4, function(i)
       gcell_edit(gcol(i), cur = cur$rates[i], ref = ref$rates[i], kind = "rate", vi = i,
         to_disp = 100, decimals = 4, suffix = "%", good = "more_bad",
         top   = paste0("<span class='ratio'>1 in ", f_int(1 / cur$rates[i]), "</span>"),
-        sub   = paste0("<span class='rng'>", SEG_START[i], "&ndash;", SEG_END[i], "</span>"),
         color = COL_RATE))
 
     # 2 · survival probability given past extinction — editable (backtraces to rates)
@@ -536,10 +646,9 @@ server <- function(input, output, session) {
 
     # 3 · cumulative survived years of humanity
     years_cells <- lapply(1:5, function(j)
-      gcell(ycol(j), if (j == 1) "0" else f_years(cur$cum_years[j]),
-        if (j == 1) NULL else fmt_delta(cur$cum_years[j], ref$cum_years[j], "more_good", f_years),
-        if (j == 1) NULL else paste0("of ", f_int(elapsed[j]), "y potential"),
-        color = COL_SURV))
+      if (j == 1) gcell_ro(ycol(j), cur$cum_years[j], cur$cum_years[j], 1, 4, "y", delta = FALSE, color = COL_SURV)
+      else gcell_ro(ycol(j), cur$cum_years[j], ref$cum_years[j], 1, 4, "y", "more_good",
+             sub = paste0("of ", f_int(elapsed[j]), "y potential"), color = COL_SURV))
 
     # 4 · potential population if survived — editable checkpoints
     pop_pot_cells <- lapply(1:5, function(j)
@@ -555,49 +664,59 @@ server <- function(input, output, session) {
 
     # 5 · expected population with survival probabilities
     pop_exp_cells <- lapply(1:5, function(j)
-      gcell(ycol(j), f_int(cur$pop_exp[j]),
-        if (j == 1) NULL else fmt_delta(cur$pop_exp[j], ref$pop_exp[j], "more_good", f_int),
-        if (j == 1) NULL else paste0("of ", f_int(cur$pop_pot[j]), " potential"),
-        color = COL_POP))
+      if (j == 1) gcell_ro(ycol(j), cur$pop_exp[j], cur$pop_exp[j], 1, 0, "", delta = FALSE, color = COL_POP)
+      else gcell_ro(ycol(j), cur$pop_exp[j], ref$pop_exp[j], 1, 0, "", "more_good",
+             sub = paste0("of ", f_int(cur$pop_pot[j]), " potential"), color = COL_POP))
 
     # 6 · expected cumulative lived human life-years
     ly_cells <- lapply(1:5, function(j)
-      gcell(ycol(j), if (j == 1) "0" else paste0(f_int(cur$cum_ly[j]), " ly"),
-        if (j == 1) NULL else fmt_delta(cur$cum_ly[j], ref$cum_ly[j], "more_good", f_ly),
-        if (j == 1) NULL else paste0("of ", f_int(cur$cum_ly_pot[j]), " potential"),
-        color = COL_POP))
+      if (j == 1) gcell_ro(ycol(j), cur$cum_ly[j], cur$cum_ly[j], 1, 0, "", delta = FALSE, color = COL_POP)
+      else gcell_ro(ycol(j), cur$cum_ly[j], ref$cum_ly[j], 1, 0, "", "more_good",
+             sub = paste0("of ", f_int(cur$cum_ly_pot[j]), " potential"), color = COL_POP))
 
     # 7 · expected cumulative lived human lives (75y)
     lives_cells <- lapply(1:5, function(j)
-      gcell(ycol(j), if (j == 1) "0" else f_int(cur$lives[j]),
-        if (j == 1) NULL else fmt_delta(cur$lives[j], ref$lives[j], "more_good", f_int),
-        if (j == 1) NULL else paste0(f_int(cur$lives_pot[j] - cur$lives[j]), " less than potential"),
-        color = COL_POP))
+      if (j == 1) gcell_ro(ycol(j), cur$lives[j], cur$lives[j], 1, 0, "", delta = FALSE, color = COL_POP)
+      else gcell_ro(ycol(j), cur$lives[j], ref$lives[j], 1, 0, "", "more_good",
+             sub = paste0(f_int(cur$lives_pot[j] - cur$lives[j]), " less than potential"), color = COL_POP))
 
     div(class = "grid-wrap",
       header,
       intervals,
       metric_grow("Annual extinction<br>probability <span class='ital'>if survived</span>",  COL_RATE, rate_cells,    cls = "erow", row = "rate",
-                  formula = "e<sub>t</sub>"),
+                  formula = mv("e<sub>t</sub>", COL_RATE)),
       metric_grow("Survival probability<br><span class='ital'>given past extinction</span>",  COL_SURV, surv_cells,    cls = "erow", row = "surv",
-                  formula = "s<sub>t</sub> = &prod;<sub>i=2027</sub><sup>t</sup> (1 &minus; e<sub>i</sub>)"),
+                  formula = paste0(mv("s<sub>t</sub>", COL_SURV), " = ", bigop("&prod;", "i=2027", "t"),
+                                   " (1 &minus; ", mv("e<sub>i</sub>", COL_RATE), ")")),
       metric_grow("Cumulative survived<br>years of humanity",                                 COL_SURV, years_cells,   row = "years",
-                  formula = "L<sub>t</sub> = &sum;<sub>i=2027</sub><sup>t</sup> s<sub>i</sub>"),
+                  formula = paste0(mv("L<sub>t</sub>", COL_SURV), " = ", bigop("&sum;", "i=2027", "t"),
+                                   " ", mv("s<sub>i</sub>", COL_SURV))),
       metric_grow("Potential population<br><span class='ital'>if survived</span>",            COL_POP,  c(pop_pot_cells, growth_cells), cls = "erow", row = "pop",
-                  formula = "P<sub>t</sub>"),
+                  formula = mv("P<sub>t</sub>", COL_POP)),
       metric_grow("Expected population<br><span class='ital'>with survival prob.</span>",     COL_POP,  pop_exp_cells, row = "popexp",
-                  formula = "E<sub>t</sub> = P<sub>t</sub> &middot; s<sub>t</sub>"),
+                  formula = paste0(mv("E<sub>t</sub>", COL_POP), " = ", mv("P<sub>t</sub>", COL_POP),
+                                   " &middot; ", mv("s<sub>t</sub>", COL_SURV))),
       metric_grow("Expected cumulative<br>lived human life-years",                            COL_POP,  ly_cells,      row = "ly",
-                  formula = "H<sub>t</sub> = &sum;<sub>i=2027</sub><sup>t</sup> E<sub>i</sub>"),
+                  formula = paste0(mv("H<sub>t</sub>", COL_POP), " = ", bigop("&sum;", "i=2027", "t"),
+                                   " ", mv("E<sub>i</sub>", COL_POP))),
       metric_grow("Expected cumulative<br>lived human lives <span class='ital'>(75y)</span>", COL_POP,  lives_cells,   row = "lives",
-                  formula = "N<sub>t</sub> = H<sub>t</sub> / 75"))
+                  formula = paste0(mv("N<sub>t</sub>", COL_POP), " = ", mv("H<sub>t</sub>", COL_POP), " / 75")))
+  })
+
+  output$foot <- renderUI({
+    p   <- state_r()$pops
+    cps <- paste(formatC(p / 1e9, format = "f", digits = 1), collapse = " / ")
+    div(class = "foot", HTML(paste0(
+      "Potential population is interpolated geometrically between the checkpoints ",
+      cps, "&nbsp;bn, so it stays internally consistent. ",
+      "Lives = cumulative life-years &divide; 75.")))
   })
 
   output$summary <- renderUI({
     st  <- state_r()
     cur <- compute(st$rates, st$pops)
     div(class = "summary", HTML(paste0(
-      "With these rates, humanity survives to <b>", max(CPS),
+      "With these rates, humanity survives to <b>", fmt_year(max(CPS)),
       "</b> with <b>", f_pct(cur$surv[5]), "</b> probability, is expected to live ",
       "<b>", f_years(cur$cum_years[5]), "</b> of the next ",
       f_int(sum(SEG_LEN)), " years, and to accrue <b>", f_int(cur$lives[5]),

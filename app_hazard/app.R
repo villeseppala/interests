@@ -180,7 +180,7 @@ overlay_js <- HTML(r"---(
       syncSet(hazSet,hazS,HDESC); } }
 
   function styleSet(set, desc, active, hidden){
-    let base=active?1:0.4, op=showPoints?base:0, oc=(active&&useCtrl)?(showPoints?1:0):(showPoints?base*0.6:0);
+    let base=active?1:0.4, op=showPoints?base:0, oc=useCtrl?(showPoints?(active?1:base*0.6):0):0;
     if(hidden){ op=0; oc=0; }
     const dc=active?desc.col:"#bbb", bc=active?desc.bar:"#ccc";
     set.anchors.forEach(a=>{ const cx=sX(a.fx), cy=desc.yOf(a.val);
@@ -235,10 +235,11 @@ overlay_js <- HTML(r"---(
     const po=document.getElementById("popout");
     if(po){ let rows=""; const yy=[0,10,110,1110];
       for(let i=0;i<4;i++){ const fx=i/3, pot=curveValAt(popS,fx), s2=curveValAt(survS,fx), ex=pot*s2, ly=curveValAt(cumLY,fx);
-        let c="<span class='pcell'><b>yr "+yy[i]+"</b><br>potential "+fmtM(pot)+" M<br>expected "+fmtM(ex)+" M<br>"+fmtBig(ly)+" life-yrs<br>"+fmtBig(ly/75)+" lives";
+        const pos = i===0 ? "left:0;text-align:left;" : (i===3 ? "right:0;text-align:right;" : "left:"+(fx*100)+"%;transform:translateX(-50%);text-align:center;");
+        let c="<div class='pcell' style='position:absolute;top:0;"+pos+"'><b>yr "+yy[i]+"</b><br>potential "+fmtM(pot)+" M<br>expected "+fmtM(ex)+" M<br>"+fmtBig(ly)+" life-yrs<br>"+fmtBig(ly/75)+" lives";
         if(B){ const bp=curveValAt2(B.fx,B.pop,fx), bs=curveValAt2(B.fx,B.surv,fx), bly=curveValAt(bCum,fx);
           c+="<br><span class='was'>was "+fmtM(bp)+" / exp "+fmtM(bp*bs)+" M &middot; "+fmtBig(bly/75)+" lives</span>"; }
-        c+="</span>"; rows+=c; }
+        c+="</div>"; rows+=c; }
       po.innerHTML=rows; } }
 
   function makeSet(){ const set={anchors:[],ctrls:[]};
@@ -369,7 +370,7 @@ ui <- fluidPage(
      #plot img{display:block; width:100%; height:100%;} #plot{line-height:0; position:absolute; inset:0; width:100%; height:100%;}
      #overlay{position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; touch-action:none;}
      #overlay text{user-select:none;}
-     #popout .pcell{line-height:1.55; min-width:150px;}
+     #popout .pcell{line-height:1.55; max-width:210px;}
      #popout .pcell b{color:#f18fbe;}
      #popout .was{color:#9a6580; font-style:italic;}
      .cmprow{margin:4px 0 8px;}
@@ -399,9 +400,8 @@ ui <- fluidPage(
   div(style = sprintf("position:relative; width:100%%; max-width:%dpx; aspect-ratio:%d/%d;", Wpx, Wpx, Hpx),
       plotOutput("plot", width = "100%", height = "100%"),
       HTML('<svg id="overlay" style="width:100%;height:100%;"></svg>')),
-  div(id = "popout", style = sprintf("display:flex; gap:22px; flex-wrap:wrap; margin:12px 0; width:100%%; max-width:%dpx; font-size:12px; color:#e46ba6;", Wpx)),
-  div(id = "live", style = "margin:8px 0; font-family:monospace; color:#cdd9e3;",
-      "Grab a red or blue handle to drive that variable."),
+  div(id = "popout", style = sprintf("position:relative; margin:12px 0; width:100%%; max-width:%dpx; min-height:140px; font-size:12px; color:#e46ba6;", Wpx)),
+  div(id = "live", style = "margin:8px 0; font-family:monospace; color:#cdd9e3;"),
   actionButton("reset", "Reset"),
   tags$script(overlay_js)
 )
