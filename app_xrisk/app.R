@@ -152,6 +152,9 @@ build_slots <- function(native, to_disp, decimals, suffix, pad = NULL, editable 
   }
   # editable digits carry ▲/▼ arrows (with matching spacers on separators so rows line up);
   # read-only digits carry neither, so those rows have no wasted vertical space.
+  # decimal points / thousands separators / the suffix follow the digits' colour
+  # (e.g. a grey delta's "." and "%" render in the same grey as its zeros)
+  sep_col <- if (!is.null(digit_color)) digit_color(FALSE, FALSE) else NULL
   mkslot <- function(p) {
     ch <- chars[p]
     if (!is.na(place[p])) {
@@ -164,7 +167,8 @@ build_slots <- function(native, to_disp, decimals, suffix, pad = NULL, editable 
     } else
       tags$span(class = "sep",
         if (editable) span(class = "arsp"),
-        tags$b(class = "dch", if (ch == " ") HTML("&nbsp;") else ch),
+        tags$b(class = "dch", style = if (!is.null(sep_col)) paste0("color:", sep_col, ";"),
+               if (ch == " ") HTML("&nbsp;") else ch),
         if (editable) span(class = "arsp"))
   }
   # split positions into thousands-groups (a space starts a new group; the dot +
@@ -183,7 +187,8 @@ build_slots <- function(native, to_disp, decimals, suffix, pad = NULL, editable 
              HTML(sign_char)), if (editable) span(class = "arsp")) else NULL
   suffix_slot <- if (nzchar(suffix))
     tags$span(class = "sep", if (editable) span(class = "arsp"),
-      tags$b(class = "dch suf", HTML(suffix)), if (editable) span(class = "arsp")) else NULL
+      tags$b(class = "dch suf", style = if (!is.null(sep_col)) paste0("color:", sep_col, ";"), HTML(suffix)),
+      if (editable) span(class = "arsp")) else NULL
 
   ng <- length(groups)
   lapply(seq_len(ng), function(gi) {
@@ -260,14 +265,16 @@ mv <- function(txt, col) sprintf('<span style="color:%s;">%s</span>', col, txt)
 metric_grow <- function(label, color, cells, cls = NULL, row = NULL, formula = NULL)
   do.call(tags$div, c(list(class = trimws(paste("grow", cls %||% "")), `data-row` = row,
     tags$div(class = "rlabel", style = paste0("color:", color, ";"),
-      span(class = "acc", HTML("&#9662;")), span(class = "rlbl", HTML(label)),
-      if (!is.null(formula)) div(class = "rformula", HTML(formula)))),
+      span(class = "acc", HTML("&#9660;")),
+      div(class = "rlblwrap",
+        span(class = "rlbl", HTML(label)),
+        if (!is.null(formula)) div(class = "rformula", HTML(formula))))),
     cells))
 
 # ── UI ──────────────────────────────────────────────────────────────────────
 css <- r"(
 body{background:#0b3552;color:#e8eef4;font-family:Arial,Helvetica,sans-serif;margin:0;}
-.wrap{max-width:1240px;margin:0 auto;padding:18px 22px 70px;}
+.wrap{max-width:1240px;margin:0 auto;padding:18px 11px 70px;}
 h1{font-size:21px;font-weight:700;margin:0 0 4px;}
 .lead{font-size:13px;color:#b7c6d3;margin:0 0 14px;line-height:1.5;}
 .controls{display:flex;gap:10px;align-items:center;margin:12px 0 20px;flex-wrap:wrap;}
@@ -280,13 +287,15 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
 .kbd{display:inline-block;background:#0a2438;border:1px solid #2a6a8f;border-radius:4px;
   padding:0 7px;font-size:12px;margin:0 1px;line-height:18px;}
 .grid-wrap{margin-top:4px;}
-.grow{display:grid;grid-template-columns:200px repeat(10,1fr);align-items:start;
+.grow{display:grid;grid-template-columns:172px repeat(10,1fr);align-items:start;
   border-bottom:1px solid rgba(255,255,255,.05);}
 .grow.ghead{border-bottom:1px solid rgba(255,255,255,.18);}
 .grow.erow{background:rgba(255,255,255,.05);border-radius:7px;margin:3px 0;}
-.rlabel{grid-column:1;grid-row:1;text-align:right;font-size:12.5px;line-height:1.35;font-weight:600;
-  align-self:stretch;padding:9px 12px 9px 0;border-right:1px solid rgba(255,255,255,.10);}
-.acc{cursor:pointer;color:#8fa3b3;font-size:10px;margin-right:6px;display:inline-block;user-select:none;}
+.rlabel{grid-column:1;grid-row:1;display:flex;align-items:flex-start;gap:5px;font-size:12.5px;line-height:1.35;font-weight:600;
+  align-self:stretch;padding:9px 8px 9px 0;border-right:1px solid rgba(255,255,255,.10);}
+.rlblwrap{flex:1;min-width:0;text-align:right;}
+.acc{cursor:pointer;color:rgba(255,255,255,.45);font-size:9px;flex:0 0 auto;margin-top:3px;
+  display:inline-block;user-select:none;line-height:1;transition:transform 0.22s ease;}
 .acc:hover{color:#ffd27f;}
 .grow.collapsed .acc{transform:rotate(-90deg);}
 .grow.collapsed .vcell{display:none;}
@@ -329,7 +338,7 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
 .dch{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;padding:0;}
 .dch.suf{color:#9fb0bf;}
 .dig.lead .dch{color:#5f7484;}
-.ar{cursor:pointer;font-size:11px;color:#5f7484;user-select:none;height:13px;line-height:13px;padding:0;}
+.ar{cursor:pointer;font-size:11px;color:#8a97a3;user-select:none;height:13px;line-height:13px;padding:0;}
 .ar:hover{color:#ffd27f;}
 .arsp{height:13px;}
 .dig.digsel .dch{color:#ffd27f !important;}
@@ -684,9 +693,9 @@ server <- function(input, output, session) {
     div(class = "grid-wrap",
       header,
       intervals,
-      metric_grow("Annual extinction<br>probability <span class='ital'>if survived</span>",  COL_RATE, rate_cells,    cls = "erow", row = "rate",
+      metric_grow("Annual extinction<br>probability<br><span class='ital'>if survived until then</span>",  COL_RATE, rate_cells,    cls = "erow", row = "rate",
                   formula = mv("e<sub>t</sub>", COL_RATE)),
-      metric_grow("Survival probability<br><span class='ital'>given past extinction</span>",  COL_SURV, surv_cells,    cls = "erow", row = "surv",
+      metric_grow("Survival probability<br><span class='ital'>given past extinction probabilities</span>",  COL_SURV, surv_cells,    cls = "erow", row = "surv",
                   formula = paste0(mv("s<sub>t</sub>", COL_SURV), " = ", bigop("&prod;", "i=2027", "t"),
                                    " (1 &minus; ", mv("e<sub>i</sub>", COL_RATE), ")")),
       metric_grow("Cumulative survived<br>years of humanity",                                 COL_SURV, years_cells,   row = "years",
@@ -694,7 +703,7 @@ server <- function(input, output, session) {
                                    " ", mv("s<sub>i</sub>", COL_SURV))),
       metric_grow("Potential population<br><span class='ital'>if survived</span>",            COL_POP,  c(pop_pot_cells, growth_cells), cls = "erow", row = "pop",
                   formula = mv("P<sub>t</sub>", COL_POP)),
-      metric_grow("Expected population<br><span class='ital'>with survival prob.</span>",     COL_POP,  pop_exp_cells, row = "popexp",
+      metric_grow("Expected population<br><span class='ital'>given survival probability</span>",     COL_POP,  pop_exp_cells, row = "popexp",
                   formula = paste0(mv("E<sub>t</sub>", COL_POP), " = ", mv("P<sub>t</sub>", COL_POP),
                                    " &middot; ", mv("s<sub>t</sub>", COL_SURV))),
       metric_grow("Expected cumulative<br>lived human life-years",                            COL_POP,  ly_cells,      row = "ly",
