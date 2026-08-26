@@ -22,6 +22,7 @@ Below are two early, fully interactive version of the site, that I produced with
 The first one focuses on presenting a lot of variables (inputs/outputs). Click any extinction probability, survival probability or potential-population digit and adjust it with the arrows, arrow keys, or by typing a number.
 
 <!-- XRISK-APP:START -->
+
 ```{shinylive-r}
 #| standalone: true
 #| viewerHeight: 900
@@ -763,6 +764,7 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 ```
+
 <!-- XRISK-APP:END -->
 
 ### Threshold curve editor
@@ -770,6 +772,7 @@ shinyApp(ui, server)
 Below is an alternative prototype where you sketch the whole risk profile as a curve rather than typing numbers. Drag the red **extinction-probability-per-year** handles or the blue population handles across the timeline (years 0–1110 over three log-spaced spans). This allows more customizability on what x-risk probabilities the user sets for which time period.
 
 <!-- HAZARD-APP:START -->
+
 ```{shinylive-r}
 #| standalone: true
 #| viewerHeight: 900
@@ -1469,6 +1472,7 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 ```
+
 <!-- HAZARD-APP:END -->
 
 They layout sketch below focuses more on graphical representation and different timescales. It also shows different options on the left hand side menu and how they could be presented at the site:

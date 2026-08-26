@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-08-26">
+<meta name="dcterms.date" content="2026-08-27">
 
 <title>Website for demonstrating existential risk</title>
 <style>
@@ -78,7 +78,7 @@ ul.task-list li input[type="checkbox"] {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">August 26, 2026</p>
+      <p class="date">August 27, 2026</p>
     </div>
   </div>
   
@@ -1573,7 +1573,8 @@ shinyApp(ui, server)</code></pre>
 <li><p>The user can also simulate a number of possible futures/paths for humankind, given the chosen probabilities. Showing these paths, especially the extinction events depicted in them, can give a more tangible impressions of existential risk than the standard expected values.</p></li>
 <li><p>User can set estimates on how much removing a certain risk factor would reduce the overall x-risk. I have explored here why I think this could be a useful approach to individual x-risk: https://villeseppala.github.io/interests/articles/202.html It is a policy relevant angle and also helps circumvent the problem of risk being intertwined.</p></li>
 <li><p>Site can also be used to collect expert and general population estimates on existential risk, since users can export their selected probabilities to the site’s server. Expert evaluations could be filtered using some simple authentications mechanisms, such as identification codes. Estimates from experts or the general public can be used to set default values for the site, and their distribution can be shown to the user. This can be done while also giving the users the ability to set what variables they control and with what timelines, as the results can be interpolated.</p></li>
-<li><p>User can also look into catastrophic risk - risk that don’t cause extinction but a significant reduction in the human population. In addition to event probability, user could set how great the population reduction is (user can also set a probability distribution for this) as well as how quick the population recovery is.</p>
+<li><p>User can also look into catastrophic risk - risk that don’t cause extinction but a significant reduction in the human population. In addition to event probability, user could set how great the population reduction is (user can also set a probability distribution for this) as well as how quick the population recovery is.</p></li>
+<li><p>User can choose a discount rate that will be applied on some outcome variables. This discounts those outcomes. Different discount rates could be set for different time periods.</p>
 <h4 id="thoughts-on-what-variables-to-use" class="anchored">Thoughts on what variables to use</h4>
 <p>User can choose which variables to use and show. I’m still considering what kind of variables to have as inputs and outputs (and which to have on by default), not limited to ones shown in the graphs. I’m pretty certain about including these, in addition to them:</p></li>
 <li><p>Annual survival probability per year as option to extinction survival probability per year (this is the second row variable in images/prototypes). This would help to make the variable better comparable to the default second row variable (survival by year).</p></li>

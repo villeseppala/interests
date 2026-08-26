@@ -10,7 +10,8 @@ on:
       - 'app_publish/www/style.css'
       - 'shared/layout.R'
       - 'tools/build_static.R'
-      - 'site/index.html'
+      - 'articles/**'
+      - 'site/**'
   workflow_dispatch:   # allow manual trigger from GitHub UI
 
 permissions:

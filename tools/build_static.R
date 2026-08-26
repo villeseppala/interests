@@ -84,6 +84,10 @@ cd <- build_dual_cyto_data(g,
 # Here we scan the sources to build the manifest (articles.json) and to mark which nodes
 # have an article. Rendering the HTML is a separate `quarto render articles` step.
 ARTICLES_DIR <- "articles"
+# Pages that should live at the site ROOT (e.g. /portfolio.html) rather than under
+# /articles/. They still render with the shared article chrome, then get promoted up
+# (see below) and are kept out of the numbered-article manifest.
+ROOT_PAGES   <- c("portfolio")
 
 # ── Sync the interactive apps into their article's shinylive cells ────────────
 # Each app's single source of truth is app_<name>/app.R; inject it verbatim into
@@ -121,10 +125,29 @@ if (dir.exists(ARTICLES_DIR) && length(list.files(ARTICLES_DIR, pattern = "\\.qm
   }
 }
 
+# ── Promote standalone pages to the site root ────────────────────────────────
+# Quarto renders every source into site/articles/ with the shared chrome. For the
+# ROOT_PAGES we copy the rendered HTML up to site/ and rewrite its relative asset
+# paths: ../ refs point to the root, same-dir refs (_files/, article.css, images/)
+# stay under articles/. Runs whether or not Quarto is present (uses the committed
+# site/articles/<page>.html when it is not), so /<page>.html always tracks it.
+for (pg in ROOT_PAGES) {
+  src <- file.path(OUT_DIR, "articles", paste0(pg, ".html"))
+  if (!file.exists(src)) { cat(sprintf("  (articles/%s.html not rendered yet; root copy skipped)\n", pg)); next }
+  html <- paste(readLines(src, warn = FALSE), collapse = "\n")
+  html <- gsub("../index.html",  "index.html",  html, fixed = TRUE)   # nav/footer links -> root
+  html <- gsub("../site-nav.js", "site-nav.js", html, fixed = TRUE)
+  html <- gsub(sprintf('="%s_files/', pg), sprintf('="articles/%s_files/', pg), html, fixed = TRUE)  # libs stay under articles/
+  html <- gsub('="article.css', '="articles/article.css', html, fixed = TRUE)
+  html <- gsub('="images/',      '="articles/images/',    html, fixed = TRUE)
+  writeLines(html, file.path(OUT_DIR, paste0(pg, ".html")))
+  cat(sprintf("  promoted articles/%s.html -> %s/%s.html\n", pg, OUT_DIR, pg))
+}
+
 # Manifest + which node ids have an article (shared helper in layout.R)
 .art        <- scan_articles(ARTICLES_DIR)
-articles    <- .art$manifest
-article_ids <- .art$ids
+articles    <- Filter(function(a) !(a$id %in% ROOT_PAGES), .art$manifest)   # root pages aren't numbered articles
+article_ids <- setdiff(.art$ids, ROOT_PAGES)
 
 # ── Descriptions lookup (keyed by node id) ────────────────────────────────────
 descriptions <- list()
