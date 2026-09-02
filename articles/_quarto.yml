@@ -13,6 +13,7 @@ format:
       body-width: 1050px
     toc: true
     toc-location: right
+    toc-expand: true    # keep every subheading visible, not just the active section's
     include-before-body: _nav-header.html
     include-after-body: _article-footer.html
     anchor-sections: true

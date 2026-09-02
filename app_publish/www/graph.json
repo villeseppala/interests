@@ -4,7 +4,7 @@
       "id": 106,
       "group": "Theme",
       "title": "Russia/Ukraine",
-      "edgeColor": "#B63BA4",
+      "edgeColor": "#A3375E",
       "title_fi": "Venäjä/Ukraina",
       "lightEdgeColor": "#BA3F7E"
     },
@@ -12,7 +12,7 @@
       "id": 101,
       "group": "Theme",
       "title": "Existential risks and longtermism",
-      "edgeColor": "#B6863B",
+      "edgeColor": "#A34337",
       "title_fi": "Eksistentiaaliset riskit ja longtermismi",
       "lightEdgeColor": "#A1BA3F"
     },
@@ -20,7 +20,7 @@
       "id": 104,
       "group": "Theme",
       "title": "Climate Change",
-      "edgeColor": "#3B60B6",
+      "edgeColor": "#A39037",
       "title_fi": "Ilmastonmuutos",
       "lightEdgeColor": "#3F5BBA"
     },
@@ -28,7 +28,7 @@
       "id": 105,
       "group": "Theme",
       "title": "Electricity markets",
-      "edgeColor": "#703BB6",
+      "edgeColor": "#9CA337",
       "title_fi": "Sähkömarkkinat",
       "lightEdgeColor": "#8D3FBA"
     },
@@ -36,7 +36,7 @@
       "id": 103,
       "group": "Theme",
       "title": "European Union",
-      "edgeColor": "#3BB6B3",
+      "edgeColor": "#A37637",
       "title_fi": "Euroopan Unioni",
       "lightEdgeColor": "#3FBAB0"
     },
@@ -44,7 +44,7 @@
       "id": 102,
       "group": "Theme",
       "title": "Global harmony",
-      "edgeColor": "#3BB65A",
+      "edgeColor": "#A35D37",
       "title_fi": "Globaali harmonia",
       "lightEdgeColor": "#3FBA47"
     },
@@ -125,7 +125,7 @@
       "group": "Skill",
       "title": "Artificial intelligence",
       "subs": [],
-      "edgeColor": "#C45157",
+      "edgeColor": "#9C5A30",
       "title_fi": "Tekoäly",
       "lightEdgeColor": "#D69B4E"
     },
@@ -134,7 +134,7 @@
       "group": "Skill",
       "title": "Data visualization and graphic design",
       "subs": [],
-      "edgeColor": "#51C48A",
+      "edgeColor": "#9C9630",
       "title_fi": "Datavisualisointi ja graafinen suunnittelu",
       "lightEdgeColor": "#4ED69B"
     },
@@ -143,7 +143,7 @@
       "group": "Skill",
       "title": "Dashboards and websites",
       "subs": [],
-      "edgeColor": "#519BC4",
+      "edgeColor": "#9C3060",
       "title_fi": "Dashboardit ja nettisivut",
       "lightEdgeColor": "#4E89D6"
     },
@@ -152,7 +152,7 @@
       "group": "Skill",
       "title": "Videos and streaming",
       "subs": [],
-      "edgeColor": "#6A51C4",
+      "edgeColor": "#9C3042",
       "title_fi": "Videot ja striimaus",
       "lightEdgeColor": "#9B4ED6"
     },
@@ -160,7 +160,7 @@
       "id": 305,
       "group": "Skill",
       "title": "Social media",
-      "edgeColor": "#7BC451",
+      "edgeColor": "#9C7830",
       "title_fi": "Sosiaalinen media",
       "subs": [],
       "lightEdgeColor": "#89D64E"
@@ -210,7 +210,7 @@
       "group": "Theme",
       "title": "Finnish economy",
       "title_fi": "Suomen talous",
-      "edgeColor": "#B63B4A",
+      "edgeColor": "#A33745",
       "lightEdgeColor": "#BA6A3F"
     },
     {
@@ -233,7 +233,7 @@
       "id": 303.5,
       "group": "Skill",
       "title": "Economics",
-      "edgeColor": "#C451BB",
+      "edgeColor": "#9C3C30",
       "lightEdgeColor": "#D64E89",
       "title_fi": "Taloustiede",
       "subs": []
@@ -271,84 +271,84 @@
     {
       "from": 101,
       "to": 201,
-      "color": "#B6863B",
+      "color": "#A34337",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 202,
-      "color": "#B6863B",
+      "color": "#A34337",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 204,
-      "color": "#B6863B",
+      "color": "#A34337",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 204.1,
-      "color": "#3BB65A",
+      "color": "#A35D37",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 204,
-      "color": "#3BB65A",
+      "color": "#A35D37",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 204.1,
-      "color": "#3BB6B3",
+      "color": "#A37637",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 207,
-      "color": "#3BB6B3",
+      "color": "#A37637",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206,
-      "color": "#3B60B6",
+      "color": "#A39037",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 207,
-      "color": "#3B60B6",
+      "color": "#A39037",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 208,
-      "color": "#3B60B6",
+      "color": "#A39037",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 207,
-      "color": "#703BB6",
+      "color": "#9CA337",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 208,
-      "color": "#703BB6",
+      "color": "#9CA337",
       "dashes": false,
       "hidden": false
     },
@@ -397,21 +397,21 @@
     {
       "from": 102,
       "to": 205.5,
-      "color": "#3BB65A",
+      "color": "#A35D37",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 205.5,
-      "color": "#3B60B6",
+      "color": "#A39037",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 204,
-      "color": "#3B60B6",
+      "color": "#A39037",
       "dashes": false,
       "hidden": false
     },
@@ -432,21 +432,21 @@
     {
       "from": 102,
       "to": 204.3,
-      "color": "#3BB65A",
+      "color": "#A35D37",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206.5,
-      "color": "#3B60B6",
+      "color": "#A39037",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 206.5,
-      "color": "#703BB6",
+      "color": "#9CA337",
       "dashes": false,
       "hidden": false
     },
@@ -488,28 +488,28 @@
     {
       "from": 104,
       "to": 204.1,
-      "color": "#3B60B6",
+      "color": "#A39037",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 201,
-      "color": "#3BB65A",
+      "color": "#A35D37",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 106.1,
       "to": 209.6,
-      "color": "#B63B4A",
+      "color": "#A33745",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 106,
       "to": 209.55,
-      "color": "#B63BA4",
+      "color": "#A3375E",
       "dashes": false,
       "hidden": false
     },
@@ -565,7 +565,7 @@
     {
       "from": 106,
       "to": 209.56,
-      "color": "#B63BA4",
+      "color": "#A3375E",
       "dashes": false,
       "hidden": false
     }
@@ -623,9 +623,9 @@
     "font_desc": 19,
     "font_hdr1": 30,
     "font_hdr2": 24,
-    "h_theme": 62,
+    "h_theme": 66,
     "h_project": 40,
-    "h_skill": 62,
+    "h_skill": 64,
     "w_project": 480,
     "w_node": 340,
     "ptype_pct": 18,
@@ -633,7 +633,7 @@
     "edge_bands": true,
     "edge_sankey": true,
     "edge_gap": 2,
-    "edge_transparency": 11,
+    "edge_transparency": 0,
     "edge_min_width": 44,
     "edge_min_on": false,
     "edge_curve": 2.9,
@@ -644,10 +644,11 @@
     "fill_nodepad": 3,
     "narrow_gap_mult": 1,
     "narrow_node_mult": 1,
-    "gradient_extent": 43,
-    "gradient_transparency": 47,
-    "gradient_curve": 1.5,
-    "gradient_hover_mult": 4.2,
+    "gradient_extent": 35,
+    "gradient_transparency": 6,
+    "gradient_curve": 0.8,
+    "gradient_hover_mult": 4.1,
+    "gradient_hover_desc": true,
     "node_outline": 2.5,
     "project_outline": 0,
     "outline_saturation": 1,
@@ -672,12 +673,12 @@
     "frame_corner_r": 10,
     "frame_fill_pct": 68,
     "headers_on_stack": false,
-    "col_bg": "#232834",
+    "col_bg": "#1b2c23",
     "col_sidebar_bg": "#373e48",
-    "col_node_bg": "#2c4058",
-    "col_theme": "#d6d6d6",
-    "col_project": "#d6d6d6",
-    "col_skill": "#d6d6d6",
+    "col_node_bg": "#003832",
+    "col_theme": "#e4e2e2",
+    "col_project": "#e4e2e2",
+    "col_skill": "#e4e2e2",
     "light_col_bg": "#ffffff",
     "light_col_sidebar_bg": "#ffffff",
     "light_col_node_bg": "#ffffff",

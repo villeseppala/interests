@@ -267,6 +267,7 @@ server <- function(input, output, session) {
     session$sendCustomMessage("setGradientTransparency", list(pct = ly$gradient_transparency %||% 40))
     session$sendCustomMessage("setGradientCurve", list(curve = ly$gradient_curve %||% 1))
     session$sendCustomMessage("setGradientHoverMult", list(mult = ly$gradient_hover_mult %||% 2))
+    session$sendCustomMessage("setGradientHoverDesc", list(value = isTRUE(ly$gradient_hover_desc %||% FALSE)))
     session$sendCustomMessage("setNodeOutline", list(width = ly$node_outline %||% 3))
     session$sendCustomMessage("setProjectOutline", list(width = ly$project_outline %||% ly$node_outline %||% 3))
     session$sendCustomMessage("setOutlineSaturation", list(value = ly$outline_saturation %||% 1))

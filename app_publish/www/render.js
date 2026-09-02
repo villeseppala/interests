@@ -295,6 +295,7 @@ var ACC_ICONS = {
   none:      { c: '', o: '' }
 };
 var gradientHoverMult = 2;   // hover widens the node's base gradient extent by this factor (1 = no change, 0 = hidden)
+var gradientHoverDesc = false;   // on an inline-expanded node, let the hover extension cover the description area too (not just the title/header)
 
 // A color→transparent gradient whose alpha falls off as (1-t)^gradientCurve across the band, so the
 // author can make the fill hug the border (high curve) or spread inward (low curve). `col` is rgba(...).
@@ -1551,9 +1552,10 @@ function gradientOverlay(id, pct, baseOnly) {
   if (base) render(base, basePct);
   // Hover widens just the hover-affected part by gradientHoverMult, using the base gradient (not an
   // extra one). On inline-expanded nodes the extension is confined to the title/header region so the
-  // description area keeps only the base gradient.
+  // description area keeps only the base gradient — unless gradientHoverDesc extends it over the
+  // description as well (then no clip, so the widened gradient spans the full expanded height).
   if (hov) {
-    var ex = inlineMode ? inlineExpandedMap[String(id)] : null;
+    var ex = (inlineMode && !gradientHoverDesc) ? inlineExpandedMap[String(id)] : null;
     var clip = (ex && ex.h) ? Math.max(0, Math.min(100, (ex.origH / ex.h) * 100)) : null;
     render(hov, basePct * gradientHoverMult, clip);
   }
@@ -4495,6 +4497,12 @@ Shiny.addCustomMessageHandler('setGradientHoverMult', function (msg) {
   if (cy) cy.emit('render');
 });
 
+// Whether the hover extension also covers an expanded node's description area (else header only).
+Shiny.addCustomMessageHandler('setGradientHoverDesc', function (msg) {
+  gradientHoverDesc = !!(msg && msg.value);
+  if (cy) cy.emit('render');
+});
+
 // Accordion open/closed indicator style on node titles (inline UI). msg.style keys into ACC_ICONS.
 Shiny.addCustomMessageHandler('setAccordionIcon', function (msg) {
   accordionIcon = (msg.style && ACC_ICONS[msg.style]) ? msg.style : 'triangle';
@@ -4873,6 +4881,7 @@ window.initStaticApp = function(payload) {
   if (payload.gradient_transparency != null) Shiny._handlers['setGradientTransparency']({ pct: payload.gradient_transparency });
   if (payload.gradient_curve != null) Shiny._handlers['setGradientCurve']({ curve: payload.gradient_curve });
   if (payload.gradient_hover_mult != null) Shiny._handlers['setGradientHoverMult']({ mult: payload.gradient_hover_mult });
+  if (payload.gradient_hover_desc != null) Shiny._handlers['setGradientHoverDesc']({ value: payload.gradient_hover_desc });
   if (payload.accordion_icon != null) Shiny._handlers['setAccordionIcon']({ style: payload.accordion_icon });
   if (payload.accordion_icon_size != null) Shiny._handlers['setAccordionIconSize']({ size: payload.accordion_icon_size });
   if (payload.node_outline != null) Shiny._handlers['setNodeOutline']({ width: payload.node_outline });
