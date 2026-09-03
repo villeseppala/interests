@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-09-02">
+<meta name="dcterms.date" content="2026-09-03">
 
 <title>Website for demonstrating existential risk</title>
 <style>
@@ -78,7 +78,7 @@ ul.task-list li input[type="checkbox"] {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">September 2, 2026</p>
+      <p class="date">September 3, 2026</p>
     </div>
   </div>
   
@@ -106,6 +106,7 @@ ul.task-list li input[type="checkbox"] {
 </div>
 <p>Below are two early, fully interactive version of the site, that I produced with Claude Code. They are still running entirely in browser instead of external server, so the first load takes a few seconds while the R runtime downloads and they might feel a bit sluggish.</p>
 <p>The first one focuses on presenting a lot of variables (inputs/outputs). Click any extinction probability, survival probability or potential-population digit and adjust it with the arrows, arrow keys, or by typing a number.</p>
+<p>External link to app: <a href="https://villeseppala.github.io/interests/articles/xrisk.html" class="uri">https://villeseppala.github.io/interests/articles/xrisk.html</a></p>
 <!-- XRISK-APP:START -->
 <pre class="shinylive-r" data-engine="r"><code>#| '!! shinylive warning !!': |
 #|   shinylive does not work in self-contained HTML documents.
@@ -854,6 +855,7 @@ shinyApp(ui, server)</code></pre>
 <section id="threshold-curve-editor" class="level3">
 <h3 class="anchored" data-anchor-id="threshold-curve-editor">Threshold curve editor</h3>
 <p>Below is an alternative prototype where you sketch the whole risk profile as a curve rather than typing numbers. Drag the red <strong>extinction-probability-per-year</strong> handles or the blue population handles across the timeline (years 0–1110 over three log-spaced spans). This allows more customizability on what x-risk probabilities the user sets for which time period.</p>
+<p>External link to app: <a href="https://villeseppala.github.io/interests/articles/hazard.html" class="uri">https://villeseppala.github.io/interests/articles/hazard.html</a></p>
 <!-- HAZARD-APP:START -->
 <pre class="shinylive-r" data-engine="r"><code>#| '!! shinylive warning !!': |
 #|   shinylive does not work in self-contained HTML documents.
