@@ -212,6 +212,7 @@ server <- function(input, output, session) {
                              col_bg = ly$col_bg %||% "#0b3552",
                              col_sidebar_bg = ly$col_sidebar_bg %||% "#081626",
                              col_node_bg = ly$col_node_bg %||% "#081626",
+                             col_column_bg = ly$col_column_bg %||% "#000000",
                              col_theme = ly$col_theme %||% "#3be37a",
                              col_project = ly$col_project %||% "#ffad33",
                              col_skill = ly$col_skill %||% "#78e6e7",

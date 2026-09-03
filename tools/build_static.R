@@ -47,6 +47,7 @@ cd <- build_dual_cyto_data(g,
   col_bg           = ly$col_bg           %||% "#0b3552",
   col_sidebar_bg   = ly$col_sidebar_bg   %||% "#081626",
   col_node_bg      = ly$col_node_bg      %||% "#081626",
+  col_column_bg    = ly$col_column_bg    %||% "#000000",
   col_theme        = ly$col_theme        %||% "#3be37a",
   col_project      = ly$col_project      %||% "#ffad33",
   col_skill        = ly$col_skill        %||% "#78e6e7",
@@ -112,6 +113,9 @@ inject_shinylive <- function(qmd_path, app_path, marker, height = 900) {
 xrisk_qmd <- file.path(ARTICLES_DIR, "201.qmd")
 inject_shinylive(xrisk_qmd, file.path("app_xrisk",  "app.R"), "XRISK-APP",  900)
 inject_shinylive(xrisk_qmd, file.path("app_hazard", "app.R"), "HAZARD-APP", 900)
+# Same two apps also get a standalone page each, so they can be linked to directly.
+inject_shinylive(file.path(ARTICLES_DIR, "xrisk.qmd"),  file.path("app_xrisk",  "app.R"), "XRISK-APP",   900)
+inject_shinylive(file.path(ARTICLES_DIR, "hazard.qmd"), file.path("app_hazard", "app.R"), "HAZARD-APP", 1000)
 
 # Render the .qmd sources to site/articles/<id>.html via Quarto (part of this one build).
 if (dir.exists(ARTICLES_DIR) && length(list.files(ARTICLES_DIR, pattern = "\\.qmd$"))) {

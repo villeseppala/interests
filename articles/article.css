@@ -36,6 +36,27 @@ a { color: #78e6e7; }
 #site-nav .nav-menu a:hover { background: rgba(255, 255, 255, 0.08); }
 #site-nav .nav-menu .nav-menu-empty { padding: 7px 16px; font-size: 13px; color: rgba(232,238,244,0.7); font-style: italic; }
 
+/* ── Embedded shinylive apps on small screens ──
+ * The x-risk and hazard apps are laid out for a ~1240px canvas and have no mobile layout, so on a
+ * phone they get squashed into ~380px and become unusable. Give them a fixed 800x900 viewport
+ * instead and let that box scroll sideways, so the app stays legible and only the app pans —
+ * not the whole article. (viewerHeight: 900 in the .qmd already sets the height; this pins width.) */
+@media (max-width: 820px) {
+  .shinylive-container {
+    width: 800px !important;
+    min-width: 800px !important;
+    height: 900px !important;
+  }
+  /* whichever element holds the app becomes the horizontal scroller */
+  section:has(> .shinylive-container),
+  div:has(> .shinylive-container),
+  section:has(> .shinylive-r),
+  div:has(> .shinylive-r) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 /* ── Back-to-node footer ── */
 hr.article-foot-sep { border: none; border-top: 1px solid rgba(255, 255, 255, 0.18); margin: 40px 0 18px; }
 .article-back { text-align: left; font-family: Arial, Helvetica, sans-serif; }

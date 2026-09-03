@@ -341,6 +341,7 @@ var ptypePct = 10;
 var mobileData = null;
 var selectedNodeId = null;
 var hoveredNodeId = null;
+var pinnedHoverIds = [];   // node ids held in the hovered state from the author app (multi-select highlight)
 var _edgeHoverActive = false;   // true while the hover comes from pointing at an edge (not a node)
 var mobileMode = false;
 var forceMobile = false;
@@ -361,10 +362,10 @@ var headerFillPct = 90;      // author %: scale each column header to fill this 
 var headerTitleMax = 1.5;    // author: cap the column-title font at this multiple of the node-title font
 var frameLineW = 2;          // author: column-frame outline thickness in px (0 = off)
 var frameCornerR = 14;       // author: column-frame corner radius in px
-var frameFillPct = 50;       // author: column-frame fill level 0-100 (LOG-mapped to opacity; 0 = off)
-// Log-scale the 0-100 fill level → actual opacity, so the low (subtle) end gets most of the slider's
-// travel. 0→0, ~50→~0.09, 100→1. See frameFillPct.
-function frameFillAlpha() { return frameFillPct > 0 ? (Math.pow(101, frameFillPct / 100) - 1) / 100 : 0; }
+var frameFillPct = 50;       // author: column-frame fill on/off (0 = off, any value above = on)
+// The column background is drawn solid in its own colour (colColumnBg) — no transparency — so the
+// picked colour is what you actually see. frameFillPct now only switches the fill on or off.
+function frameFillAlpha() { return frameFillPct > 0 ? 1 : 0; }
 var headersOnStack = false;  // author toggle: place Theme/Skill headers just above their (centred) node
                              // stack, at the Project column's header→stack gap, instead of the graph-area top
 var fontPtype = 12;
@@ -379,6 +380,7 @@ var descPadFill = 0; // extra description-text padding from the "extra width -> 
 var colBg = '#0b3552';
 var colSidebarBg = '#081626';
 var colNodeBg = '#081626';
+var colColumnBg = '#000000';   // column-frame fill colour (its strength is frameFillPct)
 var colTheme = '#3be37a';
 var colProject = '#ffad33';
 var colSkill = '#78e6e7';
@@ -386,6 +388,7 @@ var lightMode = false;
 var lightColBg = '#f0f4f8';
 var lightColSidebarBg = '#e2eaf3';
 var lightColNodeBg = '#e2eaf3';
+var lightColColumnBg = '#000000';
 var lightColTheme = '#1e7c45';
 var lightColProject = '#c06000';
 var lightColSkill = '#1a7a7b';
@@ -393,6 +396,7 @@ var lightEdgeColor = '#555555';
 var darkColBg = '#0b3552';
 var darkColSidebarBg = '#081626';
 var darkColNodeBg = '#081626';
+var darkColColumnBg = '#000000';
 var darkColTheme = '#3be37a';
 var darkColProject = '#ffad33';
 var darkColSkill = '#78e6e7';
@@ -1015,10 +1019,11 @@ function updateZoomLabel() {
   if (el) el.textContent = Math.round((uiZoom || 1) * 100) + '%';
 }
 
-// ── Reader-facing description text-size control (header A−/A+) ─────────────────
-// Controls ONLY the description font. The description container + its em headings read descFontSize
-// live, so we set it, re-measure open nodes' description heights, reflow and repaint. Persisted per
-// browser. (Node-title sizing is handled separately by the one-time mobile auto-fill below.)
+// ── Reader-facing general text-size control (header A−/A+) ────────────────────
+// A GENERAL font control: the description font is the reference, and every other font (node titles,
+// project type, skill subs, column headers) is scaled by the SAME ratio, so the whole page grows and
+// shrinks together. descFontSize / _baseDescFont gives that ratio -> userFontScale. Persisted per
+// browser. (uiFontScale, the one-time mobile auto-fill below, multiplies on top of this.)
 var DESC_FONT_MIN = 12, DESC_FONT_MAX = 30;
 function updateDescFontLabel() {
   var el = document.getElementById('inline-descfont-val');
@@ -1028,8 +1033,14 @@ function setDescFontSize(px, skipStore) {
   px = Math.max(DESC_FONT_MIN, Math.min(DESC_FONT_MAX, Math.round(px)));
   if (px === descFontSize) { updateDescFontLabel(); return; }
   descFontSize = px;
+  // Same ratio for every other font: 18 -> 21 grows node titles/headers by 21/18 too.
+  userFontScale = _baseDescFont ? (descFontSize / _baseDescFont) : 1;
+  applyNodeFontScale();
   applySidebarFonts();
+  var _pt = document.getElementById('page-title');   // sidebar page title rides the same scale
+  if (_pt) _pt.style.fontSize = fontHdr1 + 'px';
   if (cy && inlineBase) {                     // re-measure every open node's description, then reflow
+    restackAllColumnsForFonts();              // node fonts changed too — re-measure + re-stack columns
     Object.keys(inlineExpandedMap).forEach(function (id) {
       if (id === descEditId) setExpandedHeight(id, true);
       else setExpandedHeight(id, false);
@@ -1049,14 +1060,17 @@ function setDescFontSize(px, skipStore) {
 // A−/A+ control governs description text only, which keeps the width/zoom auto-sizing simple.
 var FONT_AUTOFILL_MAX = 1.8;
 var uiFontScale = 1;            // node-content font multiplier from the auto-fill (session, not persisted)
+var userFontScale = 1;          // reader's A−/A+ multiplier — applies to EVERY font, headers included
 var _baseFonts = null;          // { node, project, ptype, subs, hdr1, hdr2 } — payload values before scaling
+var _baseDescFont = 18;         // payload description font — the reference the A−/A+ ratio is taken from
 
-// Effective node-content fonts = base × uiFontScale. Headers and descriptions are NOT scaled here.
+// Effective fonts = base × scales. Node content also takes the auto-fill scale; headers take only the
+// reader's scale (the auto-fill deliberately leaves headers alone).
 function applyNodeFontScale() {
   var b = _baseFonts; if (!b) return;
-  var s = uiFontScale || 1;
+  var u = userFontScale || 1, s = (uiFontScale || 1) * u;
   fontNode = b.node * s; fontProject = b.project * s; fontPtype = b.ptype * s; fontSubs = b.subs * s;
-  fontHdr1 = b.hdr1; fontHdr2 = b.hdr2;
+  fontHdr1 = b.hdr1 * u; fontHdr2 = b.hdr2 * u;
 }
 
 // If any node of `group` wraps to ~2 or more rows, return the 2-row height for that group's nodes,
@@ -2389,42 +2403,47 @@ function applyHighlightState() {
       });
     }
   }
-  if (hoveredNodeId) {
-    var hn = cy.getElementById(String(hoveredNodeId));
-    if (hn && !hn.empty()) {
-      hn.addClass('hovered');
-      hn.connectedEdges().addClass('hovered');
-      var hovGrp = hn.data('group');
-      hn.connectedEdges().forEach(function(edge) {
-        var otherId = edge.data('source') === String(hoveredNodeId) ? edge.data('target') : edge.data('source');
-        var on2 = cy.getElementById(otherId); if (!on2 || on2.empty()) return;
-        on2.addClass('nbr-hi');
-        var og2 = on2.data('group');
-        var side2 = gradSide(hovGrp, og2);
-        if (!side2) return;
-        var rawHov = (lightMode ? edge.data('lightColor') : edge.data('color')) || (lightMode ? '#000000' : '#ffffff');
-        var edgeCol = hexRgba(rawHov, GRAD_ALPHA_BASE);  // hover reuses the base gradient (same opacity), just wider
-        // When hovering a Theme/Skill, confine the project's highlight to that node's band; else full-height
-        if (og2 === 'Project' && (hovGrp === 'Theme' || hovGrp === 'Skill')) {
-          var bi2 = projectBandIndex(on2, hovGrp, hoveredNodeId);
-          if (bi2.count > 0 && bi2.index >= 0) {
-            var bg2 = projectBandGeom(on2.id(), bi2.count)[bi2.index];
-            nodeHoverGradients[otherId] = { side: side2, color: edgeCol, top: bg2.top, height: bg2.height };
-          } else {
-            mergeHovGrad(nodeHoverGradients, otherId, side2, edgeCol);
-          }
+  // Light one node up exactly as a pointer hover would. Called for the real hovered node and for
+  // every pinned id, so several nodes can be "hovered" at once; the gradient maps merge by node id.
+  function applyHoverFor(hid) {
+    if (hid == null) return;
+    var hn = cy.getElementById(String(hid));
+    if (!hn || hn.empty()) return;
+    hn.addClass('hovered');
+    hn.connectedEdges().addClass('hovered');
+    var hovGrp = hn.data('group');
+    hn.connectedEdges().forEach(function(edge) {
+      var otherId = edge.data('source') === String(hid) ? edge.data('target') : edge.data('source');
+      var on2 = cy.getElementById(otherId); if (!on2 || on2.empty()) return;
+      on2.addClass('nbr-hi');
+      var og2 = on2.data('group');
+      var side2 = gradSide(hovGrp, og2);
+      if (!side2) return;
+      var rawHov = (lightMode ? edge.data('lightColor') : edge.data('color')) || (lightMode ? '#000000' : '#ffffff');
+      var edgeCol = hexRgba(rawHov, GRAD_ALPHA_BASE);  // hover reuses the base gradient (same opacity), just wider
+      // When hovering a Theme/Skill, confine the project's highlight to that node's band; else full-height
+      if (og2 === 'Project' && (hovGrp === 'Theme' || hovGrp === 'Skill')) {
+        var bi2 = projectBandIndex(on2, hovGrp, hid);
+        if (bi2.count > 0 && bi2.index >= 0) {
+          var bg2 = projectBandGeom(on2.id(), bi2.count)[bi2.index];
+          nodeHoverGradients[otherId] = { side: side2, color: edgeCol, top: bg2.top, height: bg2.height };
         } else {
           mergeHovGrad(nodeHoverGradients, otherId, side2, edgeCol);
         }
-        // Theme/Skill self lights up in the edge color; Project self uses banded edge colors (set below)
-        if (hovGrp !== 'Project')
-          mergeHovGrad(nodeHoverGradients, String(hoveredNodeId), oppSide(side2), edgeCol);
-      });
-      // Hovered project lights up in its connecting edge colors (wider bands), not the orange group color
-      if (hovGrp === 'Project')
-        nodeHoverGradients[String(hoveredNodeId)] = { bands: projectBandColors(hn, GRAD_ALPHA_BASE) };
-    }
+      } else {
+        mergeHovGrad(nodeHoverGradients, otherId, side2, edgeCol);
+      }
+      // Theme/Skill self lights up in the edge color; Project self uses banded edge colors (set below)
+      if (hovGrp !== 'Project')
+        mergeHovGrad(nodeHoverGradients, String(hid), oppSide(side2), edgeCol);
+    });
+    // Hovered project lights up in its connecting edge colors (wider bands), not the orange group color
+    if (hovGrp === 'Project')
+      nodeHoverGradients[String(hid)] = { bands: projectBandColors(hn, GRAD_ALPHA_BASE) };
   }
+  var _hovIds = pinnedHoverIds.slice();
+  if (hoveredNodeId && _hovIds.indexOf(String(hoveredNodeId)) < 0) _hovIds.push(String(hoveredNodeId));
+  _hovIds.forEach(applyHoverFor);
   cy.forceRender();
   drawEdgeOverlay();
   drawNodeConnector();
@@ -2440,12 +2459,12 @@ function toggleLightMode() {
   var btn = document.getElementById('mode-btn');
   var mobBtn = document.getElementById('mob-mode-btn');
   if (lightMode) {
-    colBg = lightColBg; colSidebarBg = lightColSidebarBg; colNodeBg = lightColNodeBg;
+    colBg = lightColBg; colSidebarBg = lightColSidebarBg; colNodeBg = lightColNodeBg; colColumnBg = lightColColumnBg;
     colTheme = lightColTheme; colProject = lightColProject; colSkill = lightColSkill;
     if (btn) btn.textContent = '\u263d'; // crescent for "go dark"
     if (mobBtn) mobBtn.textContent = '\u263d';
   } else {
-    colBg = darkColBg; colSidebarBg = darkColSidebarBg; colNodeBg = darkColNodeBg;
+    colBg = darkColBg; colSidebarBg = darkColSidebarBg; colNodeBg = darkColNodeBg; colColumnBg = darkColColumnBg;
     colTheme = darkColTheme; colProject = darkColProject; colSkill = darkColSkill;
     if (btn) btn.textContent = '\u2600'; // sun for "go light"
     if (mobBtn) mobBtn.textContent = '\u2600';
@@ -3096,7 +3115,7 @@ function positionHeaders(data) {
         fr.setAttribute('x', left); fr.setAttribute('y', top);
         fr.setAttribute('width', right - left); fr.setAttribute('height', bottom - top);
         fr.setAttribute('rx', r); fr.setAttribute('ry', r);
-        fr.setAttribute('fill', '#000'); fr.setAttribute('fill-opacity', frameFillAlpha());
+        fr.setAttribute('fill', colColumnBg); fr.setAttribute('fill-opacity', frameFillAlpha());
         fillSvg.appendChild(fr);
       }
       if (fillSvgHi && maskBottomPx != null) {
@@ -3111,7 +3130,7 @@ function positionHeaders(data) {
             ' L ' + right + ' ' + bBot + ' Z';
           var bpath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
           bpath.setAttribute('d', bp);
-          bpath.setAttribute('fill', '#000'); bpath.setAttribute('fill-opacity', frameFillAlpha());
+          bpath.setAttribute('fill', colColumnBg); bpath.setAttribute('fill-opacity', frameFillAlpha());
           fillSvgHi.appendChild(bpath);
         }
       }
@@ -3227,19 +3246,22 @@ function pickData(payload) {
 }
 
 function applyDataGlobals(data) {
-  // Base (author) node fonts; effective node fonts = base × uiFontScale (the one-time mobile auto-fill).
-  // Headers stay at base; descriptions are governed separately by the A−/A+ control below.
+  // Base (author) fonts; effective fonts = base × userFontScale (the reader's A−/A+) and, for node
+  // content, × uiFontScale (the one-time mobile auto-fill).
   _baseFonts = { node: data.fontNode || 12, project: data.fontProject || data.fontNode || 12,
                  ptype: data.fontPtype || 12, subs: data.fontSubs || 15,
                  hdr1: data.fontHdr1 || 22, hdr2: data.fontHdr2 || 15 };
-  applyNodeFontScale();
   descFontSize = data.fontDesc || 18;
-  // Reader's own description-size choice (header A−/A+) overrides the author default and survives data
+  _baseDescFont = descFontSize;            // the author default is the 1.0 reference for the A−/A+ ratio
+  // Reader's own text-size choice (header A−/A+) overrides the author default and survives data
   // refreshes (language toggle, etc.). Reader (inline, non-author) UI only.
   if (inlineMode && !useMobileLayout() && !authorEditable) {
     var _dfs = null; try { _dfs = localStorage.getItem('descFontSize'); } catch (e) {}
     if (_dfs != null && !isNaN(+_dfs)) descFontSize = Math.max(DESC_FONT_MIN, Math.min(DESC_FONT_MAX, +_dfs));
   }
+  userFontScale = _baseDescFont ? (descFontSize / _baseDescFont) : 1;   // restore the reader's ratio
+  applyNodeFontScale();
+  applySidebarFonts();
   applySidebarFonts();
   if (typeof updateDescFontLabel === 'function') updateDescFontLabel();
   watermarkText = data.watermarkText || '';
@@ -3256,27 +3278,29 @@ function applyDataGlobals(data) {
   headersOnStack = !!data.headersOnStack;
   if (typeof renderGraphQr === 'function') renderGraphQr();
   var ph = document.getElementById('page-title');
-  if (ph) { ph.style.fontSize = (data.fontHdr1 || 22) + 'px'; requestAnimationFrame(syncResizeHandle); }
+  if (ph) { ph.style.fontSize = fontHdr1 + 'px'; requestAnimationFrame(syncResizeHandle); }   // fontHdr1 already carries the reader's A−/A+ scale
   // Store dark and light color sets
   darkColBg         = data.colBg         || darkColBg;
   darkColSidebarBg  = data.colSidebarBg  || darkColSidebarBg;
   darkColNodeBg     = data.colNodeBg     || darkColNodeBg;
+  darkColColumnBg   = data.colColumnBg   || darkColColumnBg;
   darkColTheme      = data.colTheme      || darkColTheme;
   darkColProject    = data.colProject    || darkColProject;
   darkColSkill      = data.colSkill      || darkColSkill;
   if (data.lightColBg)         lightColBg         = data.lightColBg;
   if (data.lightColSidebarBg)  lightColSidebarBg  = data.lightColSidebarBg;
   if (data.lightColNodeBg)     lightColNodeBg      = data.lightColNodeBg;
+  if (data.lightColColumnBg)   lightColColumnBg    = data.lightColColumnBg;
   if (data.lightColTheme)      lightColTheme       = data.lightColTheme;
   if (data.lightColProject)    lightColProject     = data.lightColProject;
   if (data.lightColSkill)      lightColSkill       = data.lightColSkill;
   if (data.lightEdgeColor)     lightEdgeColor      = data.lightEdgeColor;
   // Apply active color set
   if (lightMode) {
-    colBg = lightColBg; colSidebarBg = lightColSidebarBg; colNodeBg = lightColNodeBg;
+    colBg = lightColBg; colSidebarBg = lightColSidebarBg; colNodeBg = lightColNodeBg; colColumnBg = lightColColumnBg;
     colTheme = lightColTheme; colProject = lightColProject; colSkill = lightColSkill;
   } else {
-    colBg = darkColBg; colSidebarBg = darkColSidebarBg; colNodeBg = darkColNodeBg;
+    colBg = darkColBg; colSidebarBg = darkColSidebarBg; colNodeBg = darkColNodeBg; colColumnBg = darkColColumnBg;
     colTheme = darkColTheme; colProject = darkColProject; colSkill = darkColSkill;
   }
 }
@@ -3284,6 +3308,13 @@ function applyDataGlobals(data) {
 /* ── Init Cytoscape ──────────────────────────────────────────────────────── */
 
 function initAccordions() {
+  // Enforce the default open/closed state here rather than trusting the markup: index.html is the
+  // one file that can't be cache-busted (it stamps ?v= onto the assets it loads, not onto itself),
+  // so a stale cached copy could otherwise resurrect an old default — e.g. About starting open.
+  // Only the description accordion starts open; runs once at startup, so manual toggles are kept.
+  document.querySelectorAll('.acc-section').forEach(function (s) {
+    if (s.id !== 'acc-desc') s.classList.remove('acc-open');
+  });
   document.querySelectorAll('.acc-section.acc-open .acc-body').forEach(function(b) {
     var section = b.parentElement;
     if (section && section.id === 'acc-desc') {
@@ -3884,9 +3915,11 @@ function initCyGraph(data) {
   if (pendingNodeParam) {
     var _pn = pendingNodeParam; pendingNodeParam = null; pendingScrollNode = String(_pn);
     setTimeout(function () { openNodeById(_pn); }, 500);
-  } else {
-    setTimeout(openDefaultInline, 500);   // otherwise open the openDefault node (e.g. "What is this site about")
   }
+  // Nothing auto-opens on a plain visit. The "openDefault" node flag (used by the About node "What is
+  // this site about") is deliberately not acted on: the author app owns graph.json and kept writing the
+  // flag back, so the behaviour is switched off here instead of in the data. To restore it, call
+  // openDefaultInline() again in an else-branch above.
   // On mobile, disable panning for touches starting in the top 55px of the graph
   // area so the browser's native pull-to-refresh gesture still works.
   if (mobileMode) {
@@ -4105,7 +4138,7 @@ Shiny.addCustomMessageHandler('updateCy', function (data) {
       if (_last && cy.getElementById(String(_last.id)).length) hoveredNodeId = String(_last.id);
     }
     layoutInlineScroll(); applyInitialFontScale();
-    if (_reopen.length) applyHighlightState();
+    if (_reopen.length || pinnedHoverIds.length) applyHighlightState();   // keep pinned highlights across rebuilds
   }
 });
 
@@ -4389,8 +4422,8 @@ Shiny.addCustomMessageHandler('triggerDownload', function (msg) {
   document.body.removeChild(a);
 });
 
-var colorPickerIds = ['col_bg','col_sidebar_bg','col_node_bg','col_theme','col_project','col_skill','col_all',
-                      'light_col_bg','light_col_sidebar_bg','light_col_node_bg','light_col_theme','light_col_project','light_col_skill','light_col_all'];
+var colorPickerIds = ['col_bg','col_sidebar_bg','col_node_bg','col_column_bg','col_theme','col_project','col_skill','col_all',
+                      'light_col_bg','light_col_sidebar_bg','light_col_node_bg','light_col_column_bg','light_col_theme','light_col_project','light_col_skill','light_col_all'];
 
 function bindColorPickers() {
   colorPickerIds.forEach(function(id) {
@@ -4501,6 +4534,14 @@ Shiny.addCustomMessageHandler('setGradientHoverMult', function (msg) {
 Shiny.addCustomMessageHandler('setGradientHoverDesc', function (msg) {
   gradientHoverDesc = !!(msg && msg.value);
   if (cy) cy.emit('render');
+});
+
+// Pin a set of nodes in the hovered state (author multi-select). msg.ids = array of node ids.
+Shiny.addCustomMessageHandler('setPinnedHover', function (msg) {
+  var ids = (msg && msg.ids) || [];
+  if (!Array.isArray(ids)) ids = [ids];
+  pinnedHoverIds = ids.map(String);
+  applyHighlightState();
 });
 
 // Accordion open/closed indicator style on node titles (inline UI). msg.style keys into ACC_ICONS.
@@ -4767,16 +4808,14 @@ function ensureInlineSidebarBtn() {
   zc.appendChild(zbtn('+', 'Zoom in', function () { setUiZoom((uiZoom || 1) * 1.2); }));
   zc.appendChild(zbtn('⤢', 'Reset zoom (fit width)', function () { uiZoom = 1; inlinePanX = 0; _zoomFocal = null; layoutInlineScroll(); }));
 
-  // Description text size controls (A−  18px  A+) — reader adjusts the font of open descriptions.
+  // General text size control (small A / big A) — scales every font by the same ratio.
   var fc = document.createElement('div'); fc.id = 'inline-descfont';
-  fc.title = 'Description text size';
-  var fMinus = zbtn('A', 'Smaller description text', function () { setDescFontSize(descFontSize - 1); });
+  fc.title = 'Text size';
+  var fMinus = zbtn('A', 'Smaller text', function () { setDescFontSize(descFontSize - 1); });
   fMinus.className = 'inline-zoombtn inline-descfont-sm';
-  var fPlus  = zbtn('A', 'Larger description text',  function () { setDescFontSize(descFontSize + 1); });
+  var fPlus  = zbtn('A', 'Larger text',  function () { setDescFontSize(descFontSize + 1); });
   fPlus.className = 'inline-zoombtn inline-descfont-lg';
-  var fVal = document.createElement('span'); fVal.id = 'inline-descfont-val';
-  fVal.textContent = Math.round(descFontSize) + 'px';
-  fc.appendChild(fMinus); fc.appendChild(fVal); fc.appendChild(fPlus);
+  fc.appendChild(fMinus); fc.appendChild(fPlus);
 
   // Header cluster spanning the bar: title/controls on the LEFT, font + zoom + Open/Collapse on RIGHT.
   var hdr = document.getElementById('inline-header-right');
