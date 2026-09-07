@@ -296,6 +296,10 @@ var ACC_ICONS = {
 };
 var gradientHoverMult = 2;   // hover widens the node's base gradient extent by this factor (1 = no change, 0 = hidden)
 var gradientHoverDesc = false;   // on an inline-expanded node, let the hover extension cover the description area too (not just the title/header)
+var hoverWhiteOutline = false;   // alternative highlight style: mark the hovered node with a plain
+                                 // high-contrast outline and give it NO hover gradient of its own, so the
+                                 // widened source-color gradient marks only the ADJACENT nodes. Reads more
+                                 // clearly than lighting up hovered and adjacent nodes the same way.
 
 // A color→transparent gradient whose alpha falls off as (1-t)^gradientCurve across the band, so the
 // author can make the fill hug the border (high curve) or spread inward (low curve). `col` is rgba(...).
@@ -343,6 +347,15 @@ var selectedNodeId = null;
 var hoveredNodeId = null;
 var pinnedHoverIds = [];   // node ids held in the hovered state from the author app (multi-select highlight)
 var _edgeHoverActive = false;   // true while the hover comes from pointing at an edge (not a node)
+// Touch devices have no hover, so there the highlight follows the last TAPPED node instead of the
+// pointer. Detected from the input device rather than the screen size: a narrow window on a laptop
+// still hovers, a large tablet still doesn't. Cached — the answer can't change mid-session.
+var _touchInput = null;
+function isTouchInput() {
+  if (_touchInput == null)
+    _touchInput = !!(window.matchMedia && window.matchMedia('(hover: none)').matches);
+  return _touchInput;
+}
 var mobileMode = false;
 var forceMobile = false;
 var unifiedUI = true;        // one UI everywhere: narrow screens use the inline node UI, not the old
@@ -356,6 +369,69 @@ var previewWidth = 390;
 var previewHeight = 844;
 var sheetMode = null; // 'desc' | 'info' | null
 var MOBILE_BREAKPOINT = 768;
+
+/* ── Wide vs tall browsers ─────────────────────────────────────────────────
+   Two layout variants live in the payload: "wide" is the payload root, "tall" is payload.tall — the
+   author's tall-column values, built server-side and present only when they actually differ from the
+   wide ones. computeAspectMode() decides which is live, with hysteresis so dragging a window across
+   square doesn't flip-flop the layout, and a minimum width so a phone held sideways (ratio ~2, but
+   only 800px wide) still counts as tall. */
+var aspectMode = null;          // 'wide' | 'tall' | null (not computed yet)
+var aspectForce = null;         // author preview override: 'wide' | 'tall' | null (= follow viewport)
+var ASPECT_ENTER_WIDE = 1.05;   // tall -> wide only above this width/height ratio
+var ASPECT_ENTER_TALL = 0.95;   // wide -> tall only below it (the gap between the two is the hysteresis)
+var ASPECT_MIN_WIDE_W = 900;    // narrower than this in CSS px = tall, whatever the ratio says
+var aspectVars = { wide: {}, tall: {} };   // client-side responsive vars, per mode
+
+function computeAspectMode() {
+  if (aspectForce) return aspectForce;
+  var v = siteViewport(), w = v.w, h = v.h;   // the site frame in the author app, else the window
+  if (!w || !h) return aspectMode || 'wide';
+  if (w < ASPECT_MIN_WIDE_W) return 'tall';
+  var r = w / h;
+  if (aspectMode === 'wide') return (r < ASPECT_ENTER_TALL) ? 'tall' : 'wide';
+  if (aspectMode === 'tall') return (r >= ASPECT_ENTER_WIDE) ? 'wide' : 'tall';
+  return (r >= 1) ? 'wide' : 'tall';   // first call: no previous mode to hold on to, so no hysteresis
+}
+
+// Tell the author app which layout variant is live, and the viewport it was decided from, for the
+// readout under "Preview as". Debounced, because dragging the editor divider fires resize
+// continuously; pickData reports immediately, since by then the mode has actually changed.
+var _aspectReportT = null;
+function reportAspectMode(immediate) {
+  if (!window.Shiny || !Shiny.setInputValue || Shiny._isStatic) return;
+  clearTimeout(_aspectReportT);
+  function send() {
+    var v = siteViewport();
+    Shiny.setInputValue('aspect_mode_active',
+      { mode: aspectMode || 'wide', w: Math.round(v.w), h: Math.round(v.h), forced: !!aspectForce },
+      { priority: 'event' });
+  }
+  if (immediate) send(); else _aspectReportT = setTimeout(send, 180);
+}
+
+// The client-side responsive settings (ptype width, the fill-% sliders, the narrow multipliers) reach
+// us both in the payload and, while authoring, as individual messages. Store them per mode and copy
+// the active one into the real globals. A message without an `aspect` field writes the wide entry, so
+// an older payload that sends them unqualified still behaves exactly as before.
+function setAspectVar(name, value, aspect) {
+  aspectVars[(aspect === 'tall') ? 'tall' : 'wide'][name] = value;
+  applyAspectVars();
+}
+
+function applyAspectVars() {
+  var wv = aspectVars.wide || {}, tv = aspectVars.tall || {};
+  // Tall inherits anything it doesn't set — same rule as the R side's tall_* fallback.
+  function pick(n) { return (aspectMode === 'tall' && tv[n] != null) ? tv[n] : wv[n]; }
+  var v;
+  if ((v = pick('ptypePct'))    != null) ptypePct    = v;
+  if ((v = pick('fillNodeW'))   != null) fillNodeW   = Math.max(0, v);
+  if ((v = pick('fillProjW'))   != null) fillProjW   = Math.max(0, v);
+  if ((v = pick('fillColGap'))  != null) fillColGap  = Math.max(0, v);
+  if ((v = pick('fillNodePad')) != null) fillNodePad = Math.max(0, v);
+  if ((v = pick('narrowGapMult'))  != null && v > 0) narrowGapMult  = v;
+  if ((v = pick('narrowNodeMult')) != null && v > 0) narrowNodeMult = v;
+}
 var fontNode = 12;
 var fontProject = 12;        // project-title font — set separately from the theme/skill title font (fontNode)
 var headerFillPct = 90;      // author %: scale each column header to fill this fraction of the column node width
@@ -416,15 +492,25 @@ document.addEventListener('DOMContentLoaded', function() {
 // Raw narrow-viewport detection — a phone-sized screen (or the author's mobile preview). Independent
 // of unifiedUI: used for touch-friendly tuning (deeper max zoom for reading) even though we now render
 // the SAME inline UI at every width.
+// The viewport the SITE should measure itself against. Normally that's the browser window — but the
+// author app renders the whole site (nav bar included) inside #site-frame, a resizable column beside
+// the editor. Every width decision has to read that frame instead, or dragging the divider would
+// change nothing: the narrow breakpoint, the wide/tall layout swap and the fill sliders would all
+// keep answering for the real window. Absent the frame (the published site), it is the window.
+function siteViewport() {
+  var f = document.getElementById('site-frame');
+  var dw = document.documentElement.clientWidth || window.innerWidth || 0;
+  var dh = document.documentElement.clientHeight || window.innerHeight || 0;
+  if (f && f.clientWidth > 10) return { w: f.clientWidth, h: f.clientHeight || dh, framed: true };
+  return { w: dw, h: dh, framed: false };
+}
+
 function isNarrow() {
   if (forceMobile) return true;
-  if (window.matchMedia) {
-    if (window.matchMedia('(max-width:' + MOBILE_BREAKPOINT + 'px)').matches) return true;
-    // Landscape phone: narrow height, not a tablet
-    if (window.matchMedia('(max-height:500px) and (max-width:1100px)').matches) return true;
-    return false;
-  }
-  return (document.documentElement.clientWidth || window.innerWidth) <= MOBILE_BREAKPOINT;
+  var v = siteViewport();
+  if (v.w <= MOBILE_BREAKPOINT) return true;
+  if (v.h <= 500 && v.w <= 1100) return true;   // landscape phone: short, and not a tablet
+  return false;
 }
 
 // "Should we use the OLD, separate mobile layout?" With unifiedUI on (the default) the answer is always
@@ -610,6 +696,7 @@ function saturateColor(hex, mult) {
       var _divCache = {};   // id -> { el, html }
       function upd() {
         var pan = inst.pan(), zoom = inst.zoom(), seen = {};
+        var contentTop = (inlineMode && typeof inlineContentTopPx === 'function') ? inlineContentTopPx() : 0;
         inst.nodes().forEach(function (node) {
           var opt = opts[0]; if (!opt) return;
           var html = opt.tpl(node.data()); if (!html) return;
@@ -630,6 +717,24 @@ function saturateColor(hex, mult) {
           // Rebuild content only when it changed — and never for an existing div mid-gesture (that would
           // detach the element under the finger). Brand-new divs (entry.html === null) always fill.
           if (entry.html !== html && (!_inlineGestureActive || entry.html === null)) { d.innerHTML = html; entry.html = html; }
+          // Sticky title: once an expanded node's top has scrolled above the content area, slide its
+          // title bar down by exactly that much so it hangs at the top of the view. The reader always
+          // sees which node they're reading, and can still close it there (the click falls through to
+          // the description underneath, which collapses the node). Clamped to the node's own height,
+          // so the title leaves with the node instead of detaching from it.
+          var exS = inlineMode ? inlineExpandedMap[id] : null;
+          var hdrEl = exS ? d.querySelector('.inline-node-header') : null;
+          if (hdrEl) {
+            var oh = exS.origH || 0;
+            var shift = Math.max(0, Math.min((contentTop - (pos.y - h / 2) * zoom - pan.y) / zoom, h - oh));
+            if (shift > 0.5) {
+              hdrEl.style.transform = 'translateY(' + shift + 'px)';
+              hdrEl.style.zIndex = '10';             // ride above the description it now covers...
+              hdrEl.style.background = _nbg;         // ...opaquely
+            } else if (hdrEl.style.transform) {
+              hdrEl.style.transform = ''; hdrEl.style.zIndex = ''; hdrEl.style.background = '';
+            }
+          }
         });
         Object.keys(_divCache).forEach(function (id) {   // remove divs for nodes that no longer exist
           if (!seen[id]) { var e = _divCache[id]; if (e.el && e.el.parentNode) e.el.parentNode.removeChild(e.el); delete _divCache[id]; }
@@ -1429,6 +1534,29 @@ function projectBandGeom(id, count) {
   return geom;
 }
 
+// The plain high-contrast colour of the hoverWhiteOutline highlight — used for the hovered node's
+// outline and for the casing around its edges. White on a dark background, black on a light one:
+// the point is contrast against whatever it sits on, not the literal colour.
+function plainHoverColor() { return lightMode ? '#000000' : '#ffffff'; }
+
+// Which walls of a node have edges running into them. The plain hover outline is left OPEN on those
+// walls: a border there would draw a line straight across the flow, breaking the visual run from node
+// through ribbon to node. Theme connects rightwards, Skill leftwards, Project both ways (see gradSide).
+function edgeAttachSides(n) {
+  var grp = n.data('group'), s = { left: false, right: false };
+  n.connectedEdges().forEach(function (e) {
+    if (grp === 'Theme') { s.right = true; return; }
+    if (grp === 'Skill') { s.left  = true; return; }
+    if (grp !== 'Project') return;
+    var otherId = e.data('source') === n.id() ? e.data('target') : e.data('source');
+    var on = cy.getElementById(otherId); if (!on || on.empty()) return;
+    var og = on.data('group');
+    if (og === 'Theme') s.left = true;
+    else if (og === 'Skill') s.right = true;
+  });
+  return s;
+}
+
 // Source-colored node outlines, drawn as an HTML overlay (reliable: re-renders per node like the
 // gradients do). Theme/Skill get a full-perimeter border in the node's own source color. Project
 // gets solid source-colored bars — Theme edge colors on the LEFT, Skill edge colors on the RIGHT —
@@ -1446,8 +1574,20 @@ function nodeBorderBandsHtml(data) {
   // thickens the connected Theme/Skill outlines — it just makes them solid).
   var emph = n.hasClass('hovered') || n.hasClass('nbr-hi');
   var op = emph ? 1 : outlineOpacity;
+  // hoverWhiteOutline: the hovered node itself gets a plain high-contrast outline instead of its
+  // source colour, so source colours read purely as "adjacent" and this one node reads as "hovered".
+  var plainCol = (hoverWhiteOutline && n.hasClass('hovered')) ? plainHoverColor() : null;
   var bw = n.hasClass('selected') ? (mobileMode ? 14 : 9) * bm : baseW;   // only selection changes width
   var z = 'position:absolute;pointer-events:none;z-index:7;';
+  // A box in colour `c`, closed on top and bottom but open wherever edges attach, so the outline runs
+  // out of the node and along the ribbon uninterrupted instead of capping it off.
+  function openBox(c) {
+    var es = edgeAttachSides(n);
+    return '<div style="' + z + 'opacity:' + op + ';top:0;left:0;right:0;bottom:0;box-sizing:border-box;' +
+      'border-top:' + bw + 'px solid ' + c + ';border-bottom:' + bw + 'px solid ' + c + ';' +
+      (es.left  ? '' : 'border-left:'  + bw + 'px solid ' + c + ';') +
+      (es.right ? '' : 'border-right:' + bw + 'px solid ' + c + ';') + '"></div>';
+  }
   if (grp === 'Theme' || grp === 'Skill') {
     // Use the same colour source as the node's gradient: the connected edge's colour first
     // (this renders reliably per-node), then the node's own edgeColor, then the group colour.
@@ -1455,6 +1595,7 @@ function nodeBorderBandsHtml(data) {
     var col = (edge && (lightMode ? edge.data('lightColor') : edge.data('color')))
               || (lightMode ? (n.data('lightEdgeColor') || n.data('edgeColor')) : n.data('edgeColor'))
               || (grp === 'Theme' ? colTheme : colSkill);
+    if (plainCol) return openBox(plainCol);   // hovered: open where the ribbons run in
     col = saturateColor(col, outlineSaturation);
     return '<div style="' + z + 'opacity:' + op + ';top:0;left:0;right:0;bottom:0;box-sizing:border-box;border:' + bw + 'px solid ' + col + ';"></div>';
   }
@@ -1462,10 +1603,17 @@ function nodeBorderBandsHtml(data) {
   // Prefer bands computed in buildBaseGradients (while edges were present) so the outline always
   // matches the visible gradient; fall back to a live recompute if the map isn't built yet.
   var out = '';
-  // Top & bottom outline only, in the project's own colour (from the Color tab). The left/right walls
-  // stay open so the edge ribbons flow into the node's sides; connection colours still read from the
-  // node's internal gradient. Solid on hover / neighbour-highlight, else the chosen outline opacity.
-  var pcol = saturateColor(colProject, outlineSaturation);
+  var pcol = plainCol || saturateColor(colProject, outlineSaturation);
+  // hoverWhiteOutline: a Project is outlined ONLY while hovered, and then all the way round — its left
+  // and right walls included, except where ribbons actually run in (a project with no Skill links keeps
+  // its right wall, and vice versa). Every other project sits bare.
+  if (hoverWhiteOutline) {
+    if (!plainCol) return '';   // not the hovered node → no project outline at all
+    return openBox(pcol);
+  }
+  // Default style: top & bottom outline only, in the project's own colour (from the Color tab). The
+  // left/right walls stay open so the edge ribbons flow into the node's sides; connection colours still
+  // read from the node's internal gradient. Solid on hover / neighbour-highlight, else the chosen opacity.
   out += '<div style="' + z + 'opacity:' + op + ';left:0;top:0;width:100%;height:' + bw + 'px;background:' + pcol + ';"></div>';
   out += '<div style="' + z + 'opacity:' + op + ';left:0;bottom:0;width:100%;height:' + bw + 'px;background:' + pcol + ';"></div>';
   return out;
@@ -1679,7 +1827,7 @@ function nodeBodyHtml(data, noGradient) {
     // nodes end up with the SAME type-font size — shrinking "Website" shrinks "Text" to match.
     var ptypeFontPx = fontPtype + 2;
     if (ptypeColW > 0) {
-      var typeTextW = ptypeColW - 10;   // the type column has 0 5px padding (left+right)
+      var typeTextW = ptypeColW - 5;    // the type column has 0 2.5px padding (left+right)
       var _cands = Object.keys(ptypeFi);
       _cands = _cands.concat(_cands.map(function (k) { return ptypeFi[k]; }));
       if (ptypeRaw && _cands.indexOf(ptypeRaw) < 0) _cands.push(ptypeRaw);
@@ -1701,7 +1849,7 @@ function nodeBodyHtml(data, noGradient) {
     var projFn = fontProject;
     var typeCol = (!mobileMode && ptypeRaw)
       ? '<div style="width:' + ptypeColW + 'px;flex-shrink:0;border-left:1.1px solid ' + colProject + ';' +
-        'display:flex;align-items:center;justify-content:center;padding:0 5px;' +
+        'display:flex;align-items:center;justify-content:center;padding:0 2.5px;' +
         'color:' + colProject + ';font-family:Arial,Helvetica,sans-serif;font-size:' + ptypeFontSize + ';' +
         'font-weight:bold;text-align:center;line-height:1.25;position:relative;z-index:6;">' + ptypeLabel + '</div>'
       : '';
@@ -1759,6 +1907,17 @@ function toggleArticleInline(id) {
 
 // Expanded inline node = the unchanged normal node as a fixed-height header (click it to close)
 // + a selectable description below it (clicking the text selects/copies, doesn't collapse).
+// Top edge of the scrollable content area, in container px: just below the column headers and the
+// fixed header bar. Mirrors the topPad that layoutInlineScroll pans to, so a sticky node title comes
+// to rest exactly where the column's first node normally starts — never over the column headings.
+function inlineContentTopPx() {
+  var hm = (lastData && lastData.headerMargin) || 70;
+  var t = 8 + hm * ((cy && cy.zoom()) || 1);
+  var hdrBar = document.getElementById('inline-header-right');
+  if (hdrBar) { var hbH = hdrBar.getBoundingClientRect().height; if (hbH > 0) t = Math.max(t, hbH + 6); }
+  return t;
+}
+
 function inlineExpandedNodeHtml(data, exEntry) {
   var origH = exEntry.origH || (data.h || 46);
   var gpct = (data.group === 'Project') ? gradientExtent / 2 : gradientExtent;
@@ -1773,9 +1932,13 @@ function inlineExpandedNodeHtml(data, exEntry) {
     'style="pointer-events:auto;cursor:pointer;position:absolute;top:3px;right:4px;z-index:8;font-size:13px;line-height:1;' +
     'padding:2px 5px;border-radius:4px;color:' + (lightMode ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.8)') + ';' +
     'background:' + (lightMode ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.28)') + ';">🔗</div>';
+  // The title bar is one block (title + chevron + copy link) so it can slide down as a unit when the
+  // node's top scrolls out of view — see the sticky-title pass in the nodeHtmlLabel updater.
   return '<div style="width:100%;height:100%;box-sizing:border-box;position:relative;display:flex;flex-direction:column;overflow:hidden;">' +
-    '<div style="height:' + origH + 'px;flex-shrink:0;position:relative;overflow:hidden;z-index:6;">' + nodeBodyHtml(data, true) + '</div>' +
-    desc + copyBtn + accordionIconHtml(true, data.group, origH) +
+    '<div class="inline-node-header" data-node-id="' + data.id + '" style="height:' + origH +
+      'px;flex-shrink:0;position:relative;overflow:hidden;z-index:6;">' +
+      nodeBodyHtml(data, true) + copyBtn + accordionIconHtml(true, data.group, origH) + '</div>' +
+    desc +
     gradientOverlay(data.id, gpct) + nodeBorderBandsHtml(data) + '</div>';   // gradient + source-color outline span the whole node
 }
 
@@ -2098,7 +2261,11 @@ function collapseNodeInline(id) {
   else reflowInline();
   var remaining = Object.keys(inlineExpandedMap);
   setNodeUrl(remaining.length ? remaining[remaining.length - 1] : null);
-  hoveredNodeId = remaining.length ? String(remaining[remaining.length - 1]) : null;   // highlight the new last-opened
+  // Highlight the new last-opened node. On touch the highlight belongs to the last TAPPED node, so
+  // closing one node leaves it where the tap put it — except "close all" (id == null), which is a
+  // deliberate reset and clears it.
+  if (!isTouchInput() || id == null)
+    hoveredNodeId = remaining.length ? String(remaining[remaining.length - 1]) : null;
   applyHighlightState();
 }
 
@@ -2433,12 +2600,14 @@ function applyHighlightState() {
       } else {
         mergeHovGrad(nodeHoverGradients, otherId, side2, edgeCol);
       }
-      // Theme/Skill self lights up in the edge color; Project self uses banded edge colors (set below)
-      if (hovGrp !== 'Project')
+      // Theme/Skill self lights up in the edge color; Project self uses banded edge colors (set below).
+      // Both are skipped under hoverWhiteOutline: there the hovered node carries only its plain outline,
+      // leaving the widened gradient to mark the adjacent nodes alone.
+      if (hovGrp !== 'Project' && !hoverWhiteOutline)
         mergeHovGrad(nodeHoverGradients, String(hid), oppSide(side2), edgeCol);
     });
     // Hovered project lights up in its connecting edge colors (wider bands), not the orange group color
-    if (hovGrp === 'Project')
+    if (hovGrp === 'Project' && !hoverWhiteOutline)
       nodeHoverGradients[String(hid)] = { bands: projectBandColors(hn, GRAD_ALPHA_BASE) };
   }
   var _hovIds = pinnedHoverIds.slice();
@@ -2597,6 +2766,11 @@ function drawEdgeOverlay() {
     return p;
   }
   var anySel = edgePaths.some(function (ep) { return ep.isSel; });
+  // hoverWhiteOutline: a plain-coloured casing drawn just under each hovered edge, so the hovered
+  // node's links carry the same outline as the node. Never a hit target (hlId null) — the coloured
+  // path on top of it keeps that role.
+  var hovCase  = hoverWhiteOutline ? plainHoverColor() : null;
+  var hovCaseW = strokeW * 2.25 + 2 * (nodeOutlineWidth || 3) * zoom;
   var NORM_OP = edgeOpacity;  // default edge opacity (author-controllable)
   var DIM_OP = edgeOpacity * (lightMode ? 0.6 : 0.82);  // faded context when a node is selected
   if (anySel) {
@@ -2609,6 +2783,7 @@ function drawEdgeOverlay() {
     // Hovered (not selected) — keep hover preview working during a selection
     edgePaths.forEach(function (ep) {
       if (!ep.isHov || ep.isSel) return;
+      if (hovCase) svg.appendChild(makePath(ep.pathD, hovCase, hovCaseW, NORM_OP, ep.dashes, null));
       svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW * 2.25, NORM_OP, ep.dashes, ep.hlId));
     });
     // Top: selected edges — full color, fully opaque, slightly thicker
@@ -2620,6 +2795,7 @@ function drawEdgeOverlay() {
     // No selection: hovered edge sits below normal edges so other connections stay visible
     edgePaths.forEach(function (ep) {
       if (!ep.isHov) return;
+      if (hovCase) svg.appendChild(makePath(ep.pathD, hovCase, hovCaseW, NORM_OP, ep.dashes, null));
       svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW * 2.25, NORM_OP, ep.dashes, ep.hlId));
     });
     edgePaths.forEach(function (ep) {
@@ -2664,7 +2840,7 @@ function drawEdgeBands(svg, rawEdges, zoom, pan) {
   var anySel = rawEdges.some(function (re) { return re.edge.hasClass('selected'); });
   var NORM_OP = edgeOpacity, DIM_OP = edgeOpacity * (lightMode ? 0.6 : 0.82);
 
-  function ribbon(re, op) {
+  function ribbon(re, op, stroke, strokeWidth) {
     var color = lightMode ? (re.d.lightColor || lightEdgeColor) : (re.d.color || '#ffffff');
     var x1 = re.sx, x2 = re.tx;
     var y1 = re.sBandY * zoom + pan.y, y2 = re.tBandY * zoom + pan.y;
@@ -2691,11 +2867,30 @@ function drawEdgeBands(svg, rawEdges, zoom, pan) {
       tp.push(x.toFixed(1) + ',' + (y - hw).toFixed(1));
       bt.push(x.toFixed(1) + ',' + (y + hw).toFixed(1));
     }
-    var d = 'M' + tp.join(' L') + ' L' + bt.reverse().join(' L') + ' Z';
+    var btr = bt.slice().reverse();
+    var d = 'M' + tp.join(' L') + ' L' + btr.join(' L') + ' Z';
     var p = document.createElementNS(SVGNS, 'path');
-    p.setAttribute('d', d); p.setAttribute('fill', color); p.setAttribute('stroke', 'none'); p.setAttribute('opacity', op);
+    p.setAttribute('d', d); p.setAttribute('fill', color); p.setAttribute('stroke', 'none');
+    p.setAttribute('opacity', op);
     if (re.hlId != null) { p.setAttribute('data-hl', re.hlId); p.style.pointerEvents = 'auto'; }  // hover/click target
-    return p;
+    if (!stroke) return p;
+    // `stroke` casings the ribbon in the plain hover colour, keeping its source colour as the fill —
+    // the edge equivalent of the hovered node's plain outline (hoverWhiteOutline). Drawn as two open
+    // paths along the ribbon's top and bottom rather than as a border on the closed polygon: a closed
+    // stroke would cap both ends, putting a line across the flow exactly where it meets a node.
+    var gEl = document.createElementNS(SVGNS, "g");
+    gEl.appendChild(p);
+    [tp, btr].forEach(function (pts) {
+      var e = document.createElementNS(SVGNS, 'path');
+      e.setAttribute('d', 'M' + pts.join(' L'));
+      e.setAttribute('fill', 'none'); e.setAttribute('stroke', stroke);
+      e.setAttribute('stroke-width', strokeWidth);
+      e.setAttribute('stroke-linecap', 'butt'); e.setAttribute('stroke-linejoin', 'round');
+      e.setAttribute('opacity', op);
+      e.style.pointerEvents = 'none';
+      gEl.appendChild(e);
+    });
+    return gEl;
   }
 
   function ok(re) { return re.sBandY != null && re.tBandY != null; }
@@ -2710,9 +2905,13 @@ function drawEdgeBands(svg, rawEdges, zoom, pan) {
     if (!ok(re) || busy(re) || !isTop(re)) return;
     svg.appendChild(ribbon(re, anySel ? DIM_OP : NORM_OP));
   });
+  // hoverWhiteOutline: ring the hovered node's edges in the same plain colour as the node itself, so
+  // the whole hovered "star" (node + its links) is outlined while the adjacent nodes stay purely colour-coded.
+  var hovStroke  = hoverWhiteOutline ? plainHoverColor() : null;
+  var hovStrokeW = (nodeOutlineWidth || 3) * zoom;
   rawEdges.forEach(function (re) {                                   // hovered (takes precedence)
     if (!ok(re) || !re.edge.hasClass('hovered') || re.edge.hasClass('selected')) return;
-    svg.appendChild(ribbon(re, 1));
+    svg.appendChild(ribbon(re, 1, hovStroke, hovStrokeW));
   });
   rawEdges.forEach(function (re) {                                   // selected on top
     if (!ok(re) || !re.edge.hasClass('selected')) return;
@@ -3237,12 +3436,24 @@ function renderGraphQr() {
 
 function pickData(payload) {
   mobileMode = useMobileLayout();
+  aspectMode = computeAspectMode();
+  if (payload && payload.aspectVars)
+    aspectVars = { wide: payload.aspectVars.wide || {}, tall: payload.aspectVars.tall || {} };
+  applyAspectVars();
   if (mobileMode && payload.mobile) {
     mobileData = payload.mobile;
     return JSON.parse(JSON.stringify(payload.mobile)); // deep clone so mutations don't corrupt rawPayload
   }
   mobileData = payload.mobile || null;
-  return JSON.parse(JSON.stringify(payload)); // deep clone
+  var base = JSON.parse(JSON.stringify(payload)); // deep clone
+  // Tall browser: overlay the tall build on top of the wide root. Overlay rather than replace,
+  // because payload.tall carries only what build_cyto_data produces — everything attached after the
+  // build (descriptions, sidebar, edge/gradient settings, articles) lives on the root and must survive.
+  var t = base.tall;
+  if (aspectMode === 'tall' && t) Object.keys(t).forEach(function (k) { base[k] = t[k]; });
+  delete base.tall;
+  reportAspectMode(true);
+  return base;
 }
 
 function applyDataGlobals(data) {
@@ -3333,6 +3544,7 @@ function saveLayoutSnapshot(data) {
   if (!data || !data.nodes) return;
   layoutSnapshot = {
     isMobile: mobileMode,   // track which mode this snapshot belongs to
+    aspect: aspectMode,     // ...and which layout variant (wide/tall) produced its geometry
     nodes: (data.nodes).map(function(n) {
       return { id: n.data && n.data.id, w: n.data && n.data.w, h: n.data && n.data.h,
                x: n.position && n.position.x, y: n.position && n.position.y };
@@ -3345,6 +3557,7 @@ function restoreLayoutSnapshot(data) {
   // Don't apply a snapshot from a different layout mode — it would corrupt node geometry.
   if (!layoutSnapshot || !data || !data.nodes) return;
   if (layoutSnapshot.isMobile !== mobileMode) return;
+  if (layoutSnapshot.aspect !== aspectMode) return;
   var byId = {};
   layoutSnapshot.nodes.forEach(function(s) { if (s.id != null) byId[String(s.id)] = s; });
   data.nodes.forEach(function(n) {
@@ -3958,6 +4171,9 @@ function initCyGraph(data) {
     var d = evt.target.data(), g = d.group;
     if (isColNode(g)) {
       var id = parseFloat(d.id);
+      // Touch: no pointer to hover with, so the tap itself drives the highlight — it stays on this
+      // node whether the tap opened it, closed it, or the node has nothing to open.
+      if (isTouchInput()) { hoveredNodeId = String(id); applyHighlightState(); }
       // Inline mode: toggle this node independently; multiple can stay open at once. No click highlight.
       if (inlineMode) {
         if (inlineExpandedMap[String(id)]) { collapseNodeInline(id); return; }
@@ -3969,8 +4185,10 @@ function initCyGraph(data) {
       if (window.Shiny) Shiny.setInputValue('clicked_node_id', id, { priority: 'event' });
     }
   });
-  // Hover only on desktop
-  if (!mobileMode) {
+  // Hover only where there's a real pointer. On touch the browser synthesises mouseover/mouseout
+  // around a tap, which would fight the tap-driven highlight (sticking on one node, or clearing it
+  // the moment you tap elsewhere) — so don't bind them at all there.
+  if (!mobileMode && !isTouchInput()) {
     cy.on('mouseover', 'node', function (evt) { hoveredNodeId = evt.target.data('id'); _edgeHoverActive = false; applyHighlightState(); });
     cy.on('mouseout', 'node', function () { if (_edgeHoverActive) return; hoveredNodeId = null; applyHighlightState(); });
   }
@@ -4067,16 +4285,18 @@ Shiny.addCustomMessageHandler('initCy', function (data) {
   // Handles Chrome DevTools phone emulation applying dimensions after initCy fires.
   // Two mechanisms: debounced resize handler (fast, event-driven) + 1500ms fallback.
   // Whichever fires first cancels the other to avoid double reinit.
-  var capturedMM = mobileMode, capturedW = lastMobileW;
+  var capturedMM = mobileMode, capturedW = lastMobileW, capturedAspect = aspectMode;
   var postInitDebounce = null, postInitFallback = null;
   function postInitReinit() {
     if (!rawPayload) return;
     var nowMobile = useMobileLayout();
     var gaEl = document.getElementById('graph-area');
     var nowW = gaEl ? gaEl.clientWidth : window.innerWidth;
-    if (nowMobile !== capturedMM || (nowMobile && Math.abs(nowW - capturedW) > 20)) {
+    if (nowMobile !== capturedMM || computeAspectMode() !== capturedAspect ||
+        (nowMobile && Math.abs(nowW - capturedW) > 20)) {
       lastMobileState = nowMobile;
       var p = pickData(rawPayload);
+      lastAspectMode = aspectMode;
       if (cy) { cy.destroy(); cy = null; }
       initCyGraph(p);
     }
@@ -4490,19 +4710,19 @@ Shiny.addCustomMessageHandler('setEdgePinHeader', function (msg) {
   if (cy) cy.emit('render');   // gradient/outline bands realign to the header region
 });
 Shiny.addCustomMessageHandler('setFillNodeW', function (msg) {
-  fillNodeW = (msg && msg.pct != null) ? Math.max(0, msg.pct) : 0;
+  setAspectVar('fillNodeW', (msg && msg.pct != null) ? Math.max(0, msg.pct) : 0, msg && msg.aspect);
   if (inlineMode && !useMobileLayout()) layoutInlineScroll();
 });
 Shiny.addCustomMessageHandler('setFillProjW', function (msg) {
-  fillProjW = (msg && msg.pct != null) ? Math.max(0, msg.pct) : 0;
+  setAspectVar('fillProjW', (msg && msg.pct != null) ? Math.max(0, msg.pct) : 0, msg && msg.aspect);
   if (inlineMode && !useMobileLayout()) layoutInlineScroll();
 });
 Shiny.addCustomMessageHandler('setFillColGap', function (msg) {
-  fillColGap = (msg && msg.pct != null) ? Math.max(0, msg.pct) : 0;
+  setAspectVar('fillColGap', (msg && msg.pct != null) ? Math.max(0, msg.pct) : 0, msg && msg.aspect);
   if (inlineMode && !useMobileLayout()) layoutInlineScroll();
 });
 Shiny.addCustomMessageHandler('setFillNodePad', function (msg) {
-  fillNodePad = (msg && msg.pct != null) ? Math.max(0, msg.pct) : 0;
+  setAspectVar('fillNodePad', (msg && msg.pct != null) ? Math.max(0, msg.pct) : 0, msg && msg.aspect);
   if (inlineMode && !useMobileLayout()) layoutInlineScroll();
 });
 
@@ -4534,6 +4754,12 @@ Shiny.addCustomMessageHandler('setGradientHoverMult', function (msg) {
 Shiny.addCustomMessageHandler('setGradientHoverDesc', function (msg) {
   gradientHoverDesc = !!(msg && msg.value);
   if (cy) cy.emit('render');
+});
+
+// Alternative hover style: plain outline on the hovered node, hover gradient on its neighbours only.
+Shiny.addCustomMessageHandler('setHoverWhiteOutline', function (msg) {
+  hoverWhiteOutline = !!(msg && msg.value);
+  if (cy) applyHighlightState();   // rebuilds the hover gradient maps and re-renders the outlines
 });
 
 // Pin a set of nodes in the hovered state (author multi-select). msg.ids = array of node ids.
@@ -4763,6 +4989,7 @@ function bindInlineWheel() {
   // that node. Edge paths carry data-hl (their Theme/Skill endpoint) and their own pointer-events, so
   // e.target identifies the edge even though the SVG overlay is rebuilt on every highlight change.
   ga.addEventListener('mousemove', function (e) {
+    if (isTouchInput()) return;                                        // synthesised move after a tap
     if (_drag && _drag.moved) return;                                  // mid-drag: ignore
     var hl = e.target && e.target.getAttribute && e.target.getAttribute('data-hl');
     if (hl) {
@@ -4819,7 +5046,11 @@ function ensureInlineSidebarBtn() {
 
   // Header cluster spanning the bar: title/controls on the LEFT, font + zoom + Open/Collapse on RIGHT.
   var hdr = document.getElementById('inline-header-right');
-  if (!hdr) { hdr = document.createElement('div'); hdr.id = 'inline-header-right'; document.body.appendChild(hdr); }
+  // Mount inside the site frame when there is one (author app), so this bar spans the simulated
+  // browser rather than the real window — otherwise it stretches across the editor column too.
+  var host = document.getElementById('site-frame') || document.body;
+  if (!hdr) { hdr = document.createElement('div'); hdr.id = 'inline-header-right'; host.appendChild(hdr); }
+  else if (hdr.parentNode !== host) host.appendChild(hdr);
   var sb = document.getElementById('info-sidebar');
   if (sb && sb.parentNode !== hdr) hdr.appendChild(sb);   // controls — left
   hdr.appendChild(fc);                                    // description font size — pushed right
@@ -4863,12 +5094,26 @@ Shiny.addCustomMessageHandler('setProjectMaxWidth', function (msg) {
 // Narrow-screen gap / node-width multipliers. Only relevant when narrow; changing them re-runs the
 // full layout (applyNarrowScale rescales the base, then autoFit/fit follow). Rebuild only if narrow.
 Shiny.addCustomMessageHandler('setNarrowGapMult', function (msg) {
-  narrowGapMult = (msg && msg.mult != null && +msg.mult > 0) ? +msg.mult : 1;
+  setAspectVar('narrowGapMult', (msg && msg.mult != null && +msg.mult > 0) ? +msg.mult : 1, msg && msg.aspect);
   if (cy && rawPayload && isNarrow()) Shiny._handlers['updateCy'](rawPayload);
 });
 Shiny.addCustomMessageHandler('setNarrowNodeMult', function (msg) {
-  narrowNodeMult = (msg && msg.mult != null && +msg.mult > 0) ? +msg.mult : 1;
+  setAspectVar('narrowNodeMult', (msg && msg.mult != null && +msg.mult > 0) ? +msg.mult : 1, msg && msg.aspect);
   if (cy && rawPayload && isNarrow()) Shiny._handlers['updateCy'](rawPayload);
+});
+
+// Author preview: pin the layout to one aspect mode regardless of the real window shape
+// (msg.mode 'wide' | 'tall'; anything else = follow the viewport again).
+Shiny.addCustomMessageHandler('setAspectPreview', function (msg) {
+  var m = msg && msg.mode;
+  var want = (m === 'wide' || m === 'tall') ? m : null;
+  if (want === aspectForce) return;
+  aspectForce = want;
+  if (!cy || !rawPayload) return;
+  var pk = pickData(rawPayload);
+  lastAspectMode = aspectMode;
+  cy.destroy(); cy = null;
+  initCyGraph(pk);
 });
 
 Shiny.addCustomMessageHandler('setArticlesEnabled', function (msg) {
@@ -4887,7 +5132,7 @@ Shiny.addCustomMessageHandler('expandAllInline', function (msg) {
 });
 
 Shiny.addCustomMessageHandler('setPtypeLayout', function (msg) {
-  if (msg.ptypePct !== undefined) ptypePct = msg.ptypePct;
+  if (msg.ptypePct !== undefined) setAspectVar('ptypePct', msg.ptypePct, msg.aspect);
   if (msg.projectNodeWidth !== undefined) projectNodeWidth = msg.projectNodeWidth;
   if (cy) cy.emit('render');
   drawNodeConnector();
@@ -4921,6 +5166,7 @@ window.initStaticApp = function(payload) {
   if (payload.gradient_curve != null) Shiny._handlers['setGradientCurve']({ curve: payload.gradient_curve });
   if (payload.gradient_hover_mult != null) Shiny._handlers['setGradientHoverMult']({ mult: payload.gradient_hover_mult });
   if (payload.gradient_hover_desc != null) Shiny._handlers['setGradientHoverDesc']({ value: payload.gradient_hover_desc });
+  if (payload.hover_white_outline != null) Shiny._handlers['setHoverWhiteOutline']({ value: payload.hover_white_outline });
   if (payload.accordion_icon != null) Shiny._handlers['setAccordionIcon']({ style: payload.accordion_icon });
   if (payload.accordion_icon_size != null) Shiny._handlers['setAccordionIconSize']({ size: payload.accordion_icon_size });
   if (payload.node_outline != null) Shiny._handlers['setNodeOutline']({ width: payload.node_outline });
@@ -5023,6 +5269,7 @@ document.addEventListener('DOMContentLoaded', function () {
   mobileMode = useMobileLayout();
   lastMobileState = mobileMode;  // init so first resize event can detect boundary crossing
   lastNarrowState = isNarrow();   // init so the first resize can detect a narrow-breakpoint crossing
+  lastAspectMode = aspectMode;    // ...likewise for the wide/tall boundary
   applyMobileLayout();
   resizeCy();
 });
@@ -5031,6 +5278,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 var lastMobileState = null;
 var lastNarrowState = null;  // isNarrow() at the last resize — crossing it re-applies the narrow multipliers
+var lastAspectMode = null;   // aspect mode at the last resize — crossing it swaps the wide/tall layout
 var lastMobileW = 0;        // viewport width used in last applyMobileNodeSizes call
 var postInitResizeHandler = null; // one-shot handler registered after each initCy
 var resizeDebounce = null;
@@ -5041,6 +5289,24 @@ window.addEventListener('resize', function () {
   // Unified UI: the narrow gap/node-width multipliers are baked into the layout at build time
   // (applyNarrowScale), keyed off isNarrow() — which is viewport-width based (the browser width, not
   // the device). Crossing that breakpoint must rebuild so the multipliers apply/unapply live.
+  // Wide/tall boundary: swap the layout variant (and the client-side responsive vars that go with
+  // it). computeAspectMode() reads the currently *applied* aspectMode for its hysteresis, so calling
+  // it here without assigning is deliberate — the mode only changes when pickData rebuilds.
+  var nowAspect = computeAspectMode();
+  reportAspectMode();   // keep the author readout's frame size live while the divider is dragged
+  if (rawPayload && lastAspectMode !== null && nowAspect !== lastAspectMode) {
+    lastAspectMode = nowAspect;
+    lastNarrowState = isNarrow();
+    lastMobileState = nowMobile;   // this rebuild covers a simultaneous mobile crossing too
+    clearTimeout(resizeDebounce);
+    resizeDebounce = setTimeout(function () {
+      var pk = pickData(rawPayload);
+      if (cy) { cy.destroy(); cy = null; }
+      initCyGraph(pk);
+    }, 180);
+    return;
+  }
+  lastAspectMode = nowAspect;
   var nowNarrow = isNarrow();
   if (rawPayload && lastNarrowState !== null && nowNarrow !== lastNarrowState) {
     lastNarrowState = nowNarrow;
@@ -5086,6 +5352,7 @@ window.addEventListener('orientationchange', function () {
     var nowMobile = useMobileLayout();
     var picked = pickData(rawPayload);
     lastMobileState = nowMobile;
+    lastAspectMode = aspectMode;
     if (cy) { cy.destroy(); cy = null; }
     initCyGraph(picked);
   }, 350);
@@ -5098,6 +5365,7 @@ window.addEventListener('pageshow', function (e) {
       var nowMobile = useMobileLayout();
       var picked = pickData(rawPayload);
       lastMobileState = nowMobile;
+      lastAspectMode = aspectMode;
       if (cy) { cy.destroy(); cy = null; }
       initCyGraph(picked);
     }, 150);

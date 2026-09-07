@@ -6,7 +6,7 @@
       "title": "Russia/Ukraine",
       "edgeColor": "#9D533A",
       "title_fi": "Venäjä/Ukraina",
-      "lightEdgeColor": "#BA3F7E"
+      "lightEdgeColor": "#B9EF95"
     },
     {
       "id": 101,
@@ -14,7 +14,7 @@
       "title": "Existential risks and longtermism",
       "edgeColor": "#9D7E3A",
       "title_fi": "Eksistentiaaliset riskit ja longtermismi",
-      "lightEdgeColor": "#A1BA3F"
+      "lightEdgeColor": "#78D585"
     },
     {
       "id": 104,
@@ -22,7 +22,7 @@
       "title": "Climate Change",
       "edgeColor": "#9D3A4B",
       "title_fi": "Ilmastonmuutos",
-      "lightEdgeColor": "#3F5BBA"
+      "lightEdgeColor": "#81CFB7"
     },
     {
       "id": 105,
@@ -30,7 +30,7 @@
       "title": "Electricity markets",
       "edgeColor": "#9D3E3A",
       "title_fi": "Sähkömarkkinat",
-      "lightEdgeColor": "#8D3FBA"
+      "lightEdgeColor": "#7EBDD1"
     },
     {
       "id": 103,
@@ -38,7 +38,7 @@
       "title": "European Union",
       "edgeColor": "#929D3A",
       "title_fi": "Euroopan Unioni",
-      "lightEdgeColor": "#3FBAB0"
+      "lightEdgeColor": "#DB888C"
     },
     {
       "id": 102,
@@ -46,7 +46,7 @@
       "title": "Global harmony",
       "edgeColor": "#9D933A",
       "title_fi": "Globaali harmonia",
-      "lightEdgeColor": "#3FBA47"
+      "lightEdgeColor": "#E2B88E"
     },
     {
       "id": 202,
@@ -127,7 +127,7 @@
       "subs": [],
       "edgeColor": "#9A3540",
       "title_fi": "Tekoäly",
-      "lightEdgeColor": "#D69B4E"
+      "lightEdgeColor": "#ACD977"
     },
     {
       "id": 301,
@@ -136,7 +136,7 @@
       "subs": [],
       "edgeColor": "#9A5635",
       "title_fi": "Datavisualisointi ja graafinen suunnittelu",
-      "lightEdgeColor": "#4ED69B"
+      "lightEdgeColor": "#88FD98"
     },
     {
       "id": 302,
@@ -145,7 +145,7 @@
       "subs": [],
       "edgeColor": "#9A6D35",
       "title_fi": "Dashboardit ja nettisivut",
-      "lightEdgeColor": "#4E89D6"
+      "lightEdgeColor": "#7ADDCB"
     },
     {
       "id": 303,
@@ -154,7 +154,7 @@
       "subs": [],
       "edgeColor": "#9A8435",
       "title_fi": "Videot ja striimaus",
-      "lightEdgeColor": "#9B4ED6"
+      "lightEdgeColor": "#84BCF4"
     },
     {
       "id": 305,
@@ -163,7 +163,7 @@
       "edgeColor": "#9A4035",
       "title_fi": "Sosiaalinen media",
       "subs": [],
-      "lightEdgeColor": "#89D64E"
+      "lightEdgeColor": "#FA988E"
     },
     {
       "id": 205.5,
@@ -211,7 +211,7 @@
       "title": "Finnish economy",
       "title_fi": "Suomen talous",
       "edgeColor": "#9D683A",
-      "lightEdgeColor": "#BA6A3F"
+      "lightEdgeColor": "#DDE27D"
     },
     {
       "id": 209.6,
@@ -225,7 +225,7 @@
       "id": 209.55,
       "group": "Project",
       "title": "Russia's economic situation",
-      "ptype": "Text",
+      "ptype": "Website",
       "pnum": 209,
       "title_fi": "Venäjän taloustilanne"
     },
@@ -234,7 +234,7 @@
       "group": "Skill",
       "title": "Economics",
       "edgeColor": "#9A9A35",
-      "lightEdgeColor": "#D64E89",
+      "lightEdgeColor": "#DFC879",
       "title_fi": "Taloustiede",
       "subs": []
     },
@@ -622,12 +622,12 @@
     "font_desc": 19,
     "font_hdr1": 30,
     "font_hdr2": 24,
-    "h_theme": 100,
+    "h_theme": 92,
     "h_project": 40,
-    "h_skill": 100,
-    "w_project": 480,
+    "h_skill": 92,
+    "w_project": 476,
     "w_node": 340,
-    "ptype_pct": 18,
+    "ptype_pct": 19,
     "edge_width": 8,
     "edge_bands": true,
     "edge_sankey": true,
@@ -648,8 +648,9 @@
     "gradient_curve": 1,
     "gradient_hover_mult": 3.1,
     "gradient_hover_desc": true,
+    "hover_white_outline": true,
     "node_outline": 2.5,
-    "project_outline": 0,
+    "project_outline": 2,
     "outline_saturation": 1,
     "outline_transparency": 0,
     "node_pad": 0,
@@ -679,12 +680,13 @@
     "col_theme": "#e4e2e2",
     "col_project": "#e4e2e2",
     "col_skill": "#e4e2e2",
-    "light_col_bg": "#ffffff",
+    "light_col_bg": "#f5f5f5",
     "light_col_sidebar_bg": "#ffffff",
-    "light_col_node_bg": "#ffffff",
-    "light_col_theme": "#2b2b2b",
-    "light_col_project": "#2b2b2b",
-    "light_col_skill": "#2b2b2b",
+    "light_col_node_bg": "#fcfcfc",
+    "light_col_column_bg": "#dbdbdb",
+    "light_col_theme": "#2e2e2e",
+    "light_col_project": "#2e2e2e",
+    "light_col_skill": "#2e2e2e",
     "light_edge_color": "#4f4f4f",
     "mob_font_mult": 3,
     "mob_h_theme_mult": 1,
@@ -731,6 +733,26 @@
     "fi_vote_title": "Vaikuta painopisteisiini",
     "fi_vote_text": "Mihin teemoihin, projekteihin tai taitoihin minun kannattaisi mielestäsi keskittyä? Mihin olisin sopiva tai mikä olisi hyödyllistä? \nVoit äänestää linkin takaa: https://forms.gle/XR1jRv25ng2Ky5SE6\nOtan äänet huomioon. Lomakkeella myös avoin kenttä, jolla voi viestiä minulle mihin vaan liittyen.",
     "fi_funding_title": "Rahoitus- ja työmahdollisuudet",
-    "fi_funding_intro": "Tällä hetkellä en ole työelämässä ja työstän näitä kiinnostuksenkohteita omalla ajallani, mutta olen hyvin kiinnostunut myös tekemään töitä niiden parissa.\nOta yhteyttä, mikäli sinulla on vinkkejä potentiaalisista rahoitus - tai työvaihtoehdoista, jotka voisivat sopia minulle, vaikka ne eivät suoraan liittyisikään kiinnostuksiini. \n\nCV:ni on täällä: https://villeseppala.wordpress.com/cv/\n\nTässä on jonkinlainen löyhä preferenssijärjestys sille, miten haluaisin tulla rahoitetuksi:"
+    "fi_funding_intro": "Tällä hetkellä en ole työelämässä ja työstän näitä kiinnostuksenkohteita omalla ajallani, mutta olen hyvin kiinnostunut myös tekemään töitä niiden parissa.\nOta yhteyttä, mikäli sinulla on vinkkejä potentiaalisista rahoitus - tai työvaihtoehdoista, jotka voisivat sopia minulle, vaikka ne eivät suoraan liittyisikään kiinnostuksiini. \n\nCV:ni on täällä: https://villeseppala.wordpress.com/cv/\n\nTässä on jonkinlainen löyhä preferenssijärjestys sille, miten haluaisin tulla rahoitetuksi:",
+    "tall_w_node": 340,
+    "tall_w_project": 540,
+    "tall_h_theme": 92,
+    "tall_h_project": 40,
+    "tall_h_skill": 92,
+    "tall_gap_v": 12,
+    "tall_gap_col": 60,
+    "tall_font_node": 21,
+    "tall_font_project": 21,
+    "tall_font_ptype": 21,
+    "tall_font_subs": 15,
+    "tall_center_cols": false,
+    "tall_headers_on_stack": false,
+    "tall_ptype_pct": 19,
+    "tall_fill_nodew": 31,
+    "tall_fill_projw": 27,
+    "tall_fill_colgap": 12,
+    "tall_fill_nodepad": 3,
+    "tall_narrow_gap_mult": 1,
+    "tall_narrow_node_mult": 1
   }
 }

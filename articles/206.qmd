@@ -13,7 +13,7 @@ Haluan toteuttaa yhteispituudeltaan noin 1-2 tunnin mittaisen videosarjan hiilen
 
 Videot koostuisivat pääosin animaatioista ja infografiikoista sekä äänikerronnasta. Videoissa hyödynnetäänkin "kuva kertoo enemmän kuin tuhat" -periaatetta ja vältetään "puhuva pää" -toteutustapaa.
 
-Videot toteutaan suomeksi ja englanniksi. Englanninkielisistä versioista jätetään pois Suomi-spesifejä osioita. Koodipohjainen, etenkin R-ohjelmointikielellä toteutettu video mahdollistaa samojen animaatio- ja graafikoodien käyttämisen eri kieliversioissa, siten että vain niihin sisällytettyä tekstiä/ääntä tarvtisee muuttaa.
+Videot toteutaan suomeksi ja englanniksi. Englanninkielisistä versioista jätetään pois Suomi-spesifejä osioita. Koodipohjainen, etenkin R-ohjelmointikielellä toteutettu video mahdollistaa samojen animaatio- ja graafikoodien käyttämisen eri kieliversioissa, siten että vain niihin sisällytettyä tekstiä/ääntä tarvtisee muuttaa. 
 
 Videot ladattaisiin Youtubeen ja mahdollisesti joihinkin muihin videopalveluihin (Vimeo yms). Niistä voidaan myös tehdä lyhyitä teasereita somepalveluissa jaettavaksi.
 
@@ -26,7 +26,7 @@ Minua motivoivat videosarjan toteuttamiseen muun muassa nämä tekijät:
 -   Ilmastonmuutoksesta ylipäätään ei ole nähdäkseni ole juurikaan houkuttelevasti tuotettua kotimaista videosisältöä. Kansainvälisesti laadukasta sisältöä on paljon, mutta siinäkin päästöhinnoitteluun keskittyvistä videoista on puute.
 -   Päästöhinnoittelun tehokkuutta ja sen automaattista toimintamekanismia ei välttämättä sisäistetä, ja niistä viestiminen on siksi tärkeää. Päästöhinnoittelua pidetään etenkin taloustieteilijöiden keskuudessa hyvin tehokkaana päästövähennyskeinona, ja videoiden keskeinen tarkoitus on kansantajuistaa aihetta. Toisaalta osalla saattaa olla liiankin positiivinen näkymä hiilen hinnoittelun kaikkivoipaisuudesta. Videosarjassa tuodaan esiin myös sen heikkouksia.
 -   Nykyisen päästöhinnoittelun mittakaavaa on hankala hahmottaa. Esimerikksi päästökaupan päästöoikeuksin hinta (nyt noin 80 euroa per tonni) ei kerro paljoa, kun tonnimäärät eivät välttämättä tuttuja, saati että kuinka suurta/pientä osaa päästöistä päästökauppa koskee. Sama kotimaisten päästöverojen osalta. Uskon, että moni yliarvioi päästöhinnoittelusta itselleen koituvat kustannukset.
--   Videoiden on tarkoitus olla pääosin yleismaailmallisia ja ajasta riippumattomia. Keskityn kuitenkin joissain videoissa ajankohtaisiin ilmastopolitiikan rakenteisiin Suomessa, EU:ssa ja globaalisti. Ne toimivat paitsi kerrontaa hyödyttävinä esimerkkeinä niin varsinkin julkaisuhetkellä antavat myös näkemyksen ajankohtaisiin kehityksiin.
+-   Videoiden on tarkoitus olla pääosin yleismaailmallisia ja ajasta riippumattomia. Keskityn kuitenkin ainakin joissain videoissa ajankohtaisiin ilmastopolitiikan rakenteisiin Suomessa, EU:ssa ja globaalisti. Ne toimivat paitsi kerrontaa hyödyttävinä esimerkkeinä niin varsinkin julkaisuhetkellä antavat myös näkemyksen ajankohtaisiin kehityksiin.
 
 ## Pätevyyteni projektiin
 

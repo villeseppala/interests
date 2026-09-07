@@ -185,15 +185,17 @@ server <- function(input, output, session) {
   desc_map <- read_desc(DESC_PATH)
   
   ly <- g$layout
+  # Wide/tall values for the aspect-aware settings; av$tall builds the second layout (see layout.R).
+  av <- aspect_values(ly); aw <- av$wide
   cd <- build_dual_cyto_data(g,
-                             gap_v = ly$gap_v %||% 18, gap_col = ly$gap_col %||% 400,
-                             font_node = ly$font_node %||% 12, font_project = ly$font_project %||% ly$font_node %||% 12,
-                             font_ptype = ly$font_ptype %||% 12,
-                             font_subs = ly$font_subs %||% 15, font_desc = ly$font_desc %||% 18,
+                             gap_v = aw$gap_v, gap_col = aw$gap_col,
+                             font_node = aw$font_node, font_project = aw$font_project,
+                             font_ptype = aw$font_ptype,
+                             font_subs = aw$font_subs, font_desc = ly$font_desc %||% 18,
                              font_hdr1 = ly$font_hdr1 %||% 22, font_hdr2 = ly$font_hdr2 %||% 15,
-                             h_theme = ly$h_theme %||% 46, h_project = ly$h_project %||% 66,
-                             h_skill = ly$h_skill %||% 46,
-                             w_project = ly$w_project %||% NODE_W$Project, w_node = ly$w_node,
+                             h_theme = aw$h_theme, h_project = aw$h_project,
+                             h_skill = aw$h_skill,
+                             w_project = aw$w_project, w_node = aw$w_node,
                              inline_mode = isTRUE(ly$inline_mode %||% TRUE),
                              articles_enabled = isTRUE(ly$articles_enabled %||% FALSE),
                              auto_fit_open = isTRUE(ly$auto_fit_open %||% FALSE),
@@ -202,13 +204,14 @@ server <- function(input, output, session) {
                              qr_enabled = isTRUE(ly$qr_enabled %||% FALSE),
                              qr_url = ly$qr_url %||% "",
                              qr_size = ly$qr_size %||% 110,
-                             center_cols = isTRUE(ly$center_cols %||% FALSE),
+                             center_cols = isTRUE(aw$center_cols),
                              header_fill_pct = ly$header_fill_pct %||% 90,
                              header_title_max = ly$header_title_max %||% 1.5,
                              frame_line_w = ly$frame_line_w %||% 2,
                              frame_corner_r = ly$frame_corner_r %||% 14,
                              frame_fill_pct = ly$frame_fill_pct %||% 50,
-                             headers_on_stack = isTRUE(ly$headers_on_stack %||% FALSE),
+                             headers_on_stack = isTRUE(aw$headers_on_stack),
+                             tall_over = av$tall,
                              col_bg = ly$col_bg %||% "#0b3552",
                              col_sidebar_bg = ly$col_sidebar_bg %||% "#081626",
                              col_node_bg = ly$col_node_bg %||% "#081626",
@@ -219,6 +222,7 @@ server <- function(input, output, session) {
                              light_col_bg = ly$light_col_bg %||% "#f0f4f8",
                              light_col_sidebar_bg = ly$light_col_sidebar_bg %||% "#e2eaf3",
                              light_col_node_bg = ly$light_col_node_bg %||% "#e2eaf3",
+                             light_col_column_bg = ly$light_col_column_bg %||% "#000000",
                              light_col_theme = ly$light_col_theme %||% "#1e7c45",
                              light_col_project = ly$light_col_project %||% "#c06000",
                              light_col_skill = ly$light_col_skill %||% "#1a7a7b",
@@ -244,10 +248,14 @@ server <- function(input, output, session) {
                              fi_hdr_skill_line1=ly$fi_hdr_skill_line1 %||% "",
                              fi_hdr_skill_line2=ly$fi_hdr_skill_line2 %||% ""
   )
+  # Wide and tall values of the client-side responsive settings; render.js applies whichever matches
+  # the reader's window shape (the individual messages below still seed the wide slot).
+  cd$aspectVars <- aspect_vars_payload(av)
   observe({
     session$sendCustomMessage("setPtypeLayout", list(
-      ptypePct        = as.numeric(ly$ptype_pct  %||% 10),
-      projectNodeWidth = as.numeric(ly$w_project %||% NODE_W$Project)
+      aspect          = "wide",
+      ptypePct        = as.numeric(aw$ptype_pct),
+      projectNodeWidth = as.numeric(aw$w_project)
     ))
     session$sendCustomMessage("setEdgeWidth", list(width = ly$edge_width %||% 2.5))
     session$sendCustomMessage("setEdgeBands", list(value = isTRUE(ly$edge_bands %||% TRUE)))
@@ -269,6 +277,7 @@ server <- function(input, output, session) {
     session$sendCustomMessage("setGradientCurve", list(curve = ly$gradient_curve %||% 1))
     session$sendCustomMessage("setGradientHoverMult", list(mult = ly$gradient_hover_mult %||% 2))
     session$sendCustomMessage("setGradientHoverDesc", list(value = isTRUE(ly$gradient_hover_desc %||% FALSE)))
+    session$sendCustomMessage("setHoverWhiteOutline", list(value = isTRUE(ly$hover_white_outline %||% FALSE)))
     session$sendCustomMessage("setNodeOutline", list(width = ly$node_outline %||% 3))
     session$sendCustomMessage("setProjectOutline", list(width = ly$project_outline %||% ly$node_outline %||% 3))
     session$sendCustomMessage("setOutlineSaturation", list(value = ly$outline_saturation %||% 1))

@@ -16,34 +16,38 @@ desc_map <- if (file.exists(DESC_PATH)) fromJSON(DESC_PATH, simplifyVector = FAL
 ly       <- g$layout
 
 # ── Build cyto data ───────────────────────────────────────────────────────────
+# Wide/tall values for the aspect-aware settings; av$tall produces the second layout in the payload
+# (only when it actually differs from the wide one) — see ASPECT_INPUTS in shared/layout.R.
+av <- aspect_values(ly); aw <- av$wide
 cd <- build_dual_cyto_data(g,
-  gap_v            = ly$gap_v            %||% 18,
-  gap_col          = ly$gap_col          %||% 400,
-  font_node        = ly$font_node        %||% 12,
-  font_project     = ly$font_project     %||% ly$font_node %||% 12,
-  font_ptype       = ly$font_ptype       %||% 12,
-  font_subs        = ly$font_subs        %||% 15,
+  gap_v            = aw$gap_v,
+  gap_col          = aw$gap_col,
+  font_node        = aw$font_node,
+  font_project     = aw$font_project,
+  font_ptype       = aw$font_ptype,
+  font_subs        = aw$font_subs,
   font_desc        = ly$font_desc        %||% 18,
   font_hdr1        = ly$font_hdr1        %||% 22,
   font_hdr2        = ly$font_hdr2        %||% 15,
-  h_theme          = ly$h_theme          %||% 46,
-  h_project        = ly$h_project        %||% 66,
-  h_skill          = ly$h_skill          %||% 46,
-  w_project        = ly$w_project        %||% NODE_W$Project,
-  w_node           = ly$w_node,
+  h_theme          = aw$h_theme,
+  h_project        = aw$h_project,
+  h_skill          = aw$h_skill,
+  w_project        = aw$w_project,
+  w_node           = aw$w_node,
+  tall_over        = av$tall,
   inline_mode      = isTRUE(ly$inline_mode %||% TRUE),
   watermark_text   = ly$watermark_text   %||% "",
   watermark_size   = ly$watermark_size   %||% 10,
   qr_enabled       = isTRUE(ly$qr_enabled %||% FALSE),
   qr_url           = ly$qr_url           %||% "",
   qr_size          = ly$qr_size          %||% 110,
-  center_cols      = isTRUE(ly$center_cols %||% FALSE),
+  center_cols      = isTRUE(aw$center_cols),
   header_fill_pct  = ly$header_fill_pct  %||% 90,
   header_title_max = ly$header_title_max %||% 1.5,
   frame_line_w     = ly$frame_line_w     %||% 2,
   frame_corner_r   = ly$frame_corner_r   %||% 14,
   frame_fill_pct   = ly$frame_fill_pct   %||% 50,
-  headers_on_stack = isTRUE(ly$headers_on_stack %||% FALSE),
+  headers_on_stack = isTRUE(aw$headers_on_stack),
   col_bg           = ly$col_bg           %||% "#0b3552",
   col_sidebar_bg   = ly$col_sidebar_bg   %||% "#081626",
   col_node_bg      = ly$col_node_bg      %||% "#081626",
@@ -54,6 +58,7 @@ cd <- build_dual_cyto_data(g,
   light_col_bg         = ly$light_col_bg         %||% "#f0f4f8",
   light_col_sidebar_bg = ly$light_col_sidebar_bg %||% "#e2eaf3",
   light_col_node_bg    = ly$light_col_node_bg    %||% "#e2eaf3",
+  light_col_column_bg  = ly$light_col_column_bg  %||% "#000000",
   light_col_theme      = ly$light_col_theme      %||% "#1e7c45",
   light_col_project    = ly$light_col_project    %||% "#c06000",
   light_col_skill      = ly$light_col_skill      %||% "#1a7a7b",
@@ -232,6 +237,7 @@ cd$gradient_transparency <- as.numeric(ly$gradient_transparency %||% 40)
 cd$gradient_curve <- as.numeric(ly$gradient_curve %||% 1)
 cd$gradient_hover_mult <- as.numeric(ly$gradient_hover_mult %||% 2)
 cd$gradient_hover_desc <- isTRUE(ly$gradient_hover_desc %||% FALSE)
+cd$hover_white_outline <- isTRUE(ly$hover_white_outline %||% FALSE)
 cd$node_outline <- as.numeric(ly$node_outline %||% 3)
 cd$project_outline <- as.numeric(ly$project_outline %||% ly$node_outline %||% 3)
 cd$outline_saturation <- as.numeric(ly$outline_saturation %||% 1)
@@ -254,6 +260,7 @@ cd$fill_colgap <- as.numeric(ly$fill_colgap %||% 0)
 cd$fill_nodepad <- as.numeric(ly$fill_nodepad %||% 0)
 cd$narrow_gap_mult <- as.numeric(ly$narrow_gap_mult %||% 1)
 cd$narrow_node_mult <- as.numeric(ly$narrow_node_mult %||% 1)
+cd$aspectVars <- aspect_vars_payload(av)
 cd$inline_mode <- isTRUE(ly$inline_mode %||% TRUE)
 cd$articles_enabled <- isTRUE(ly$articles_enabled %||% FALSE)
 cd$auto_fit_open <- isTRUE(ly$auto_fit_open %||% FALSE)

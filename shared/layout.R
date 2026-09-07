@@ -91,6 +91,72 @@ MOBILE_DEFAULTS <- list(
   mob_gap_col_mult = 1.0
 )
 
+
+# ── Aspect-aware inputs (wide vs tall browsers) ──────────────────────────────
+# Layout settings that may take a different value on a wide browser (width/height >= 1, and wide
+# enough in px to count) than on a tall one. The tall value persists in graph.json's layout under
+# `tall_<name>`; when it is absent the WIDE value is used — never a hard-coded default, so a
+# graph.json written before this feature existed renders exactly as it did.
+#
+# To make another input aspect-aware: add its name to one of the two vectors below, give it an
+# aspect_slider()/aspect_check() control in the author app's Layout tab, and that's it — save,
+# reload, payload and client all read these lists.
+#
+#   ASPECT_BUILD_INPUTS  — arguments of build_cyto_data. They change server-built geometry, so a
+#                          differing tall value produces a second full layout at payload$tall.
+#   ASPECT_CLIENT_INPUTS — applied in the browser (render.js globals); shipped as payload$aspectVars.
+ASPECT_BUILD_INPUTS <- c("w_node", "w_project", "h_theme", "h_project", "h_skill",
+                         "gap_v", "gap_col",
+                         "font_node", "font_project", "font_ptype", "font_subs",
+                         "center_cols", "headers_on_stack")
+ASPECT_CLIENT_INPUTS <- c("ptype_pct", "fill_nodew", "fill_projw", "fill_colgap", "fill_nodepad",
+                          "narrow_gap_mult", "narrow_node_mult")
+ASPECT_INPUTS <- c(ASPECT_BUILD_INPUTS, ASPECT_CLIENT_INPUTS)
+
+# Last-resort fallback, used only when neither the live input nor the saved layout has a value.
+# w_node and font_project are deliberately absent: they fall back to w_project / font_node instead.
+ASPECT_DEFAULTS <- list(
+  w_project = NODE_W$Project, h_theme = 46, h_project = 66, h_skill = 46,
+  gap_v = 18, gap_col = 400,
+  font_node = 12, font_ptype = 12, font_subs = 15,
+  center_cols = FALSE, headers_on_stack = FALSE,
+  ptype_pct = 10, fill_nodew = 0, fill_projw = 0, fill_colgap = 0, fill_nodepad = 0,
+  narrow_gap_mult = 1, narrow_node_mult = 1
+)
+
+# render.js global that each client-side aspect input drives.
+ASPECT_CLIENT_JS <- c(ptype_pct = "ptypePct", fill_nodew = "fillNodeW", fill_projw = "fillProjW",
+                      fill_colgap = "fillColGap", fill_nodepad = "fillNodePad",
+                      narrow_gap_mult = "narrowGapMult", narrow_node_mult = "narrowNodeMult")
+
+# Resolve the wide and tall value of every aspect-aware input.
+#   ly        — the saved layout list (graph.json)
+#   get_input — optional lookup for live editor values: name -> value or NULL (author app passes
+#               function(k) input[[k]]; the publish app and static build pass nothing).
+#   names     — which inputs to resolve. Narrow it to keep a Shiny reactive from taking a dependency
+#               on settings it doesn't use (a layout rebuild must not fire on a client-side slider).
+aspect_values <- function(ly, get_input = function(k) NULL, names = ASPECT_INPUTS) {
+  ly <- ly %||% list()
+  wide <- list(); tall <- list()
+  for (k in names) {
+    w <- get_input(k) %||% ly[[k]] %||% ASPECT_DEFAULTS[[k]]
+    if (k == "w_node")       w <- w %||% (get_input("w_project") %||% ly$w_project %||% NODE_W$Project)
+    if (k == "font_project") w <- w %||% (get_input("font_node") %||% ly$font_node %||% 12)
+    wide[[k]] <- w
+    tall[[k]] <- get_input(paste0("tall_", k)) %||% ly[[paste0("tall_", k)]] %||% w
+  }
+  list(wide = wide, tall = tall)
+}
+
+# The {wide, tall} block of client-side vars, keyed by render.js global name, for the payload.
+aspect_vars_payload <- function(av) {
+  mk <- function(v) {
+    o <- list()
+    for (k in names(ASPECT_CLIENT_JS)) if (!is.null(v[[k]])) o[[ASPECT_CLIENT_JS[[k]]]] <- v[[k]]
+    o
+  }
+  list(wide = mk(av$wide), tall = mk(av$tall))
+}
 GROUP_COLORS <- list(
   Theme   = "#3be37a",
   Project = "#ffad33",
@@ -578,6 +644,7 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                                  mob_font_mult = 1.5, mob_h_theme_mult = 3.0,
                                  mob_h_proj_mult = 3.0, mob_h_skill_mult = 3.0,
                                  mob_gap_v_mult = 1.0, mob_gap_col_mult = 1.0,
+                                 tall_over = NULL,
                                  hdr_theme_line1   = "Themes",   hdr_theme_line2   = "I want to focus on",
                                  hdr_project_line1 = "Projects", hdr_project_line2 = "I\u2019m working on or want to work on",
                                  hdr_skill_line1   = "Skills",   hdr_skill_line2   = "I have or want to develop",
@@ -592,8 +659,8 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                    fi_hdr_theme_line1=fi_hdr_theme_line1, fi_hdr_theme_line2=fi_hdr_theme_line2,
                    fi_hdr_project_line1=fi_hdr_project_line1, fi_hdr_project_line2=fi_hdr_project_line2,
                    fi_hdr_skill_line1=fi_hdr_skill_line1, fi_hdr_skill_line2=fi_hdr_skill_line2)
-  # Desktop build (unchanged)
-  desktop <- do.call(build_cyto_data, c(list(g=g, gap_v=gap_v, gap_col=gap_col,
+  # Desktop build (unchanged) — kept as a named list so the tall variant can be derived from it.
+  desk_args <- c(list(g=g, gap_v=gap_v, gap_col=gap_col,
                              font_node=font_node, font_project=font_project, font_ptype=font_ptype,
                              font_subs=font_subs, font_desc=font_desc,
                              font_hdr1=font_hdr1, font_hdr2=font_hdr2,
@@ -610,7 +677,8 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                              light_col_bg=light_col_bg, light_col_sidebar_bg=light_col_sidebar_bg, light_col_node_bg=light_col_node_bg,
                              light_col_column_bg=light_col_column_bg,
                              light_col_theme=light_col_theme, light_col_project=light_col_project, light_col_skill=light_col_skill,
-                             light_edge_color=light_edge_color), hdr_args))
+                             light_edge_color=light_edge_color), hdr_args)
+  desktop <- do.call(build_cyto_data, desk_args)
   # Mobile build (multiplied fonts, heights, gaps)
   mobile <- do.call(build_cyto_data, c(list(g=g, gap_v=gap_v*mob_gap_v_mult,
                             gap_col=gap_col*mob_gap_col_mult,
@@ -633,6 +701,19 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                             light_col_column_bg=light_col_column_bg,
                             light_col_theme=light_col_theme, light_col_project=light_col_project, light_col_skill=light_col_skill,
                             light_edge_color=light_edge_color), hdr_args))
+  # Tall-browser variant: the same build with the aspect-aware geometry arguments overridden. Only
+  # values that genuinely differ from the wide build are applied, so a graph whose tall settings equal
+  # its wide ones ships one layout (payload$tall absent -> the client just keeps using the wide one).
+  if (length(tall_over)) {
+    tall_over <- tall_over[!vapply(tall_over, is.null, logical(1))]
+    tall_over <- tall_over[names(tall_over) %in% ASPECT_BUILD_INPUTS]
+    if (length(tall_over)) {
+      changed <- names(tall_over)[!vapply(names(tall_over), function(k)
+        isTRUE(all.equal(tall_over[[k]], desk_args[[k]])), logical(1))]
+      if (length(changed))
+        desktop$tall <- do.call(build_cyto_data, modifyList(desk_args, tall_over[changed]))
+    }
+  }
   # Attach mobile as nested field (backward-compatible: top-level = desktop)
   desktop$mobile <- mobile
   desktop$articles_enabled <- isTRUE(articles_enabled)
@@ -730,7 +811,7 @@ generate_svg <- function(cd, ptype_pct = 21) {
                               tx, y-h/2, tx, y+h/2, tcol))
         # Font = fontPtype + 2, shrunk (uniformly, using the widest label) to fit the type column.
         fptype <- fsize_ptype + 2
-        if (11 * fptype * 0.6 > ptype_col_w - 6) fptype <- max(7, (ptype_col_w - 6) / (11 * 0.6))
+        if (11 * fptype * 0.6 > ptype_col_w - 3) fptype <- max(7, (ptype_col_w - 3) / (11 * 0.6))
         out <- c(out, sprintf('<text x="%g" y="%g" fill="%s" font-family="Arial,Helvetica,sans-serif" font-size="%g" font-weight="bold" text-anchor="middle">%s</text>',
                               x + w/2 - ptype_col_w/2, y + fptype*0.34, tcol, fptype, svg_esc(ptype_lbl)))
       }
