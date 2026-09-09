@@ -11,7 +11,7 @@ inline: false
 
 Haluan toteuttaa yhteispituudeltaan noin 1-2 tunnin mittaisen videosarjan hiilen hinnoittelusta keinona ilmastonmuutoksen torjumisessa. Projektissa yhdistetään taloustieteen teoriaa, audiovisuaalista tarinankerrontaa ja tosimaailman esimerkkejä. Lue videoiden sisällöstä "Luonnos videosarjan sisällöstä" -osiosta.
 
-Videot koostuisivat pääosin animaatioista ja infografiikoista sekä äänikerronnasta. Videoissa hyödynnetäänkin "kuva kertoo enemmän kuin tuhat" -periaatetta ja vältetään "puhuva pää" -toteutustapaa.
+Videot koostuisivat pääosin datavisualisoinneista ja animaatioista, äänikerrontaan yhdistettynä. Videoissa hyödynnetäänkin "kuva kertoo enemmän kuin tuhat" -periaatetta ja vältetään "puhuva pää" -toteutustapaa.
 
 Videot toteutaan suomeksi ja englanniksi. Englanninkielisistä versioista jätetään pois Suomi-spesifejä osioita. Koodipohjainen, etenkin R-ohjelmointikielellä toteutettu video mahdollistaa samojen animaatio- ja graafikoodien käyttämisen eri kieliversioissa, siten että vain niihin sisällytettyä tekstiä/ääntä tarvtisee muuttaa. 
 
@@ -120,13 +120,13 @@ Lyhyt esittelyvideo, jossa käydään läpi videosarjan motivaatio, tavoitteet j
 
 ### Miten korkea hiilen hinnan tulisi olla?
 
-Katsotaan eri läheystymistapoja:
+Päästöhinnoittelun tason määrittäminen on poliittinen päätös, johon liittyy paljon epävarmuuksia ja vaikuttavia tekijöitä. On kuitenkin kaksi päälähestymistapaa:
 
 -   Päästötavoitteeseen vaadittava hiilen hinta. Asetetaan tavoite, esimerkiksi globaalilla tasolla 2 asteen lämpenemisen alla pysyminen tai Suomen tasolla 2035-hiilineutraaliustavoite. Asetataan hiilen hinta riittävän korkeaksi (yhdessä mahdollisten muiden toimien kanssa), että päästötavoitteeseen päästään. Päästökaupan kautta toteutettuna hiilen hinta
 
 -   Hiilen hinnoittelun haittojen (taloudellisten kustannusten kasvu, kilpailukykyhaitat) ja hyötyjen tasapainon mukainen hinta = Rajakustannuskäyrän ja rajahyötykäyrän leikkauspiste. Molempia on toki hankala arvioida. Käydään läpi Social Cost of Carbon -konseptia ja -arvioita ja suhteutetaan niitä nykyisiin päästöhintoihin. SCC pyrkii euromääräistämään lisäisen päästötonnin haitan - optimissa hiilen hinta asetetaan vastaamaan tuota lukua.
 
-### Keihin hiilen hinnoittelun haitat ja hyödyt kohdistuvat eniten?
+### Keihin hiilen hinnoittelun haitat ja hyödyt kohdistuvat?
 
 Hiilen hinnoittelun vaikutusten kohdistuminen on melko moniulotteinen teema.
 
