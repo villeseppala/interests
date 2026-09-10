@@ -19,7 +19,7 @@ Layout of the site plays an important role in the site functonality. Below, ther
 
 Below are two early, fully interactive version of the site, that I produced with Claude Code. They are still running entirely in browser instead of external server, so the first load takes a few seconds while the R runtime downloads and they might feel a bit sluggish.
 
-The first one focuses on presenting a lot of variables (inputs/outputs). Click any extinction probability, survival probability or potential-population digit and adjust it with the arrows, arrow keys, or by typing a number.
+The first one focuses on presenting a lot of variables (inputs/outputs). Click any extinction probability, survival probability or potential-population digit and adjust it with the arrows, arrow keys, or by typing a number. For example, decreasing the annual extinction probability over just the next ten years from 0.05% to 0.049% would save nearly 80 million lives in expectation over the next 10 000 years, with all else equal.
 
 External link to app: <https://villeseppala.github.io/interests/articles/xrisk.html>
 

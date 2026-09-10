@@ -1,4 +1,5 @@
 === 1. Syntax check ===
+  (parses each file; a FAIL here means the app will not launch)
   ok    shared/layout.R
   ok    app_author/app.R
   ok    app_publish/app.R
@@ -6,54 +7,56 @@
 === 2. Aspect values per graph.json ===
 -- publish -- app_publish/www/graph.json
   setting            wide         tall         saved tall_*?
-  w_node             340          340          no (follows wide)
-  w_project          480          480          no (follows wide)
-  h_theme            92           92           no (follows wide)
-  h_project          40           40           no (follows wide)
-  h_skill            92           92           no (follows wide)
-  gap_v              12           12           no (follows wide)
-  gap_col            60           60           no (follows wide)
-  font_node          21           21           no (follows wide)
-  font_project       21           21           no (follows wide)
-  font_ptype         21           21           no (follows wide)
-  font_subs          15           15           no (follows wide)
-  center_cols        TRUE         TRUE         no (follows wide)
-  headers_on_stack   FALSE        FALSE        no (follows wide)
-  ptype_pct          19           19           no (follows wide)
-  fill_nodew         31           31           no (follows wide)
-  fill_projw         27           27           no (follows wide)
-  fill_colgap        12           12           no (follows wide)
-  fill_nodepad       3            3            no (follows wide)
-  narrow_gap_mult    1            1            no (follows wide)
-  narrow_node_mult   1            1            no (follows wide)
+  w_node             340          340          yes
+  w_project          476          540          yes   <- DIFFERS
+  h_theme            92           92           yes
+  h_project          40           40           yes
+  h_skill            92           92           yes
+  gap_v              12           12           yes
+  gap_col            60           60           yes
+  font_node          21           21           yes
+  font_project       21           21           yes
+  font_ptype         21           21           yes
+  font_subs          15           15           yes
+  center_cols        TRUE         FALSE        yes   <- DIFFERS
+  headers_on_stack   FALSE        FALSE        yes
+  ptype_pct          19           19           yes
+  fill_nodew         31           31           yes
+  fill_projw         27           27           yes
+  fill_colgap        12           12           yes
+  fill_nodepad       3            3            yes
+  narrow_gap_mult    1            1            yes
+  narrow_node_mult   1            1            yes
   Payload build:
-    payload$tall present: FALSE   (expected while no tall value differs)
+    payload$tall present: TRUE
+    tall nodes: 32   wide nodes: 32
     aspectVars$wide: ptypePct=19, fillNodeW=31, fillProjW=27, fillColGap=12, fillNodePad=3, narrowGapMult=1, narrowNodeMult=1
     aspectVars$tall: ptypePct=19, fillNodeW=31, fillProjW=27, fillColGap=12, fillNodePad=3, narrowGapMult=1, narrowNodeMult=1
 -- author -- app_author/data/graph.json
   setting            wide         tall         saved tall_*?
-  w_node             340          340          no (follows wide)
-  w_project          480          480          no (follows wide)
-  h_theme            92           92           no (follows wide)
-  h_project          40           40           no (follows wide)
-  h_skill            92           92           no (follows wide)
-  gap_v              12           12           no (follows wide)
-  gap_col            60           60           no (follows wide)
-  font_node          21           21           no (follows wide)
-  font_project       21           21           no (follows wide)
-  font_ptype         21           21           no (follows wide)
-  font_subs          15           15           no (follows wide)
-  center_cols        TRUE         TRUE         no (follows wide)
-  headers_on_stack   FALSE        FALSE        no (follows wide)
-  ptype_pct          19           19           no (follows wide)
-  fill_nodew         31           31           no (follows wide)
-  fill_projw         27           27           no (follows wide)
-  fill_colgap        12           12           no (follows wide)
-  fill_nodepad       3            3            no (follows wide)
-  narrow_gap_mult    1            1            no (follows wide)
-  narrow_node_mult   1            1            no (follows wide)
+  w_node             340          340          yes
+  w_project          476          540          yes   <- DIFFERS
+  h_theme            92           92           yes
+  h_project          40           40           yes
+  h_skill            92           92           yes
+  gap_v              12           12           yes
+  gap_col            60           60           yes
+  font_node          21           21           yes
+  font_project       21           21           yes
+  font_ptype         21           21           yes
+  font_subs          15           15           yes
+  center_cols        TRUE         FALSE        yes   <- DIFFERS
+  headers_on_stack   FALSE        FALSE        yes
+  ptype_pct          19           19           yes
+  fill_nodew         31           31           yes
+  fill_projw         27           27           yes
+  fill_colgap        12           12           yes
+  fill_nodepad       3            3            yes
+  narrow_gap_mult    1            1            yes
+  narrow_node_mult   1            1            yes
   Payload build:
-    payload$tall present: FALSE   (expected while no tall value differs)
+    payload$tall present: TRUE
+    tall nodes: 32   wide nodes: 32
     aspectVars$wide: ptypePct=19, fillNodeW=31, fillProjW=27, fillColGap=12, fillNodePad=3, narrowGapMult=1, narrowNodeMult=1
     aspectVars$tall: ptypePct=19, fillNodeW=31, fillProjW=27, fillColGap=12, fillNodePad=3, narrowGapMult=1, narrowNodeMult=1
 === 3. Registry ===
