@@ -12,7 +12,7 @@ It runs entirely in your browser, so the first load takes a few seconds while th
 <!-- XRISK-APP:START -->
 ```{shinylive-r}
 #| standalone: true
-#| viewerHeight: 900
+#| viewerHeight: "clamp(900px, 92vh, 1150px)"
 # ────────────────────────────────────────────────────────────────────────────
 # Extinction-risk visualiser — replica of the right-hand data panel from the
 # concept slide. Recomputes the whole cascade in R from the four annual

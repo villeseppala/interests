@@ -104,7 +104,7 @@ ul.task-list li input[type="checkbox"] {
 <figcaption>Layout type</figcaption>
 </figure>
 </div>
-<p>Below are two early, fully interactive version of the site, that I produced with Claude Code. They are still running entirely in browser instead of external server, so the first load takes a few seconds while the R runtime downloads and they might feel a bit sluggish.</p>
+<p>Below are two early, fully interactive version of the site, that I produced with Claude Code. They are still running entirely in browser instead of external server, so the first load takes a few seconds while the R runtime downloads and they might feel a bit sluggish. Also, I haven’t really planned them for mobile use yet.</p>
 <p>The first one focuses on presenting a lot of variables (inputs/outputs). Click any extinction probability, survival probability or potential-population digit and adjust it with the arrows, arrow keys, or by typing a number. For example, decreasing the annual extinction probability over just the next ten years from 0.05% to 0.049% would save nearly 80 million lives in expectation over the next 10 000 years, with all else equal.</p>
 <p>External link to app: <a href="https://villeseppala.github.io/interests/articles/xrisk.html" class="uri">https://villeseppala.github.io/interests/articles/xrisk.html</a></p>
 <!-- XRISK-APP:START -->
@@ -112,7 +112,7 @@ ul.task-list li input[type="checkbox"] {
 #|   shinylive does not work in self-contained HTML documents.
 #|   Please set `embed-resources: false` in your metadata.
 #| standalone: true
-#| viewerHeight: 900
+#| viewerHeight: "clamp(900px, 92vh, 1150px)"
 # ────────────────────────────────────────────────────────────────────────────
 # Extinction-risk visualiser — replica of the right-hand data panel from the
 # concept slide. Recomputes the whole cascade in R from the four annual
@@ -861,7 +861,7 @@ shinyApp(ui, server)</code></pre>
 #|   shinylive does not work in self-contained HTML documents.
 #|   Please set `embed-resources: false` in your metadata.
 #| standalone: true
-#| viewerHeight: 900
+#| viewerHeight: "clamp(900px, 92vh, 1150px)"
 # ============================================================================
 # Shiny — hazard/survival threshold controls (value-space, bidirectional).
 # ----------------------------------------------------------------------------

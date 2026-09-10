@@ -40,12 +40,13 @@ a { color: #78e6e7; }
  * The x-risk and hazard apps are laid out for a ~1240px canvas and have no mobile layout, so on a
  * phone they get squashed into ~380px and become unusable. Give them a fixed 800x900 viewport
  * instead and let that box scroll sideways, so the app stays legible and only the app pans —
- * not the whole article. (viewerHeight: 900 in the .qmd already sets the height; this pins width.) */
+ * not the whole article. Only the WIDTH is pinned here: the height comes from the cell's viewerHeight
+ * (a clamp() set in tools/build_static.R), and on a phone that clamp lands on its floor anyway. Don't
+ * re-pin the height here — it would override the clamp and undo it on tall phones. */
 @media (max-width: 820px) {
   .shinylive-container {
     width: 800px !important;
     min-width: 800px !important;
-    height: 900px !important;
   }
   /* whichever element holds the app becomes the horizontal scroller */
   section:has(> .shinylive-container),

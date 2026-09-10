@@ -12,7 +12,7 @@ It runs entirely in your browser, so the first load takes a few seconds while th
 <!-- HAZARD-APP:START -->
 ```{shinylive-r}
 #| standalone: true
-#| viewerHeight: 1000
+#| viewerHeight: "clamp(1000px, 92vh, 1250px)"
 # ============================================================================
 # Shiny — hazard/survival threshold controls (value-space, bidirectional).
 # ----------------------------------------------------------------------------

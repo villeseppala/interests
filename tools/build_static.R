@@ -99,7 +99,13 @@ ROOT_PAGES   <- c("portfolio")
 # Each app's single source of truth is app_<name>/app.R; inject it verbatim into
 # the matching marked shinylive-r cell in the article so the embedded copy never
 # drifts. Never hand-edit the cell — edit app_<name>/app.R and rebuild.
-inject_shinylive <- function(qmd_path, app_path, marker, height = 900) {
+# `height` becomes the cell's viewerHeight. Shinylive passes a NUMBER through as px and a STRING
+# through verbatim as a CSS length (see asCssLengthUnit in shinylive.js), so a clamp() works here.
+# Why clamp and not a fixed px or a bare vh: a fixed height leaves the app scrolling internally on a
+# tall screen and cropped on a short one; a bare vh grows without limit, and since the app's width is
+# capped, that extra height is dead space. clamp(floor, vh, ceiling) is "at least this tall, grow with
+# the window, stop once more height buys nothing". Quoted so YAML always reads it as a string.
+inject_shinylive <- function(qmd_path, app_path, marker, height = "clamp(900px, 92vh, 1150px)") {
   if (!file.exists(qmd_path) || !file.exists(app_path)) return(invisible())
   qmd <- readLines(qmd_path, warn = FALSE)
   s   <- grep(sprintf("<!-- %s:START -->", marker), qmd, fixed = TRUE)
@@ -107,20 +113,27 @@ inject_shinylive <- function(qmd_path, app_path, marker, height = 900) {
   if (length(s) != 1 || length(e) != 1 || e <= s) {
     cat(sprintf("  (%s markers not found in %s; skipped)\n", marker, qmd_path)); return(invisible())
   }
+  # Quoting makes YAML read the value as a string; a bare number would then reach CSS as "900"
+  # (no unit) and be ignored, so turn numbers into px here rather than relying on shinylive doing it.
+  h <- if (is.numeric(height)) paste0(height, "px") else as.character(height)
   cell <- c(sprintf("<!-- %s:START -->", marker),
-            "```{shinylive-r}", "#| standalone: true", sprintf("#| viewerHeight: %d", height),
+            "```{shinylive-r}", "#| standalone: true", sprintf('#| viewerHeight: "%s"', h),
             readLines(app_path, warn = FALSE),
             "```", sprintf("<!-- %s:END -->", marker))
   tail <- if (e < length(qmd)) qmd[(e + 1):length(qmd)] else character(0)
   writeLines(c(qmd[seq_len(s - 1)], cell, tail), qmd_path)
   cat(sprintf("  synced %s -> %s (%s)\n", app_path, qmd_path, marker))
 }
+# Tune these two numbers if an app still scrolls internally (raise the floor) or shows dead space on
+# a tall screen (lower the ceiling). The hazard app is the taller of the two.
+APP_H       <- "clamp(900px, 92vh, 1150px)"
+APP_H_TALL  <- "clamp(1000px, 92vh, 1250px)"
 xrisk_qmd <- file.path(ARTICLES_DIR, "201.qmd")
-inject_shinylive(xrisk_qmd, file.path("app_xrisk",  "app.R"), "XRISK-APP",  900)
-inject_shinylive(xrisk_qmd, file.path("app_hazard", "app.R"), "HAZARD-APP", 900)
+inject_shinylive(xrisk_qmd, file.path("app_xrisk",  "app.R"), "XRISK-APP",  APP_H)
+inject_shinylive(xrisk_qmd, file.path("app_hazard", "app.R"), "HAZARD-APP", APP_H)
 # Same two apps also get a standalone page each, so they can be linked to directly.
-inject_shinylive(file.path(ARTICLES_DIR, "xrisk.qmd"),  file.path("app_xrisk",  "app.R"), "XRISK-APP",   900)
-inject_shinylive(file.path(ARTICLES_DIR, "hazard.qmd"), file.path("app_hazard", "app.R"), "HAZARD-APP", 1000)
+inject_shinylive(file.path(ARTICLES_DIR, "xrisk.qmd"),  file.path("app_xrisk",  "app.R"), "XRISK-APP",  APP_H)
+inject_shinylive(file.path(ARTICLES_DIR, "hazard.qmd"), file.path("app_hazard", "app.R"), "HAZARD-APP", APP_H_TALL)
 
 # Render the .qmd sources to site/articles/<id>.html via Quarto (part of this one build).
 if (dir.exists(ARTICLES_DIR) && length(list.files(ARTICLES_DIR, pattern = "\\.qmd$"))) {
