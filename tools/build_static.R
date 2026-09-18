@@ -134,6 +134,10 @@ inject_shinylive(xrisk_qmd, file.path("app_hazard", "app.R"), "HAZARD-APP", APP_
 # Same two apps also get a standalone page each, so they can be linked to directly.
 inject_shinylive(file.path(ARTICLES_DIR, "xrisk.qmd"),  file.path("app_xrisk",  "app.R"), "XRISK-APP",  APP_H)
 inject_shinylive(file.path(ARTICLES_DIR, "hazard.qmd"), file.path("app_hazard", "app.R"), "HAZARD-APP", APP_H_TALL)
+# Bare full-window app pages (app-page: true, no nav/article chrome - see articles/app-page.css). Linked from the
+# articles as "open full-screen"; the app is the whole viewport, so its height is simply 100vh.
+inject_shinylive(file.path(ARTICLES_DIR, "xrisk-app.qmd"),  file.path("app_xrisk",  "app.R"), "XRISK-APP",  "100vh")
+inject_shinylive(file.path(ARTICLES_DIR, "hazard-app.qmd"), file.path("app_hazard", "app.R"), "HAZARD-APP", "100vh")
 
 # Render the .qmd sources to site/articles/<id>.html via Quarto (part of this one build).
 if (dir.exists(ARTICLES_DIR) && length(list.files(ARTICLES_DIR, pattern = "\\.qmd$"))) {
@@ -146,6 +150,47 @@ if (dir.exists(ARTICLES_DIR) && length(list.files(ARTICLES_DIR, pattern = "\\.qm
     cat("Note: 'quarto' not found on PATH — skipping article HTML render (manifest still built).\n")
   }
 }
+
+# ── Share one shinylive/webR runtime between every app page ──────────────────
+# Quarto (project type "default") gives EVERY page that embeds a shinylive app its own full copy of
+# the runtime under <page>_files/libs/quarto-contrib/ — ~80 MB each, byte-identical. Git dedupes the
+# blobs, but the checkout and every Pages deploy carry all the copies. So after rendering, the first
+# copy found is moved to site/articles/shinylive-libs/quarto-contrib/, the other copies are deleted,
+# and each page's <script>/<link> references are rewritten to the shared folder. Safe because
+# shinylive locates its assets relative to its own script URL (import.meta.url), and the service
+# worker (shinylive-sw.js) is a separate file at site/articles/ that this does not touch.
+# Idempotent: with no fresh copies it only (re)writes references, so it also runs when Quarto is absent.
+# If a shinylive update changes how the extension embeds itself, check the substitution below first.
+SHARED_LIBS <- "shinylive-libs"
+dedupe_shinylive <- function() {
+  adir   <- file.path(OUT_DIR, "articles")
+  shared <- file.path(adir, SHARED_LIBS, "quarto-contrib")
+  moved  <- FALSE                                         # has this build already installed a fresh copy?
+  for (pg in list.files(adir, pattern = "\\.html$")) {
+    stem <- sub("\\.html$", "", pg)
+    copy <- file.path(adir, paste0(stem, "_files"), "libs", "quarto-contrib")
+    if (dir.exists(copy)) {
+      if (!moved) {                                       # first fresh copy REPLACES the shared runtime (so a version bump lands)
+        if (dir.exists(shared)) unlink(shared, recursive = TRUE)
+        dir.create(dirname(shared), recursive = TRUE, showWarnings = FALSE)
+        if (!file.rename(copy, shared)) { cat(sprintf("  (could not move %s; left in place)\n", copy)); next }
+        moved <- TRUE
+        cat(sprintf("  shinylive runtime: %s -> %s\n", copy, shared))
+      } else {                                            # later copies are identical: drop them
+        unlink(copy, recursive = TRUE)
+        cat(sprintf("  shinylive runtime: dropped duplicate %s\n", copy))
+      }
+    }
+    hp   <- file.path(adir, pg)
+    html <- readLines(hp, warn = FALSE, encoding = "UTF-8")
+    ref  <- paste0(stem, "_files/libs/quarto-contrib/")
+    if (any(grepl(ref, html, fixed = TRUE))) {
+      writeLines(gsub(ref, paste0(SHARED_LIBS, "/quarto-contrib/"), html, fixed = TRUE), hp, useBytes = TRUE)
+      cat(sprintf("  %s -> shared shinylive libs\n", pg))
+    }
+  }
+}
+dedupe_shinylive()
 
 # ── Promote standalone pages to the site root ────────────────────────────────
 # Quarto renders every source into site/articles/ with the shared chrome. For the
@@ -162,6 +207,7 @@ for (pg in ROOT_PAGES) {
   html <- gsub(sprintf('="%s_files/', pg), sprintf('="articles/%s_files/', pg), html, fixed = TRUE)  # libs stay under articles/
   html <- gsub('="article.css', '="articles/article.css', html, fixed = TRUE)
   html <- gsub('="images/',      '="articles/images/',    html, fixed = TRUE)
+  html <- gsub(paste0('="', SHARED_LIBS, '/'), paste0('="articles/', SHARED_LIBS, '/'), html, fixed = TRUE)   # shared shinylive runtime
   writeLines(html, file.path(OUT_DIR, paste0(pg, ".html")))
   cat(sprintf("  promoted articles/%s.html -> %s/%s.html\n", pg, OUT_DIR, pg))
 }
@@ -192,6 +238,7 @@ for (n in g$nodes) {
     entry$articleUrl <- paste0("articles/", nid, ".html")
     # Opt-in inline quick-read: carry the article body markdown so the node can expand it in place.
     if (!is.null(.art$inline[[nid]])) entry$articleInline <- .art$inline[[nid]]
+    entry$articleLang <- .art$langs[[nid]] %||% "en"   # "fi" when the article is written in Finnish
   }
   descriptions[[nid]] <- entry
 }

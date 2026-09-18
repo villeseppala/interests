@@ -1,7 +1,8 @@
 # ────────────────────────────────────────────────────────────────────────────
 # Extinction-risk visualiser — replica of the right-hand data panel from the
-# concept slide. Recomputes the whole cascade in R from the four annual
-# extinction rates + population checkpoints, so it also serves as a clean
+# concept slide. Recomputes the whole cascade in R from the per-period annual
+# extinction rates + population checkpoints (2-4 periods, set by the time-scale
+# slider: 100 / 1 000 / 10 000 years), so it also serves as a clean
 # recomputation to diff against the slide.
 #
 # Interaction (JavaScript): click an "Annual extinction probability" cell to
@@ -19,34 +20,58 @@ library(shiny)
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
 # ── model config ────────────────────────────────────────────────────────────
+# The horizon is a power of ten (100 / 1 000 / 10 000 years) chosen by the reader; the checkpoints
+# are START plus every power of ten up to it, so the periods are always 10, 90, 900, 9000 years.
+# Everything that depends on the horizon lives in the list model_for() returns — nothing below
+# assumes a fixed number of columns.
 START     <- 2026
-CPS       <- c(2026, 2036, 2126, 3026, 12026)   # checkpoint (column) years
-SEG_START <- c(2027, 2037, 2127, 3027)          # first year of each period
-SEG_END   <- c(2036, 2126, 3026, 12026)         # last  year of each period
-SEG_LEN   <- SEG_END - SEG_START + 1            # 10, 90, 900, 9000
-DEF_RATES <- c(0.0005, 0.0005, 0.0001, 0.00005)   # 0.05%, 0.05%, 0.01%, 0.005% per year
-POP_CPS   <- rep(8.3e9, 5)                       # constant 8300 M default at every checkpoint
+SCALE_EXP <- 2:4                                 # slider positions: 10^2 .. 10^4 years
+DEF_EXP   <- 3                                   # default horizon 1 000 years (lighter than 10 000)
+ALL_RATES <- c(0.0005, 0.0005, 0.0001, 0.00005)  # 0.05%, 0.05%, 0.01%, 0.005% per year, by period
+POP0      <- 8.3e9                               # constant 8300 M default at every checkpoint
 LIFE_EXP  <- 75
 
-YRS_ALL <- START:max(CPS)                        # 2026 .. 12026
+model_for <- function(scale_exp) {
+  cps       <- START + c(0, 10^seq_len(scale_exp))       # 2026, 2036, 2126, (3026, (12026))
+  n         <- length(cps)
+  seg_start <- cps[-n] + 1                                # first year of each period
+  seg_end   <- cps[-1]                                    # last  year of each period
+  list(n = n, cps = cps, seg_start = seg_start, seg_end = seg_end,
+       seg_len   = seg_end - seg_start + 1,               # 10, 90, 900, ...
+       yrs_all   = START:max(cps),
+       def_rates = ALL_RATES[seq_len(n - 1)],
+       def_pops  = rep(POP0, n))
+}
+
+# Coerce a {rates, pops} state to a model's checkpoint count: keep whatever the reader already set
+# for the periods both horizons share, and fill the rest with defaults. Used when the horizon
+# changes (edits to the first periods survive) and to keep rendering coherent in the moment
+# between the slider moving and the client sending back a resized state.
+fit_state <- function(s, M) {
+  fill <- function(x, def) { k <- min(length(x), length(def)); def[seq_len(k)] <- x[seq_len(k)]; def }
+  list(rates = fill(as.numeric(s$rates), M$def_rates),
+       pops  = fill(as.numeric(s$pops),  M$def_pops))
+}
 
 # potential population per year: geometric interpolation between the (editable)
 # checkpoint values, so the potential-population column stays internally
 # consistent — it hits the checkpoint values exactly at the checkpoint years.
-build_pop <- function(pop_cps) {
-  pop <- numeric(length(YRS_ALL))
-  for (k in seq_len(length(CPS) - 1)) {
-    y0 <- CPS[k]; y1 <- CPS[k + 1]; v0 <- pop_cps[k]; v1 <- pop_cps[k + 1]
-    ix <- which(YRS_ALL >= y0 & YRS_ALL <= y1)
-    pop[ix] <- v0 * (v1 / v0) ^ ((YRS_ALL[ix] - y0) / (y1 - y0))
+build_pop <- function(pop_cps, M) {
+  yrs <- M$yrs_all; cps <- M$cps
+  pop <- numeric(length(yrs))
+  for (k in seq_len(length(cps) - 1)) {
+    y0 <- cps[k]; y1 <- cps[k + 1]; v0 <- pop_cps[k]; v1 <- pop_cps[k + 1]
+    ix <- which(yrs >= y0 & yrs <= y1)
+    pop[ix] <- v0 * (v1 / v0) ^ ((yrs[ix] - y0) / (y1 - y0))
   }
   pop
 }
 
 # ── the cascade ─────────────────────────────────────────────────────────────
-compute <- function(rates, pop_cps) {
-  POP_ALL <- build_pop(pop_cps)
-  seg  <- findInterval(YRS_ALL, SEG_START)          # 0 for 2026, else 1..4
+compute <- function(rates, pop_cps, M) {
+  yrs <- M$yrs_all
+  POP_ALL <- build_pop(pop_cps, M)
+  seg  <- findInterval(yrs, M$seg_start)             # 0 for 2026, else 1..n-1
   r    <- ifelse(seg >= 1, rates[pmax(seg, 1)], 0)
   surv <- cumprod(1 - r)                             # survival to end of year
   pop_exp <- POP_ALL * surv
@@ -54,8 +79,8 @@ compute <- function(rates, pop_cps) {
   cum_years  <- cumsum(ifelse(lived, surv,    0))
   cum_ly     <- cumsum(ifelse(lived, pop_exp, 0))
   cum_ly_pot <- cumsum(ifelse(lived, POP_ALL, 0))
-  ix <- match(CPS, YRS_ALL)
-  growth <- c(NA, (pop_cps[-1] / pop_cps[-length(pop_cps)]) ^ (1 / diff(CPS)) - 1)
+  ix <- match(M$cps, yrs)
+  growth <- c(NA, (pop_cps[-1] / pop_cps[-length(pop_cps)]) ^ (1 / diff(M$cps)) - 1)
   list(
     rates      = rates,
     pop_cps    = pop_cps,
@@ -287,8 +312,28 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
 .kbd{display:inline-block;background:#0a2438;border:1px solid #2a6a8f;border-radius:4px;
   padding:0 7px;font-size:12px;margin:0 1px;line-height:18px;}
 .grid-wrap{margin-top:4px;}
-.grow{display:grid;grid-template-columns:172px repeat(10,1fr);align-items:start;
+/* two half-columns per checkpoint (values sit on the years, rates in the gaps between them);
+   --ncols is set on .grid-wrap per render from the number of checkpoints */
+/* Cap the column pitch so a short horizon doesn't spread three checkpoints across the whole width.
+   Every cell is two half-columns wide (the rate cells straddle the year columns), so one cap governs
+   both the gaps and the value cells. The cap is set per render (--halfcol on .grid-wrap) and grows
+   with the horizon, because the numbers do: each 10x of horizon adds a digit and a separator to the
+   cumulative totals. 46 + 7n px per half-column (n = checkpoints) is sized to the widest bold NUMBER
+   at each horizon (those wrap by thousands-group, which would split a value across lines); the italic
+   captions beneath are allowed to wrap onto a second line. Spare width sits after the table. */
+.grid-wrap{--halfcol:74px;}
+.grow{display:grid;grid-template-columns:172px repeat(var(--ncols,8),1fr);align-items:start;
+  max-width:calc(172px + var(--ncols,8) * var(--halfcol));
   border-bottom:1px solid rgba(255,255,255,.05);}
+/* horizon slider: compact, dark-themed, three stops (100 / 1 000 / 10 000 years) */
+.scalectl{display:flex;align-items:center;gap:10px;}
+.scalectl .form-group{margin:0;}
+.scalectl .irs{font-family:inherit;}
+.scalectl .irs--shiny .irs-line{background:#12405f;border-color:#2a6a8f;}
+.scalectl .irs--shiny .irs-bar{background:#1f77a8;border-color:#1f77a8;}
+.scalectl .irs--shiny .irs-handle{background:#8fd6f2;border-color:#8fd6f2;}
+.scalectl .irs--shiny .irs-single{background:#1f77a8;color:#fff;font-size:11px;}
+.scalectl .irs--shiny .irs-min,.scalectl .irs--shiny .irs-max{color:#9fb0bf;background:transparent;font-size:10px;}
 .grow.ghead{border-bottom:1px solid rgba(255,255,255,.18);}
 .grow.erow{background:rgba(255,255,255,.05);border-radius:7px;margin:3px 0;}
 .rlabel{grid-column:1;grid-row:1;display:flex;align-items:flex-start;gap:5px;font-size:12.5px;line-height:1.35;font-weight:600;
@@ -353,9 +398,11 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
 )"
 
 js <- r"(
-var rates = [0.0005, 0.0005, 0.0001, 0.00005];
-var pops  = [8.3e9, 8.3e9, 8.3e9, 8.3e9, 8.3e9];
-var LEN   = [10, 90, 900, 9000];                 // interval lengths (years)
+// Initial arrays match the server's default horizon (1 000 years = 4 checkpoints, 3 periods).
+// A horizon change arrives as a 'setScale' message that replaces all three.
+var rates = [0.0005, 0.0005, 0.0001];
+var pops  = [8.3e9, 8.3e9, 8.3e9, 8.3e9];
+var LEN   = [10, 90, 900];                       // interval lengths (years)
 var baseRates = rates.slice(), basePops = pops.slice();   // comparison baseline (from server)
 var sel   = {kind:'rate', i:1, place:0.00001, delta:false};  // value/delta + which digit
 
@@ -532,7 +579,24 @@ if(window.Shiny){
   Shiny.addCustomMessageHandler('baseline', function(v){
     baseRates = v.rates.slice(); basePops = v.pops.slice();
   });
+  // Horizon changed: the server sends the resized arrays (edits to shared periods preserved).
+  // The undo history restarts — its snapshots have the old length and can't be restored into
+  // the new structure — and the selection is clamped so it can't point past the last column.
+  Shiny.addCustomMessageHandler('setScale', function(v){
+    LEN = v.len.slice(); rates = v.rates.slice(); pops = v.pops.slice();
+    baseRates = rates.slice(); basePops = pops.slice();
+    histStack = [{rates: rates.slice(), pops: pops.slice()}]; histIdx = 0;
+    var last = (sel.kind === 'pop' ? pops.length : rates.length) - 1;
+    if(sel.i > last) sel.i = last;
+    pushState(); applyHighlight(); updateHistBtns();
+  });
 }
+// Horizon slider labels: it runs 2..4 (exponents); show the reader "100 y / 1 000 y / 10 000 y".
+function fmtScale(n){ return String(Math.pow(10, n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' y'; }
+$(document).on('shiny:connected', function(){
+  var s = $('#hscale').data('ionRangeSlider');
+  if(s) s.update({ prettify: fmtScale });
+});
 )"
 
 ui <- fluidPage(
@@ -551,6 +615,12 @@ ui <- fluidPage(
       actionButton("surv100", "100% survival", class = "btn"),
       uiOutput("basebtns", inline = TRUE),
       actionButton("reset", "Reset to defaults", class = "btn"),
+      # Horizon: 100 / 1 000 / 10 000 years. The slider holds the exponent (2..4); a JS prettify
+      # hook shows the reader the year count instead. Default 1 000 keeps the first load light.
+      div(class = "scalectl",
+        span(class = "khint", "Time scale"),
+        sliderInput("hscale", NULL, min = min(SCALE_EXP), max = max(SCALE_EXP), value = DEF_EXP,
+                    step = 1, ticks = FALSE, width = "170px")),
       span(class = "khint", HTML(
         "Edit any <b>extinction probability</b>, <b>survival probability</b>, or ",
         "<b>potential population</b> digit &mdash; click its ",
@@ -567,16 +637,21 @@ ui <- fluidPage(
 # ── server ──────────────────────────────────────────────────────────────────
 server <- function(input, output, session) {
 
-  DEF_STATE <- list(rates = DEF_RATES, pops = POP_CPS)
+  # The model for the chosen horizon. Everything downstream — state, baseline, history, the
+  # panel — is fitted to it with fit_state(), so a horizon change can never leave a stale
+  # 5-column state being rendered into a 3-column model (or vice versa).
+  M <- reactive(model_for(as.integer(input$hscale %||% DEF_EXP)))
+  def_state <- reactive(list(rates = M()$def_rates, pops = M()$def_pops))
+
   state_r <- reactive({
     s <- input$state
-    if (is.null(s)) DEF_STATE
-    else            list(rates = as.numeric(s$rates), pops = as.numeric(s$pops))
+    if (is.null(s)) def_state() else fit_state(s, M())
   })
 
+  DEF0       <- list(rates = model_for(DEF_EXP)$def_rates, pops = model_for(DEF_EXP)$def_pops)
   mode       <- reactiveVal("previous")          # "current" | "previous"
-  ref_static <- reactiveVal(DEF_STATE)            # frozen baseline (current mode)
-  hist       <- reactiveValues(prev = DEF_STATE, last = DEF_STATE)
+  ref_static <- reactiveVal(DEF0)                 # frozen baseline (current mode)
+  hist       <- reactiveValues(prev = DEF0, last = DEF0)
 
   # remember the state before the most recent change
   observeEvent(input$state, {
@@ -584,7 +659,16 @@ server <- function(input, output, session) {
     hist$last <- state_r()
   })
 
-  ref_state <- reactive(if (mode() == "previous") hist$prev else ref_static())
+  ref_state <- reactive(fit_state(if (mode() == "previous") hist$prev else ref_static(), M()))
+
+  # Horizon changed: resize the current state (keeping edits to the periods both horizons share),
+  # hand it to the client, and rebase deltas/history on it — a structural change, not an edit.
+  observeEvent(input$hscale, {
+    new_state <- fit_state(isolate(state_r()), M())
+    session$sendCustomMessage("setScale",
+      list(len = as.numeric(M()$seg_len), rates = as.numeric(new_state$rates), pops = as.numeric(new_state$pops)))
+    ref_static(new_state); hist$prev <- new_state; hist$last <- new_state
+  }, ignoreInit = TRUE)
 
   observe({                                        # keep JS informed of the baseline (for delta editing)
     b <- ref_state()
@@ -595,14 +679,14 @@ server <- function(input, output, session) {
   observeEvent(input$setref,  { ref_static(state_r()); mode("current") })
   observeEvent(input$setprev, mode("previous"))
   observeEvent(input$surv100, {                   # all survival → 100%, all x-risk → 0; rebase deltas to 0
-    new_state <- list(rates = as.numeric(c(0, 0, 0, 0)), pops = as.numeric(state_r()$pops))
+    new_state <- list(rates = as.numeric(rep(0, M()$n - 1)), pops = as.numeric(state_r()$pops))
     session$sendCustomMessage("setState", new_state)
     ref_static(new_state); mode("current")
   })
   observeEvent(input$reset, {
-    session$sendCustomMessage("setState",
-      list(rates = as.numeric(DEF_RATES), pops = as.numeric(POP_CPS)))
-    ref_static(DEF_STATE); hist$prev <- DEF_STATE; hist$last <- DEF_STATE
+    d <- def_state()
+    session$sendCustomMessage("setState", list(rates = as.numeric(d$rates), pops = as.numeric(d$pops)))
+    ref_static(d); hist$prev <- d; hist$last <- d
     mode("previous")
   })
 
@@ -616,37 +700,39 @@ server <- function(input, output, session) {
   })
 
   output$panel <- renderUI({
+    m   <- M(); n <- m$n; np <- n - 1                 # checkpoints / periods for this horizon
     st  <- state_r(); rf <- ref_state()
-    cur <- compute(st$rates, st$pops)
-    ref <- compute(rf$rates, rf$pops)
-    elapsed <- c(0, cumsum(SEG_LEN))                 # 0,10,100,1000,10000
+    cur <- compute(st$rates, st$pops, m)
+    ref <- compute(rf$rates, rf$pops, m)
+    elapsed <- c(0, cumsum(m$seg_len))               # 0,10,100,(1000,(10000))
     ycol <- function(j) 2 * j                         # grid start for year j
     gcol <- function(i) 2 * i + 1                     # grid start for gap i (between year i & i+1)
+    J <- seq_len(n); I <- seq_len(np)                 # column / gap indices
 
     # header: years centered over their columns
     header <- do.call(tags$div, c(list(class = "grow ghead",
       tags$div(class = "rlabel", "")),
-      lapply(1:5, function(j)
+      lapply(J, function(j)
         tags$div(class = "ycol", style = paste0("grid-column:", ycol(j), "/span 2;"),
-          div(class = "yr", fmt_year(CPS[j]))))))
+          div(class = "yr", fmt_year(m$cps[j]))))))
 
     # interval row: "← N years →" over each gap, with the calendar year-range below it
     intervals <- do.call(tags$div, c(list(class = "grow",
       tags$div(class = "rlabel", "")),
-      lapply(1:4, function(i)
+      lapply(I, function(i)
         tags$div(class = "ivlcell", style = paste0("grid-column:", gcol(i), "/span 2;"),
-          div(HTML(paste0("&larr; ", SEG_LEN[i], " years &rarr;"))),
-          div(class = "ivlrng", HTML(paste0(fmt_year(SEG_START[i]), "&ndash;", fmt_year(SEG_END[i]))))))))
+          div(HTML(paste0("&larr; ", m$seg_len[i], " years &rarr;"))),
+          div(class = "ivlrng", HTML(paste0(fmt_year(m$seg_start[i]), "&ndash;", fmt_year(m$seg_end[i]))))))))
 
     # 1 · annual extinction probability — editable, sits in the gaps between years
-    rate_cells <- lapply(1:4, function(i)
+    rate_cells <- lapply(I, function(i)
       gcell_edit(gcol(i), cur = cur$rates[i], ref = ref$rates[i], kind = "rate", vi = i,
         to_disp = 100, decimals = 4, suffix = "%", good = "more_bad",
         top   = paste0("<span class='ratio'>1 in ", f_int(1 / cur$rates[i]), "</span>"),
         color = COL_RATE))
 
     # 2 · survival probability given past extinction — editable (backtraces to rates)
-    surv_cells <- lapply(1:5, function(j) {
+    surv_cells <- lapply(J, function(j) {
       if (j == 1)                                     # 2026 is fixed at 100%
         return(gcell(ycol(1), f_pct(cur$surv[1]), color = COL_SURV))
       gcell_edit(ycol(j), cur = cur$surv[j], ref = ref$surv[j], kind = "surv", vi = j - 1,
@@ -655,42 +741,43 @@ server <- function(input, output, session) {
     })
 
     # 3 · cumulative survived years of humanity
-    years_cells <- lapply(1:5, function(j)
+    years_cells <- lapply(J, function(j)
       if (j == 1) gcell_ro(ycol(j), cur$cum_years[j], cur$cum_years[j], 1, 4, "y", delta = FALSE, color = COL_SURV)
       else gcell_ro(ycol(j), cur$cum_years[j], ref$cum_years[j], 1, 4, "y", "more_good",
              sub = paste0("of ", f_int(elapsed[j]), "y potential"), color = COL_SURV))
 
     # 4 · potential population if survived — editable checkpoints
-    pop_pot_cells <- lapply(1:5, function(j)
+    pop_pot_cells <- lapply(J, function(j)
       gcell_edit(ycol(j), cur = cur$pop_pot[j], ref = ref$pop_pot[j], kind = "pop", vi = j,
         to_disp = 1 / 1e6, decimals = 0, suffix = "m", pad = 5, good = "more_good",
         color = COL_POP))
     # per-period growth rate sits in the gap between the two checkpoints it spans
-    growth_cells <- lapply(1:4, function(i) {
+    growth_cells <- lapply(I, function(i) {
       g <- cur$growth[i + 1] * 100
       tags$div(class = "vgrowth", style = paste0("grid-column:", gcol(i), "/span 2;"),
         HTML(paste0(if (g >= 0) "+" else "", formatC(g, digits = 3, format = "f"), "%/yr")))
     })
 
     # 5 · expected population with survival probabilities
-    pop_exp_cells <- lapply(1:5, function(j)
+    pop_exp_cells <- lapply(J, function(j)
       if (j == 1) gcell_ro(ycol(j), cur$pop_exp[j], cur$pop_exp[j], 1, 0, "", delta = FALSE, color = COL_POP)
       else gcell_ro(ycol(j), cur$pop_exp[j], ref$pop_exp[j], 1, 0, "", "more_good",
              sub = paste0("of ", f_int(cur$pop_pot[j]), " potential"), color = COL_POP))
 
     # 6 · expected cumulative lived human life-years
-    ly_cells <- lapply(1:5, function(j)
+    ly_cells <- lapply(J, function(j)
       if (j == 1) gcell_ro(ycol(j), cur$cum_ly[j], cur$cum_ly[j], 1, 0, "", delta = FALSE, color = COL_POP)
       else gcell_ro(ycol(j), cur$cum_ly[j], ref$cum_ly[j], 1, 0, "", "more_good",
              sub = paste0("of ", f_int(cur$cum_ly_pot[j]), " potential"), color = COL_POP))
 
     # 7 · expected cumulative lived human lives (75y)
-    lives_cells <- lapply(1:5, function(j)
+    lives_cells <- lapply(J, function(j)
       if (j == 1) gcell_ro(ycol(j), cur$lives[j], cur$lives[j], 1, 0, "", delta = FALSE, color = COL_POP)
       else gcell_ro(ycol(j), cur$lives[j], ref$lives[j], 1, 0, "", "more_good",
              sub = paste0(f_int(cur$lives_pot[j] - cur$lives[j]), " less than potential"), color = COL_POP))
 
-    div(class = "grid-wrap",
+    # --halfcol: column pitch cap for this horizon (see the .grow CSS comment) — one number to tune.
+    div(class = "grid-wrap", style = paste0("--ncols:", 2 * n, ";--halfcol:", 46 + 7 * n, "px;"),
       header,
       intervals,
       metric_grow("Annual extinction<br>probability<br><span class='ital'>if survived until then</span>",  COL_RATE, rate_cells,    cls = "erow", row = "rate",
@@ -724,13 +811,14 @@ server <- function(input, output, session) {
 
   output$summary <- renderUI({
     st  <- state_r()
-    cur <- compute(st$rates, st$pops)
+    m   <- M(); n <- m$n
+    cur <- compute(st$rates, st$pops, m)
     div(class = "summary", HTML(paste0(
-      "With these rates, humanity survives to <b>", fmt_year(max(CPS)),
-      "</b> with <b>", f_pct(cur$surv[5]), "</b> probability, is expected to live ",
-      "<b>", f_years(cur$cum_years[5]), "</b> of the next ",
-      f_int(sum(SEG_LEN)), " years, and to accrue <b>", f_int(cur$lives[5]),
-      "</b> human lives (", f_int(cur$cum_ly[5]), " life-years).")))
+      "With these rates, humanity survives to <b>", fmt_year(max(m$cps)),
+      "</b> with <b>", f_pct(cur$surv[n]), "</b> probability, is expected to live ",
+      "<b>", f_years(cur$cum_years[n]), "</b> of the next ",
+      f_int(sum(m$seg_len)), " years, and to accrue <b>", f_int(cur$lives[n]),
+      "</b> human lives (", f_int(cur$cum_ly[n]), " life-years).")))
   })
 }
 

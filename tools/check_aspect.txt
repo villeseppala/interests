@@ -4,14 +4,16 @@
   ok    app_author/app.R
   ok    app_publish/app.R
   ok    tools/build_static.R
+  ok    app_xrisk/app.R
+  ok    app_hazard/app.R
 === 2. Aspect values per graph.json ===
 -- publish -- app_publish/www/graph.json
   setting            wide         tall         saved tall_*?
   w_node             340          340          yes
   w_project          476          540          yes   <- DIFFERS
-  h_theme            92           92           yes
+  h_theme            80           92           yes   <- DIFFERS
   h_project          40           40           yes
-  h_skill            92           92           yes
+  h_skill            80           92           yes   <- DIFFERS
   gap_v              12           12           yes
   gap_col            60           60           yes
   font_node          21           21           yes
@@ -19,7 +21,7 @@
   font_ptype         21           21           yes
   font_subs          15           15           yes
   center_cols        TRUE         FALSE        yes   <- DIFFERS
-  headers_on_stack   FALSE        FALSE        yes
+  headers_on_stack   TRUE         FALSE        yes   <- DIFFERS
   ptype_pct          19           19           yes
   fill_nodew         31           31           yes
   fill_projw         27           27           yes
@@ -36,9 +38,9 @@
   setting            wide         tall         saved tall_*?
   w_node             340          340          yes
   w_project          476          540          yes   <- DIFFERS
-  h_theme            92           92           yes
+  h_theme            80           92           yes   <- DIFFERS
   h_project          40           40           yes
-  h_skill            92           92           yes
+  h_skill            80           92           yes   <- DIFFERS
   gap_v              12           12           yes
   gap_col            60           60           yes
   font_node          21           21           yes
@@ -46,7 +48,7 @@
   font_ptype         21           21           yes
   font_subs          15           15           yes
   center_cols        TRUE         FALSE        yes   <- DIFFERS
-  headers_on_stack   FALSE        FALSE        yes
+  headers_on_stack   TRUE         FALSE        yes   <- DIFFERS
   ptype_pct          19           19           yes
   fill_nodew         31           31           yes
   fill_projw         27           27           yes

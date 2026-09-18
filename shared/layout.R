@@ -23,7 +23,7 @@ ABOUT_HEADER_GAP <- 64L
 # Pull the YAML `title:` and the first body paragraph (preview) from a .qmd source.
 parse_qmd_meta <- function(path) {
   lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
-  title <- ""; preview <- ""; inline <- FALSE
+  title <- ""; preview <- ""; inline <- FALSE; app_page <- FALSE; lang <- "en"
   fences <- which(grepl("^---\\s*$", lines))   # YAML front matter = first two `---` lines
   body_start <- 1L
   if (length(fences) >= 2) {
@@ -36,6 +36,13 @@ parse_qmd_meta <- function(path) {
     }
     # `inline: true` opts an article into the on-node quick-read (rendered inline via the minimal
     # markdown renderer). Without it, the article is link-only (external full-fidelity page only).
+    # `app-page: true` marks a bare full-window app page: rendered by Quarto, but not an article (no manifest/nav entry).
+    am <- grep("^app-page\\s*:", yaml_lines, value = TRUE)
+    if (length(am)) app_page <- tolower(trimws(sub("^app-page\\s*:\\s*", "", am[1]))) %in% c("true", "yes", "on", "1")
+    # `lang: fi` (Quarto's own document-language key) tells the site an article is written in Finnish; the
+    # node's "Read more" then says so when the page is viewed in the other language. Default: English.
+    lm <- grep("^lang\\s*:", yaml_lines, value = TRUE)
+    if (length(lm)) { lv <- tolower(trimws(gsub("[\"']", "", sub("^lang\\s*:\\s*", "", lm[1])))); if (grepl("^fi", lv)) lang <- "fi" }
     im <- grep("^inline\\s*:", yaml_lines, value = TRUE)
     if (length(im)) {
       iv <- tolower(trimws(sub("^inline\\s*:\\s*", "", im[1])))
@@ -52,7 +59,7 @@ parse_qmd_meta <- function(path) {
     preview <- t; break
   }
   if (nchar(preview) > 220) preview <- paste0(substr(preview, 1, 217), "...")
-  list(title = title, preview = preview, inline = inline,
+  list(title = title, preview = preview, inline = inline, app_page = app_page, lang = lang,
        body = paste(body, collapse = "\n"))   # full body markdown (for the inline quick-read)
 }
 
@@ -60,24 +67,27 @@ parse_qmd_meta <- function(path) {
 #   list(manifest = [{id,title,preview,url,inline}], ids = chr, inline = named list id->body markdown).
 # `inline` holds the body markdown only for articles that opted in via `inline: true` front matter.
 scan_articles <- function(articles_dir) {
-  manifest <- list(); ids <- character(0); inline_body <- list()
+  manifest <- list(); ids <- character(0); inline_body <- list(); langs <- list()
   if (dir.exists(articles_dir)) {
     for (qf in list.files(articles_dir, pattern = "\\.qmd$", full.names = TRUE)) {
       id <- sub("\\.qmd$", "", basename(qf))
       if (grepl("^_", id)) next                     # skip _quarto.yml-style partials
       meta <- parse_qmd_meta(qf)
+      if (isTRUE(meta$app_page)) next            # bare app pages are not articles
       ids <- c(ids, id)
       manifest[[length(manifest) + 1]] <- list(
         id      = id,
         title   = if (nzchar(meta$title)) meta$title else paste("Article", id),
         preview = meta$preview,
         url     = paste0("articles/", id, ".html"),
-        inline  = isTRUE(meta$inline)
+        inline  = isTRUE(meta$inline),
+        lang    = meta$lang
       )
+      langs[[id]] <- meta$lang
       if (isTRUE(meta$inline)) inline_body[[id]] <- meta$body
     }
   }
-  list(manifest = manifest, ids = ids, inline = inline_body)
+  list(manifest = manifest, ids = ids, inline = inline_body, langs = langs)
 }
 
 # ── Mobile layout defaults ───────────────────────────────────────────────────

@@ -1,0 +1,10 @@
+/* Bare app pages (xrisk-app.qmd / hazard-app.qmd): nothing but the shinylive app, filling the window.
+ * Layered after article.css. The shared nav/footer includes still render (they come from _quarto.yml
+ * and cannot be switched off per document), so they are hidden here instead. */
+html, body { margin: 0; padding: 0; background: #0b3552; }
+#site-nav, hr.article-foot-sep, .article-back, #title-block-header, #quarto-header { display: none !important; }
+#quarto-content, main, .page-layout-custom, .content { margin: 0 !important; padding: 0 !important; max-width: none !important; }
+/* full width on desktop; below 821px article.css pins the app to 800px and lets it scroll sideways instead */
+@media (min-width: 821px) {
+  .shinylive-container { width: 100% !important; margin: 0 !important; }
+}

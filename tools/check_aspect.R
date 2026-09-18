@@ -26,7 +26,8 @@ local({
 
   say("=== 1. Syntax check ===")
   say("  (parses each file; a FAIL here means the app will not launch)")
-  files <- c("shared/layout.R", "app_author/app.R", "app_publish/app.R", "tools/build_static.R")
+  files <- c("shared/layout.R", "app_author/app.R", "app_publish/app.R", "tools/build_static.R",
+             "app_xrisk/app.R", "app_hazard/app.R")
   for (f in files) {
     if (!file.exists(f)) { say("  MISSING ", f); next }
     msg <- tryCatch({ parse(f); NULL }, error = function(e) conditionMessage(e))

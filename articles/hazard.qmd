@@ -7,7 +7,7 @@ inline: false
 
 A prototype where you sketch the whole risk profile as a curve rather than typing numbers. Drag the red extinction-probability handles or the pink population handles across the timeline, and set each checkpoint year with the dials above the graph.
 
-It runs entirely in your browser, so the first load takes a few seconds while the R runtime downloads.
+It runs entirely in your browser, so the first load takes a few seconds while the R runtime downloads. [Open the app full-screen in a new tab &#8599;](hazard-app.html){target="_blank"}
 
 <!-- HAZARD-APP:START -->
 ```{shinylive-r}
@@ -127,12 +127,23 @@ overlay_js <- HTML(r"---(
   // checkpoint i -> x-fraction [0,1]. equal periods (default) or linear-in-years when linearX.
   function cpFx(i){ const n=ns(); if(linearX){ const sp=yearVals[n]-yearVals[0]; if(sp>0) return (yearVals[i]-yearVals[0])/sp; } return i/n; }
   const M=100, GRAB=15, LEV=34, LIN_EMIN=-5, LIN_EMAX=-1;
+  const EDGE_IN=9;   // inset (user units, ~one digit) for the first/last checkpoint readouts
+  const YDEAD=5;   // px of sideways travel ignored before an anchor drag starts moving its year (keeps vertical drags from drifting)
   let showPoints=true, useCtrl=false, split=true, linearY=true, logTime=false, linearX=true, driver="hazard";
+  // which handle family was grabbed last: "hazard" (normal view) or "pop" (population readouts shown at every
+  // checkpoint, the hazard/survival readouts faded to 30% so the numbers stay readable). Flips on the next grab.
+  let focusSet="hazard";
   let visHaz=true, visSurv=true, visPop=true, visCumYr=false, visCumLy=false, visCumLives=false;
   let minorGrid=[];
   function tFrac(u){ return logTime ? (Math.pow(10,u)-1)/9 : u; }   // log: single decade of time per span
-  let linExp=-1, linMax=0.1, grewReach=false;   // grewReach: population one-grow-per-reach guard
+  let linExp=-1, linMax=0.1;
+  // Scale transitions (linear hazard scale + population scale): the plot spans 0..TOPF x the scale max, i.e. 11
+  // grid units of which the top one (10..11, unlabeled) is a red transition zone; the bottom 10% is another.
+  // Releasing a handle inside the top zone grows that scale a decade; releasing with EVERY current value of that
+  // variable inside the bottom zone shrinks it to fit. Baseline ("previous") values never count. See fitExp().
+  const TOPF=1.1, ZONE_FILL="rgba(255,0,0,0.2)";
   let W,H, hazSet={anchors:[],ctrls:[]}, survSet={anchors:[],ctrls:[]}, popSet={anchors:[],ctrls:[]}, hazS=[], survS=[], popS=[];
+  let surTicks=[];   // survival axis labels (right gutter)
   let yTicks=[], popTicks=[], cumYrTicks=[], cumLyTicks=[], cumLvTicks=[], infoTx=[], bandsG, bandSig="", svg, label, hazArea, hazLine, surLine, popLine, expLine, segSep=[], connLines=[], ptLabels=[], readySent=false, drag=null;
   let baseHazLine, baseSurLine, basePopLine, baseExpLine, cumYrLine, cumLyLine, cumLvLine;
   let baseCumYrLine, baseCumLyLine, baseCumLvLine;
@@ -141,25 +152,37 @@ overlay_js <- HTML(r"---(
   const clampHaz=h=>Math.max(1e-5,Math.min(1e-1,h)), clamp01=v=>Math.max(0,Math.min(1,v)), sX=fx=>fx*W;
   function hazToFyDec(h){ h=clampHaz(h); let seg=Math.min(3,Math.max(0,Math.floor(Math.log10(h))+5));
     const lo=Math.pow(10,seg-5),hi=Math.pow(10,seg-4); return (seg+Math.max(0,Math.min(1,(h-lo)/(hi-lo))))/4; }
-  const sYh=h=>linearY?(1-clamp01(h/linMax))*H:(1-hazToFyDec(h))*H;
-  const hazFromFy=fy=>linearY?clampHaz(clamp01(fy)*linMax):(function(){let seg=Math.min(3,Math.floor(clamp01(fy)*4)),frac=clamp01(fy)*4-seg,
+  const sYh=h=>linearY?(1-clamp01(h/(linMax*TOPF)))*H:(1-hazToFyDec(h))*H;
+  const hazFromFy=fy=>linearY?clampHaz(clamp01(fy)*linMax*TOPF):(function(){let seg=Math.min(3,Math.floor(clamp01(fy)*4)),frac=clamp01(fy)*4-seg,
     lo=Math.pow(10,seg-5),hi=Math.pow(10,seg-4);return lo+frac*(hi-lo);})();
-  const sYs=s=>(1-s)*H;
+  const survTop=()=>linearY?TOPF:1;   // survival 100% sits on the 10th tick, under the top transition zone (full height in decade mode)
+  const sYs=s=>(1-s/survTop())*H;
   const ratio=h=>Math.round(1/clampHaz(h)).toLocaleString();
   function foldClamp(a){ if(a>Math.PI/2)a-=Math.PI; else if(a<-Math.PI/2)a+=Math.PI; return Math.max(-1.35,Math.min(1.35,a)); }
   function herm(px,x0,y0,m0,x1,y1,m1){ const h=x1-x0,u=(px-x0)/h;
     return y0*(2*u*u*u-3*u*u+1)+m0*h*(u*u*u-2*u*u+u)+y1*(-2*u*u*u+3*u*u)+m1*h*(u*u*u-u*u); }
-  function dScreenYdh(h){ if(linearY) return -H/linMax; h=clampHaz(h);
+  function dScreenYdh(h){ if(linearY) return -H/(linMax*TOPF); h=clampHaz(h);
     const seg=Math.min(3,Math.max(0,Math.floor(Math.log10(h))+5)),lo=Math.pow(10,seg-5),hi=Math.pow(10,seg-4); return -(H/4)/(hi-lo); }
   // variable descriptors
   const HDESC={ yOf:sYh,        invY:py=>hazFromFy(1-py/H), clampV:clampHaz, dYdv:dScreenYdh, col:HAZ, bar:HBAR, ratioLbl:v=>"1 in "+ratio(v)+" ("+(v*100).toFixed(4)+"%)" };
-  const SDESC={ yOf:s=>(1-s)*H, invY:py=>clamp01(1-py/H),   clampV:clamp01,  dYdv:()=> -H,      col:SUR, bar:SBAR, ratioLbl:v=>(v*100).toFixed(1)+"% surv" };
-  const sYp = p=>(1-clamp01(p/popMax))*H;
-  const PDESC={ yOf:sYp, invY:py=>clamp01(1-py/H)*popMax, clampV:p=>Math.max(0,Math.min(1e15,p)), dYdv:()=>-H/popMax, col:POP, bar:PBAR, ratioLbl:v=>Math.round(v/1e6).toLocaleString()+" M pop" };
+  const SDESC={ yOf:sYs, invY:py=>clamp01((1-py/H)*survTop()), clampV:clamp01, dYdv:()=> -H/survTop(),      col:SUR, bar:SBAR, ratioLbl:v=>(v*100).toFixed(1)+"% surv" };
+  const sYp = p=>(1-clamp01(p/(popMax*TOPF)))*H;
+  const PDESC={ yOf:sYp, invY:py=>clamp01(1-py/H)*popMax*TOPF, clampV:p=>Math.max(0,Math.min(1e15,p)), dYdv:()=>-H/(popMax*TOPF), col:POP, bar:PBAR, ratioLbl:v=>Math.round(v/1e6).toLocaleString()+" M pop" };
   function maxPopVal(){ let m=0; for(let i=0;i<np();i++){ if(popSet.anchors[i].val>m)m=popSet.anchors[i].val; } popS.forEach(p=>{ if(p.val>m)m=p.val; }); return m; }
-  function growPop(){ if(maxPopVal()<0.8*popMax) grewReach=false;                        // value came back down → re-arm
-    if(!grewReach && maxPopVal()>=popMax && popMax<1e14){ popMax*=10; grewReach=true; } }
-  function fitPop(){ const mx=Math.max(maxPopVal(), baseMaxPop()); popMax=Math.max(1e10, Math.pow(10, Math.ceil(Math.log10(Math.max(1,mx))))); }
+  // new decade exponent for a scale whose max is 10^cur: a value in the top zone (above the scale max) -> one decade
+  // up; every value inside the bottom zone (below 10% of the max) -> shrink until the max is above 10%; else unchanged.
+  function fitExp(mx, cur, lo, hi){ let e=cur;
+    if(mx>Math.pow(10,e)) e=Math.ceil(Math.log10(mx));
+    else if(mx>0&&mx<0.1*Math.pow(10,e)) e=Math.floor(Math.log10(mx))+1;
+    return Math.max(lo,Math.min(hi,e)); }
+  function fitPop(){ popMax=Math.pow(10, fitExp(maxPopVal(), Math.round(Math.log10(popMax)), 10, 14)); }
+  // A scale change must not change any value: the lever angles are screen-space, so the value-space slope they
+  // encode (tan(theta) * W / dYdv, with dYdv proportional to 1/scaleMax) would otherwise change with the scale.
+  // Re-express every lever so its value slope is preserved: tan(new) = tan(old) * oldMax / newMax. The result may
+  // exceed the angle range the mouse can reach (that is fine - the curve is what matters, not reproducibility).
+  function rescaleLevers(set, factor){ const lim=Math.PI/2-0.01;
+    set.anchors.forEach(a=>{ a.thetaL=Math.max(-lim,Math.min(lim,Math.atan(Math.tan(a.thetaL)*factor)));
+                             a.thetaR=Math.max(-lim,Math.min(lim,Math.atan(Math.tan(a.thetaR)*factor))); }); }
   // comparison baseline snapshot (sampled value arrays, aligned by index)
   function snap(){ return { fx:hazS.map(p=>p.fx), haz:hazS.map(p=>p.val), surv:survS.map(p=>p.val), pop:popS.map(p=>p.val), dy:popS.map(p=>p.dy) }; }
   function activeBase(){ return baseMode==="previous"?prevSnap:(baseMode==="current"?baseSnap:null); }
@@ -172,29 +195,88 @@ overlay_js <- HTML(r"---(
   function descByName(n){ return n==="hazard"?HDESC:(n==="pop"?PDESC:SDESC); }
   function fmtM(v){ return Math.round(v/1e6).toLocaleString(); }
   function fmtBig(v){ const a=Math.abs(v); if(a>=1e12)return (v/1e12).toFixed(2)+" T"; if(a>=1e9)return (v/1e9).toFixed(2)+" B"; if(a>=1e6)return (v/1e6).toFixed(1)+" M"; return Math.round(v).toLocaleString(); }
+  function pctLbl(v){ const p=v*100; if(p<=0) return "0%"; let t=parseFloat(p.toPrecision(3)).toString();   // axis labels: 3 sig. figs, no trailing zeros
+    if(t.indexOf("e")>=0) t=p.toFixed(8).replace(/0+$/,""); return t+"%"; }
 
   function mk(t,a){ const e=document.createElementNS(NS,t); for(const k in a) e.setAttribute(k,a[k]); return e; }
   function mouse(e){ const r=svg.getBoundingClientRect(); return {x:(e.clientX-r.left)*(W/r.width), y:(e.clientY-r.top)*(H/r.height)}; }
   function setFont(px){ let st=document.getElementById("ovFont"); if(!st){ st=document.createElement("style"); st.id="ovFont"; document.head.appendChild(st); }
     st.textContent="#overlay text{font-size:"+px+"px;}"; }   // one CSS rule overrides every SVG label
-  function maxHaz(){ let m=0; for(let i=0;i<np();i++){ if(hazSet.anchors[i].val>m) m=hazSet.anchors[i].val; } return m; }
+  function maxHaz(){ let m=0; for(let i=0;i<np();i++){ if(hazSet.anchors[i].val>m) m=hazSet.anchors[i].val; }
+    if(useCtrl) for(let s=0;s<ns();s++){ if(hazSet.ctrls[s].val>m) m=hazSet.ctrls[s].val; } hazS.forEach(p=>{ if(p.val>m) m=p.val; }); return m; }   // every current hazard value (handles + curve)
   // when a baseline is shown, the scale must also cover its values so the ghost lines aren't clipped
   function baseMaxHaz(){ const B=activeBase(); let m=0; if(B) B.haz.forEach(v=>{ if(v>m) m=v; }); return m; }
   function baseMaxPop(){ const B=activeBase(); let m=0; if(B) B.pop.forEach(v=>{ if(v>m) m=v; }); return m; }
   function setLinExp(e){ e=Math.max(LIN_EMIN,Math.min(LIN_EMAX,e)); linExp=e; linMax=Math.pow(10,e); }
-  function fitLinExp(){ setLinExp(Math.floor(Math.log10(Math.max(maxHaz(), baseMaxHaz())))+1); }
+  function fitLinExp(){ setLinExp(fitExp(maxHaz(), linExp, LIN_EMIN, LIN_EMAX)); }
 
+  // Gutter axes, identical on both sides: every visible label is placed beside its gridline (labels that would overlap
+  // are stacked, see layoutSide) and a bracket (tick from the plot edge + spine along the stack) ties them to that line. Hidden curves drop their labels. The primary
+  // text elements (yTicks/surTicks/popTicks/cum*Ticks) carry the content; the left column mirrors them each redraw.
+  // The wrapper's padding is set from the rendered label widths (scaled to CSS px) so nothing is clipped.
+  const LANE_PAD=13, LANE_BR=7;   // label x offset from the plot edge; bracket x offset
+  let axisBrR=[], axisBrL=[];     // bracket pool per side: {h: tick from plot edge, v: spine along the stacked labels}
+  const BR_POOL=14;
+  const hazTickY=k=>linearY?(1-(k/4)/TOPF)*H:(1-k/4)*H;   // hazard label rows: 0..scale max = the lower 10 of 11 units in linear mode
+  const popTickY=fr=>(1-fr/TOPF)*H;                       // population rows likewise
+  let mirror=null;                // left-side copies: {haz,sur,pop,cy,cl,cv}
+  function fontU(el){ const f=parseFloat(getComputedStyle(el).fontSize); return isFinite(f)&&f>0?f:11; }   // CSS px == user units inside the viewBox
+  function layoutSide(sgn, S, brs){   // sgn -1 = left column (end-anchored), +1 = right column (start-anchored); returns gutter width in user units
+    const xLab=sgn<0?-LANE_PAD:W+LANE_PAD, anc=sgn<0?"end":"start";
+    const items=[], groups=[];   // items: every visible label with its gridline y; groups: one per distinct gridline
+    const put=(el,y,on)=>{ el.setAttribute("x",xLab); el.setAttribute("text-anchor",anc); el.setAttribute("opacity",on?1:0);
+      if(on&&el.textContent){ let g=groups.find(q=>Math.abs(q.y-y)<1); if(!g){ g={y:y,lo:y,hi:y}; groups.push(g); } items.push({el:el,y:y,g:g}); } };
+    S.haz.forEach((t,k)=>put(t,hazTickY(k),visHaz));
+    S.sur.forEach((t,k)=>put(t,(1-(k/4)/survTop())*H,visSurv));
+    S.pop.forEach((t,j)=>put(t,popTickY([1,0.5,0][j]),visPop));
+    [[S.cy,visCumYr],[S.cl,visCumLy],[S.cv,visCumLives]].forEach(([els,on])=>els.forEach((t,j)=>put(t,[0,H/2,H][j],on)));
+    brs.forEach(br=>{ br.h.setAttribute("opacity",0); br.v.setAttribute("opacity",0); });
+    if(!items.length) return LANE_PAD+4;
+    // 1-D label placement: sort by gridline (stable, so a gridline's labels stay together in variable order), merge
+    // labels that would overlap into clusters centred on the mean of their gridlines, and keep every cluster inside
+    // the plot height. Labels therefore sit on or as near as possible to their gridline without ever overlapping.
+    const lh=fontU(items[0].el)*1.25;
+    items.sort((a,b)=>a.y-b.y);
+    const cl=[];
+    items.forEach((it,i)=>{ let c={a:i,b:i,sum:it.y}; cl.push(c);
+      for(;;){ const cnt=c.b-c.a+1; c.first=Math.max(0,Math.min(H-(cnt-1)*lh, c.sum/cnt-(cnt-1)*lh/2));
+        const p=cl[cl.length-2]; if(!p||p.first+(p.b-p.a+1)*lh<=c.first+1e-6) break;
+        p.b=c.b; p.sum+=c.sum; cl.pop(); c=p; } });
+    let maxW=0;
+    cl.forEach(c=>{ for(let i=c.a;i<=c.b;i++){ const it=items[i], y=c.first+(i-c.a)*lh;
+      it.el.setAttribute("y",y); it.g.lo=Math.min(it.g.lo,y); it.g.hi=Math.max(it.g.hi,y);
+      const w=it.el.getComputedTextLength(); if(w>maxW) maxW=w; } });
+    // bracket per gridline: tick at the line, spine from the line to wherever its labels ended up
+    groups.forEach((g,r)=>{ const br=brs[r]; if(!br) return; const y1=Math.min(g.y,g.lo), y2=Math.max(g.y,g.hi);
+      br.h.setAttribute("y1",g.y); br.h.setAttribute("y2",g.y); br.h.setAttribute("opacity",0.8);
+      br.v.setAttribute("y1",y1); br.v.setAttribute("y2",y2); br.v.setAttribute("opacity",y2-y1>1?0.8:0); });
+    return LANE_PAD+maxW+4; }
+  function layoutLanes(){ if(!svg||!mirror) return;
+    const R={haz:yTicks, sur:surTicks, pop:popTicks.map(t=>t.el), cy:cumYrTicks, cl:cumLyTicks, cv:cumLvTicks};
+    for(const k in R) R[k].forEach((t,i)=>{ const m=mirror[k][i]; m.textContent=t.textContent; m.setAttribute("fill",t.getAttribute("fill")); });   // sync left copies
+    const leftU=layoutSide(-1, mirror, axisBrL), rightU=layoutSide(1, R, axisBrR);
+    const col=document.getElementById("chartcol"); if(!col) return;
+    const r=svg.getBoundingClientRect(), sc=r.width>0?r.width/W:1;   // user units -> CSS px at the current plot scale
+    col.style.paddingLeft=Math.ceil(leftU*sc)+"px"; col.style.paddingRight=Math.ceil(rightU*sc)+"px"; }
   function paletteColor(i){ return PAL[Math.max(0,Math.min(3,i))]; }
   function rebuildBands(){ bandsG.innerHTML="";
     if(!linearY){ for(let b=0;b<4;b++){ const yBot=(1-b/4)*H,yTop=(1-(b+1)/4)*H,hgt=yBot-yTop;
       bandsG.appendChild(mk("rect",{x:0,y:yTop,width:W,height:hgt,fill:"none",stroke:paletteColor(b),"stroke-width":1.5,opacity:0.85}));
       if(b>0) for(let k=1;k<=10;k++){ const yy=yBot-(k/10)*hgt;
         bandsG.appendChild(mk("line",{x1:0,y1:yy,x2:W,y2:yy,stroke:paletteColor(b-1),"stroke-width":1,opacity:0.28})); } } }
-    else { bandsG.appendChild(mk("rect",{x:0,y:0,width:W,height:H,fill:"none",stroke:paletteColor(linExp+4),"stroke-width":1.5,opacity:0.85}));
-      for(let k=1;k<=10;k++){ const yy=(1-k/10)*H; bandsG.appendChild(mk("line",{x1:0,y1:yy,x2:W,y2:yy,stroke:paletteColor(linExp+3),"stroke-width":1,opacity:0.28})); } } }
+    else { const u=H/(10*TOPF);   // one grid unit; the plot is 11 units tall
+      bandsG.appendChild(mk("rect",{x:0,y:0,width:W,height:u,fill:ZONE_FILL,stroke:"none"}));          // top transition zone (10..11)
+      bandsG.appendChild(mk("rect",{x:0,y:H-u,width:W,height:u,fill:ZONE_FILL,stroke:"none"}));        // bottom transition zone (0..1)
+      // zone captions: what happens on release (inline font-size so the font slider does not touch them)
+      const zt=(y,txt)=>{ const t=mk("text",{x:W/2,y:y,"text-anchor":"middle","dominant-baseline":"middle",fill:"#ffffff",opacity:0.28,"font-weight":"bold",
+        "letter-spacing":"0.12em",style:"font-size:"+Math.round(u*0.34)+"px;"}); t.textContent=txt; bandsG.appendChild(t); };
+      zt(u/2,   "10*SCALE");
+      zt(H-u/2, "0.1*SCALE");
+      bandsG.appendChild(mk("rect",{x:0,y:0,width:W,height:H,fill:"none",stroke:paletteColor(linExp+4),"stroke-width":1.5,opacity:0.85}));
+      for(let k=1;k<=10;k++){ const yy=H-k*u; bandsG.appendChild(mk("line",{x1:0,y1:yy,x2:W,y2:yy,stroke:paletteColor(linExp+3),"stroke-width":1,opacity:0.28})); } } }
   function updateYTicks(){ for(let k=0;k<yTicks.length;k++){ const fy=k/4;
-    let txt; if(linearY){ const h=fy*linMax; txt=h<=0?"0":"1 in "+Math.round(1/h).toLocaleString(); yTicks[k].setAttribute("fill",HAZ); }
-    else { txt="1 in "+Math.pow(10,5-k).toLocaleString(); yTicks[k].setAttribute("fill",paletteColor(Math.min(3,k))); } yTicks[k].textContent=txt; } }
+    let txt; if(linearY){ const h=fy*linMax; txt=pctLbl(h); yTicks[k].setAttribute("fill",HAZ); }
+    else { txt=pctLbl(Math.pow(10,k-5)); yTicks[k].setAttribute("fill",paletteColor(Math.min(3,k))); } yTicks[k].textContent=txt; } }
 
   function sampleSet(set, desc){
     const out=[], n=ns();
@@ -222,12 +304,11 @@ overlay_js <- HTML(r"---(
   function recompute(){
     layoutAnchors();
     popS=sampleSet(popSet,PDESC);                    // population is an independent input curve
-    if(driver==="hazard"){ if(linearY) fitLinExp();
+    if(driver==="hazard"){
       hazS=sampleSet(hazSet,HDESC); survS=deriveSurv(hazS); syncSet(survSet,survS,SDESC); }
     else { survS=sampleSet(survSet,SDESC); let prev=1; survS.forEach(p=>{ p.val=Math.min(prev,Math.max(1e-6,p.val)); prev=p.val; });
       hazS=deriveHaz(survS); if(linearY){ let mx=baseMaxHaz(); hazS.forEach(p=>{ if(p.val>mx) mx=p.val; }); setLinExp(Math.floor(Math.log10(mx))+1); }
       syncSet(hazSet,hazS,HDESC); }
-    while(baseMaxPop()>popMax&&popMax<1e14) popMax*=10;   // grow pop scale to cover the baseline
   }
 
   function styleSet(set, desc, active, hidden){
@@ -247,6 +328,7 @@ overlay_js <- HTML(r"---(
   function redraw(){
     const sig=linearY?("L"+linExp):"T"; if(sig!==bandSig){ rebuildBands(); bandSig=sig; }
     recompute(); updateYTicks();
+    const dim=focusSet==="pop"?0.3:1;   // fade the hazard/survival checkpoint readouts (text only) to 30% while population handles have focus
     const hpts=hazS.map(p=>sX(p.fx)+","+sYh(p.val)).join(" ");
     hazArea.setAttribute("points", hpts+" "+sX(hazS[hazS.length-1].fx)+","+H+" "+sX(hazS[0].fx)+","+H); hazArea.setAttribute("opacity", visHaz?1:0);
     hazLine.setAttribute("points", hpts); hazLine.setAttribute("opacity", visHaz?1:0);
@@ -260,19 +342,19 @@ overlay_js <- HTML(r"---(
     segSep.forEach((ln,idx)=>{ const s=idx+1; if(s<ns()){ const gx=sX(cpFx(s)); ln.setAttribute("x1",gx); ln.setAttribute("x2",gx); ln.setAttribute("opacity",1); } else ln.setAttribute("opacity",0); });
     // a copy of each year value sits above its real-time x (stacked when clustered), with a white line
     // from its evenly-spaced knob down to that label — shown in every x-scale mode.
-    const pw=document.getElementById("plotwrap"); if(pw) pw.style.marginTop="35px";   // always keep the gap above the plot
+    const pw=document.getElementById("plotwrap"); if(pw) pw.style.marginTop="55px";   // always keep the gap above the plot (fits the 28px year labels)
     { let pts=[]; for(let i=0;i<np();i++) pts.push({i:i, x:sX(cpFx(i))});
       pts.sort((a,b)=>a.x-b.x);
-      const minGap=44, rowH=15, y0=-10, rowLastX=[];   // labels sit ABOVE the plot (negative y), stacking upward when clustered
+      const minGap=88, rowH=30, y0=-10, rowLastX=[];   // labels sit ABOVE the plot (negative y), stacking upward when clustered
       pts.forEach(p=>{ let row=0; while(row<rowLastX.length && p.x-rowLastX[row]<minGap) row++; rowLastX[row]=p.x; p.y=y0-row*rowH; });
       const rw=(svg.getBoundingClientRect().width)||W, vbHalfKnob=(WH/2)*(W/rw);   // last knob is pinned right, so its centre is inset by half its width
       for(let i=0;i<5;i++){ const lb=ptLabels[i], ln=connLines[i];
-        if(i<np()){ const p=pts.find(q=>q.i===i), ex=(i===np()-1?W-vbHalfKnob:sX(i/ns())), anc=p.x<40?"start":(p.x>W-40?"end":"middle");
+        if(i<np()){ const p=pts.find(q=>q.i===i), ex=(i===np()-1?W-vbHalfKnob:sX(i/ns())), anc=p.x<80?"start":(p.x>W-80?"end":"middle");
           lb.setAttribute("x",p.x); lb.setAttribute("y",p.y); lb.setAttribute("text-anchor",anc); lb.setAttribute("opacity",1); lb.textContent=fmtYearShort(yearVals[i]);
           if(i===0){ ln.setAttribute("opacity",0); }   // fixed start year has no knob → no connector
           else { const tw=lb.getComputedTextLength?lb.getComputedTextLength():0,
                 cx=anc==="start"?p.x+tw/2:(anc==="end"?p.x-tw/2:p.x);   // horizontal middle of the label
-            ln.setAttribute("x1",ex); ln.setAttribute("y1",-65); ln.setAttribute("x2",cx); ln.setAttribute("y2",p.y-12); ln.setAttribute("opacity",0.9); } }   // from just below the knob to the top-middle of the year
+            ln.setAttribute("x1",ex); ln.setAttribute("y1",-85); ln.setAttribute("x2",cx); ln.setAttribute("y2",p.y-30); ln.setAttribute("opacity",0.9); } }   // from just below the knob to the top-middle of the year
         else { lb.setAttribute("opacity",0); ln.setAttribute("opacity",0); } }
     }
     styleSet(hazSet,HDESC,true); styleSet(survSet,SDESC,false,true); styleSet(popSet,PDESC,true);   // survival hidden, pop active
@@ -284,25 +366,36 @@ overlay_js <- HTML(r"---(
       baseExpLine.setAttribute("points", B.pop.map((v,k)=>sX(B.fx[k])+","+sYp(v*B.surv[k])).join(" ")); baseExpLine.setAttribute("opacity", visPop?0.4:0); }
     else { [baseHazLine,baseSurLine,basePopLine,baseExpLine].forEach(l=>l.setAttribute("points","")); }
     for(let i=0;i<5;i++){ const it=infoTx[i];
-      if(i>=np()){ [it.h1,it.h2,it.surv,it.bh1,it.bh2,it.bsurv].forEach(e=>e.setAttribute("opacity",0)); continue; }
+      if(i>=np()){ [it.h1,it.h2,it.surv,it.bh1,it.bh2,it.bsurv,it.p1,it.p2,it.bp1,it.bp2].forEach(e=>e.setAttribute("opacity",0)); continue; }
       const fx=cpFx(i), px=sX(fx), anc=i===0?"start":(i===np()-1?"end":"middle");
+      const lx=i===0?px+EDGE_IN:(i===np()-1?px-EDGE_IN:px);   // edge readouts sit one digit in from the plot border
       const h=curveValAt(hazS,fx), s=curveValAt(survS,fx);
       const hb=B?curveValAt2(B.fx,B.haz,fx):null, sb=B?curveValAt2(B.fx,B.surv,fx):null;
       // hazard readout blocks (new + baseline), higher value higher
       let hz=[{val:h, y:Math.max(2,sYh(h)-32), base:false}];
       if(B) hz.push({val:hb, y:Math.max(2,sYh(hb)-32), base:true});
       stackByValue(hz,34);
-      hz.forEach(o=>{ const a1=o.base?it.bh1:it.h1, a2=o.base?it.bh2:it.h2, hop=visHaz?(o.base?0.5:1):0;
-        a1.setAttribute("x",px);a1.setAttribute("y",o.y);a1.setAttribute("text-anchor",anc);a1.setAttribute("opacity",hop);a1.textContent="1 in "+ratio(o.val);
-        a2.setAttribute("x",px);a2.setAttribute("y",o.y+16);a2.setAttribute("text-anchor",anc);a2.setAttribute("opacity",hop);a2.textContent=(o.val*100).toFixed(4)+"%"; });
+      hz.forEach(o=>{ const a1=o.base?it.bh1:it.h1, a2=o.base?it.bh2:it.h2, hop=visHaz?(o.base?0.5:1)*dim:0;
+        a1.setAttribute("x",lx);a1.setAttribute("y",o.y);a1.setAttribute("text-anchor",anc);a1.setAttribute("opacity",hop);a1.textContent="1 in "+ratio(o.val);
+        a2.setAttribute("x",lx);a2.setAttribute("y",o.y+16);a2.setAttribute("text-anchor",anc);a2.setAttribute("opacity",hop);a2.textContent=(o.val*100).toFixed(4)+"%"; });
       if(!B){ it.bh1.textContent=""; it.bh2.textContent=""; }
       // survival labels (new + baseline), higher value higher
       let sv=[{val:s, y:Math.min(H-6,sYs(s)+22), base:false}];
       if(B) sv.push({val:sb, y:Math.min(H-6,sYs(sb)+22), base:true});
       stackByValue(sv,16);
-      sv.forEach(o=>{ const el=o.base?it.bsurv:it.surv; el.setAttribute("x",px);el.setAttribute("y",o.y);el.setAttribute("text-anchor",anc);
-        el.setAttribute("opacity",(!visSurv||o.val>=0.99995)?0:(o.base?0.5:1)); el.textContent=(o.val*100).toFixed(2)+"%"; });
-      if(!B) it.bsurv.textContent=""; }
+      sv.forEach(o=>{ const el=o.base?it.bsurv:it.surv; el.setAttribute("x",lx);el.setAttribute("y",o.y);el.setAttribute("text-anchor",anc);
+        el.setAttribute("opacity",(!visSurv||o.val>=0.99995)?0:(o.base?0.5:1)*dim); el.textContent=(o.val*100).toFixed(2)+"%"; });
+      if(!B) it.bsurv.textContent="";
+      // population readouts (potential / expected, new + baseline) above the potential point; shown only while
+      // a population handle has focus, and cleared again the moment a hazard handle is grabbed
+      const pot=curveValAt(popS,fx), pb=B?curveValAt2(B.fx,B.pop,fx):null, popOn=focusSet==="pop"&&visPop;
+      let pp=[{val:pot, exp:pot*s, y:Math.max(2,sYp(pot)-32), base:false}];
+      if(B) pp.push({val:pb, exp:pb*sb, y:Math.max(2,sYp(pb)-32), base:true});
+      stackByValue(pp,34);
+      pp.forEach(o=>{ const a1=o.base?it.bp1:it.p1, a2=o.base?it.bp2:it.p2, pop2=popOn?(o.base?0.5:1):0;
+        a1.setAttribute("x",lx);a1.setAttribute("y",o.y);a1.setAttribute("text-anchor",anc);a1.setAttribute("opacity",pop2);a1.textContent=fmtM(o.val)+" M potential";
+        a2.setAttribute("x",lx);a2.setAttribute("y",o.y+16);a2.setAttribute("text-anchor",anc);a2.setAttribute("opacity",pop2);a2.textContent=fmtM(o.exp)+" M expected"; });
+      if(!B){ it.bp1.textContent=""; it.bp2.textContent=""; } }
     // population outputs below the plot (with baseline "was ..." when comparing)
     let cumLY=[], acc=0;
     for(let k=0;k<popS.length;k++){ acc += popS[k].val*survS[k].val*popS[k].dy; cumLY.push({fx:popS[k].fx,val:acc}); }
@@ -328,6 +421,7 @@ overlay_js <- HTML(r"---(
     setLane(cumYrTicks, maxYr,    visCumYr,     " yr");
     setLane(cumLyTicks, maxLy,    visCumLy,     " ly");
     setLane(cumLvTicks, maxLy/75, visCumLives,  " lv");
+    layoutLanes();
     const po=document.getElementById("popout");
     if(po){ let rows="";
       for(let i=0;i<np();i++){ const fx=cpFx(i), pot=curveValAt(popS,fx), s2=curveValAt(survS,fx), ex=pot*s2, ly=curveValAt(cumLY,fx);
@@ -349,7 +443,8 @@ overlay_js <- HTML(r"---(
     set.ctrls.forEach((k,s)=>{ k.fxc=d.fxc[s]; k.val=d.cval[s]; }); }
 
   // ---- year wheels: flat rotary dials over each checkpoint; drag around to set that
-  //      checkpoint's calendar year (0 = previous year, 10 = next year, linear between). ----
+  //      checkpoint's calendar year (0 = previous year, 10 = next year, linear between).
+  //      Dragging an anchor handle sideways on the chart moves the same year (see attach()). ----
   const WH=116, WR=40, WCX=WH/2, WCY=WH/2, WA0=-135*Math.PI/180, WSW=270*Math.PI/180;   // 270° sweep, gap at bottom
   let wheels=[];
   function wAngle(f){ return WA0 + f*WSW; }                          // fraction 0..1 -> angle (cw from up)
@@ -408,6 +503,10 @@ overlay_js <- HTML(r"---(
     let y=Math.round(yearFromFrac(i,f)); y=Math.max(lo+1,Math.min(isLast?hi:hi-1,y));   // stay between neighbours (last may reach the ceiling)
     if(y===yearVals[i]){ drawWheel(i); return; }
     yearVals[i]=y; recomputeSpanx(); drawAllWheels(); redraw(); }   // linear-x shifts every checkpoint's x, so redraw all
+  function setYearFrac(i,f){ const rg=yearRange(i), lo=rg[0], hi=rg[1], isLast=i===yearVals.length-1;   // anchor drag: same mapping as the dial, no redraw here
+    let y=Math.round(yearFromFrac(i,Math.max(0,Math.min(1,f)))); y=Math.max(lo+1,Math.min(isLast?hi:hi-1,y));
+    if(y===yearVals[i]) return false;
+    yearVals[i]=y; recomputeSpanx(); drawAllWheels(); return true; }
   function setYearValue(i,year){ const rg=yearRange(i), lo=rg[0], hi=rg[1], isLast=i===yearVals.length-1;   // typed-in year
     let y=Math.round(year); if(!isFinite(y)){ drawWheel(i); return; }
     y=Math.max(lo+1,Math.min(isLast?hi:hi-1,y));
@@ -443,15 +542,23 @@ overlay_js <- HTML(r"---(
     for(let s=0;s<4;s++) for(let k=0;k<9;k++){ const ln=mk("line",{y1:0,y2:H,stroke:"rgba(255,255,255,0.08)"}); svg.appendChild(ln); minorGrid.push(ln); }
     segSep=[]; for(let s=1;s<=4;s++){ const ln=mk("line",{y1:0,y2:H,stroke:"rgba(255,255,255,0.18)",opacity:0}); svg.appendChild(ln); segSep.push(ln); }   // period separators (positioned in redraw)
     hazArea=mk("polygon",{fill:"rgba(232,131,111,0.15)",stroke:"none",points:""}); svg.appendChild(hazArea);   // shaded region under hazard (replaces the ggplot area)
-    yTicks=[];
+    // axis labels sit OUTSIDE the plot (overflow:visible) so they never collide with the first/last checkpoint
+    // readouts: the same stacked column of every visible variable's scale sits in both gutters.
+    // x positions and the gutter widths are assigned per redraw by layoutLanes() from the rendered text widths.
+    yTicks=[]; surTicks=[];
     for(let k=0;k<=4;k++){ const py=(1-k/4)*H;
-      const th=mk("text",{x:6,y:py-3,"font-size":11,fill:HAZ}); svg.appendChild(th); yTicks.push(th);
-      const ts=mk("text",{x:W-6,y:py-3,"text-anchor":"end","font-size":11,fill:SUR}); ts.textContent=(k/4).toFixed(2); svg.appendChild(ts); }
-    popTicks=[];
-    [[1,10],[0.5,H/2],[0,H-4]].forEach(fy=>{ const t=mk("text",{x:W-72,y:fy[1],"text-anchor":"end","font-size":10,fill:POP}); svg.appendChild(t); popTicks.push({el:t,fr:fy[0]}); });
-    // right-side lanes for the cumulative variables (max / mid / 0), further in so they don't overlap survival & population
-    function mkLane(x,col){ const arr=[]; [12,H/2,H-4].forEach(y=>{ const t=mk("text",{x:x,y:y,"text-anchor":"end","font-size":10,fill:col,opacity:0}); svg.appendChild(t); arr.push(t); }); return arr; }
-    cumYrTicks=mkLane(W-150,CYR); cumLyTicks=mkLane(W-250,CLY); cumLvTicks=mkLane(W-250,CLV);
+      const th=mk("text",{x:-8,y:py,"text-anchor":"end","dominant-baseline":"middle","font-size":11,fill:HAZ}); svg.appendChild(th); yTicks.push(th);
+      const ts=mk("text",{x:W+8,y:py,"text-anchor":"start","dominant-baseline":"middle","font-size":11,fill:SUR}); ts.textContent=(k*25)+"%"; svg.appendChild(ts); surTicks.push(ts); }
+    function mkLane(col){ const arr=[]; [0,H/2,H].forEach(y=>{ const t=mk("text",{x:W+8,y:y,"text-anchor":"start","dominant-baseline":"middle","font-size":10,fill:col,opacity:0}); svg.appendChild(t); arr.push(t); }); return arr; }   // max / mid / 0
+    popTicks=mkLane(POP).map((t,k)=>({el:t, fr:[1,0.5,0][k]}));
+    cumYrTicks=mkLane(CYR); cumLyTicks=mkLane(CLY); cumLvTicks=mkLane(CLV);
+    const AXC="#9fb0bf";
+    function mkBr(sgn){ const x0=sgn<0?-1:W+1, x1=sgn<0?-LANE_BR:W+LANE_BR; return Array.from({length:BR_POOL},()=>{
+      const h=mk("line",{x1:x0,x2:x1,y1:0,y2:0,stroke:AXC,"stroke-width":1.2,opacity:0}), v=mk("line",{x1:x1,x2:x1,y1:0,y2:0,stroke:AXC,"stroke-width":1.2,opacity:0});
+      svg.appendChild(h); svg.appendChild(v); return {h:h,v:v}; }); }
+    axisBrR=mkBr(1); axisBrL=mkBr(-1);
+    const dup=els=>els.map(t=>{ const c=t.cloneNode(false); svg.appendChild(c); return c; });   // left-column copies (content synced in layoutLanes)
+    mirror={haz:dup(yTicks), sur:dup(surTicks), pop:dup(popTicks.map(t=>t.el)), cy:dup(cumYrTicks), cl:dup(cumLyTicks), cv:dup(cumLvTicks)};
     baseHazLine=mk("polyline",{fill:"none",stroke:HAZ,"stroke-width":1.6,opacity:0.4,points:""}); svg.appendChild(baseHazLine);
     baseSurLine=mk("polyline",{fill:"none",stroke:SUR,"stroke-width":1.6,opacity:0.4,points:""}); svg.appendChild(baseSurLine);
     basePopLine=mk("polyline",{fill:"none",stroke:POP,"stroke-width":1.6,opacity:0.4,points:""}); svg.appendChild(basePopLine);
@@ -467,7 +574,7 @@ overlay_js <- HTML(r"---(
     cumLyLine=mk("polyline",{fill:"none",stroke:CLY,"stroke-width":2,points:""}); svg.appendChild(cumLyLine);   // cumulative life-years
     cumLvLine=mk("polyline",{fill:"none",stroke:CLV,"stroke-width":2,points:""}); svg.appendChild(cumLvLine);   // cumulative lives
     connLines=[]; for(let i=0;i<5;i++){ const ln=mk("line",{stroke:"#ffffff","stroke-width":2,opacity:0,"stroke-linecap":"round"}); svg.appendChild(ln); connLines.push(ln); }   // even-wheel → real-time connectors (linear-x)
-    ptLabels=[]; for(let i=0;i<5;i++){ const t=mk("text",{"font-weight":"bold",fill:"#ffffff",opacity:0,style:"font-size:14px;"}); svg.appendChild(t); ptLabels.push(t); }   // year value copies at real-time x (linear-x); fixed size for stable stacking
+    ptLabels=[]; for(let i=0;i<5;i++){ const t=mk("text",{"font-weight":"bold",fill:"#ffffff",opacity:0,style:"font-size:28px;"}); svg.appendChild(t); ptLabels.push(t); }   // year value copies at real-time x (linear-x); fixed size for stable stacking
     survSet=makeSet(); hazSet=makeSet(); popSet=makeSet();
     loadSet(hazSet,d.haz); loadSet(survSet,d.surv); loadSet(popSet,POP_DEFAULT);
     infoTx=[];                                          // persistent readouts at each threshold
@@ -476,9 +583,11 @@ overlay_js <- HTML(r"---(
       const h1=mk("text",{"text-anchor":"middle","font-weight":"bold",fill:HAZ});   // row 1: 1 in x
       const h2=mk("text",{"text-anchor":"middle","font-weight":"bold",fill:HAZ});   // row 2: probability %
       const ts=mk("text",{"text-anchor":"middle","font-weight":"bold",fill:SUR});   // survival %
-      svg.appendChild(bh1); svg.appendChild(bh2); svg.appendChild(bts);
-      svg.appendChild(h1); svg.appendChild(h2); svg.appendChild(ts);
-      infoTx.push({h1:h1,h2:h2,surv:ts,bh1:bh1,bh2:bh2,bsurv:bts}); }
+      const p1=mk("text",{"text-anchor":"middle","font-weight":"bold",fill:POP,opacity:0}), p2=mk("text",{"text-anchor":"middle","font-weight":"bold",fill:POP,opacity:0});   // potential / expected (pop focus only)
+      const bp1=mk("text",{"text-anchor":"middle",fill:POP,opacity:0}), bp2=mk("text",{"text-anchor":"middle",fill:POP,opacity:0});
+      svg.appendChild(bh1); svg.appendChild(bh2); svg.appendChild(bts); svg.appendChild(bp1); svg.appendChild(bp2);
+      svg.appendChild(h1); svg.appendChild(h2); svg.appendChild(ts); svg.appendChild(p1); svg.appendChild(p2);
+      infoTx.push({h1:h1,h2:h2,surv:ts,bh1:bh1,bh2:bh2,bsurv:bts,p1:p1,p2:p2,bp1:bp1,bp2:bp2}); }
     fitLinExp(); redraw();
     prevSnap=snap();                                 // seed a "previous" baseline so it shows before any drag
     const bc=document.getElementById("baseCur"), bp=document.getElementById("basePrev");
@@ -507,54 +616,36 @@ overlay_js <- HTML(r"---(
     surv:{anchors:survSet.anchors.map(a=>a.val),thetaL:survSet.anchors.map(a=>a.thetaL),thetaR:survSet.anchors.map(a=>a.thetaR),fxc:survSet.ctrls.map(k=>k.fxc),cval:survSet.ctrls.map(k=>k.val)},
     t:Date.now()}, {priority:"event"}); }
 
-  // scale grow/shrink with detach: dragging a value past the ceiling grows the scale a
-  // decade and snaps the value to 105% of the old ceiling; dragging the whole curve down
-  // into the bottom decade shrinks the scale and snaps to 95% of the new ceiling. Returns
-  // {val,msg} when it fired (caller applies val + detaches), else null.
-  function scaleSnap(setName, curVal, otherMax){
-    if(setName==="hazard"&&linearY){
-      if(curVal>=linMax*0.99999&&linExp<LIN_EMAX){ const o=linMax; setLinExp(linExp+1);
-        return {val:clampHaz(1.05*o), msg:"scale → 1 in "+ratio(linMax)+"; value = 105% of old ceiling — re-grab"}; }
-      if(curVal<=linMax*0.1&&otherMax<linMax*0.1&&linExp>LIN_EMIN){ setLinExp(linExp-1);
-        return {val:clampHaz(0.95*linMax), msg:"scale → 1 in "+ratio(linMax)+"; value = 95% of new ceiling — re-grab"}; }
-    } else if(setName==="pop"){
-      if(curVal>=popMax*0.99999&&popMax<1e14){ const o=popMax; popMax*=10;
-        return {val:Math.max(0,1.05*o), msg:"pop scale → "+fmtBig(popMax)+"; value = 105% of old ceiling — re-grab"}; }
-      if(curVal<=popMax*0.1&&otherMax<popMax*0.1&&popMax>1e10){ popMax/=10;
-        return {val:Math.max(0,0.95*popMax), msg:"pop scale → "+fmtBig(popMax)+"; value = 95% of new ceiling — re-grab"}; }
-    }
-    return null;
-  }
-
   function attach(){
     svg.onpointerdown = e => { const m=mouse(e), p=pick(m.x,m.y); if(!p) return;
-      e.preventDefault(); prevSnap=snap(); drag=p; svg.setPointerCapture(e.pointerId); redraw(); };   // snapshot pre-drag; driver stays "hazard"
+      e.preventDefault(); prevSnap=snap(); drag=p; focusSet=p.set; drag.x0=m.x; drag.f0=p.i>0?fracFromYear(p.i,yearVals[p.i]):0; drag.yrMoved=false;
+      svg.setPointerCapture(e.pointerId); redraw(); };   // snapshot pre-drag; driver stays "hazard"
     svg.onpointermove = e => {
       if(!drag) return; const m=mouse(e), set=setByName(drag.set), desc=descByName(drag.set), i=drag.i;
       const cx=sX(set.anchors[i]?set.anchors[i].fx:0), cy=set.anchors[i]?desc.yOf(set.anchors[i].val):0;
       if(drag.type==="a"){
-        const nv=desc.clampV(desc.invY(m.y));
-        let mo=0; for(let k=0;k<np();k++){ if(k!==i && set.anchors[k].val>mo) mo=set.anchors[k].val; }   // other active anchors (shrink check)
-        mo=Math.max(mo, drag.set==="hazard"?baseMaxHaz():(drag.set==="pop"?baseMaxPop():0));   // don't shrink below the baseline
-        const sn=scaleSnap(drag.set, nv, mo);
-        if(sn){ set.anchors[i].val=sn.val; commit(); drag=null; redraw(); document.getElementById("live").textContent=sn.msg; return; }
-        set.anchors[i].val=nv; redraw();
+        if(i>0){ const dx=m.x-drag.x0, eff=dx>0?Math.max(0,dx-YDEAD):Math.min(0,dx+YDEAD);
+          // px per full dial sweep: under linear-x an interior anchor follows the pointer exactly (its year range spans
+          // its neighbours' x); otherwise (equal periods, or the last anchor pinned to the right edge) one column = one sweep
+          const pxf=(linearX&&i<np()-1)?Math.max(1,(cpFx(i+1)-cpFx(i-1))*W):W/ns();
+          if(setYearFrac(i, drag.f0+eff/pxf)) drag.yrMoved=true; }
+        set.anchors[i].val=desc.clampV(desc.invY(m.y)); redraw();   // may sit in the top zone (above the scale max) until release
         document.getElementById("live").textContent=drag.set+" "+yearVals[i]+": "+desc.ratioLbl(set.anchors[i].val);
       } else if(drag.type==="rR"){ const a=foldClamp(Math.atan2(m.y-cy,m.x-cx)); set.anchors[i].thetaR=a; if(!split) set.anchors[i].thetaL=a; redraw();
         document.getElementById("live").textContent=drag.set+" "+yearVals[i]+(split?": outgoing slope":": slope");
       } else if(drag.type==="rL"){ const a=foldClamp(Math.atan2(cy-m.y,cx-m.x)); set.anchors[i].thetaL=a; if(!split) set.anchors[i].thetaR=a; redraw();
         document.getElementById("live").textContent=drag.set+" "+yearVals[i]+(split?": incoming slope":": slope");
       } else { const s=i, fxL=cpFx(s), fxR=cpFx(s+1), segw=fxR-fxL||1e-6;
-        const nv=desc.clampV(desc.invY(m.y));
-        let mo=0; for(let k=0;k<np();k++){ if(set.anchors[k].val>mo) mo=set.anchors[k].val; }
-        mo=Math.max(mo, drag.set==="hazard"?baseMaxHaz():(drag.set==="pop"?baseMaxPop():0));
-        const sn=scaleSnap(drag.set, nv, mo);
-        if(sn){ set.ctrls[s].val=sn.val; commit(); drag=null; redraw(); document.getElementById("live").textContent=sn.msg; return; }
-        set.ctrls[s].fxc=Math.max(0.02,Math.min(0.98,(m.x/W-fxL)/segw)); set.ctrls[s].val=nv; redraw();   // within-segment fraction
+        set.ctrls[s].fxc=Math.max(0.02,Math.min(0.98,(m.x/W-fxL)/segw)); set.ctrls[s].val=desc.clampV(desc.invY(m.y)); redraw();   // within-segment fraction
         document.getElementById("live").textContent=drag.set+" segment "+(s+1)+" control: through "+desc.ratioLbl(set.ctrls[s].val); }
     };
-    const end = e => { if(!drag) return; if(linearY) fitLinExp(); fitPop(); label.textContent=""; commit();
-      document.getElementById("live").textContent=""; drag=null; redraw(); };
+    const end = e => { if(!drag) return;
+      // release: apply the transition zones of the set that was dragged (top zone -> decade up, all-in-bottom-zone -> shrink)
+      let msg=""; if(drag.set==="hazard"&&linearY){ const o=linMax; fitLinExp(); if(linMax!==o){ rescaleLevers(hazSet, o/linMax); msg="hazard scale -> "+pctLbl(linMax); } }
+      else if(drag.set==="pop"){ const o=popMax; fitPop(); if(popMax!==o){ rescaleLevers(popSet, o/popMax); msg="population scale -> "+fmtBig(popMax); } }
+      label.textContent=""; commit();
+      if(drag.yrMoved) sendYears();
+      document.getElementById("live").textContent=msg; drag=null; redraw(); };
     svg.onpointerup=end; svg.onpointercancel=end;
   }
 
@@ -562,7 +653,7 @@ overlay_js <- HTML(r"---(
   document.addEventListener("shiny:connected", sendReady);
   setTimeout(sendReady, 500);
   Shiny.addCustomMessageHandler("init_points", build);
-  Shiny.addCustomMessageHandler("set_curve", function(d){ driver=d.driver; loadSet(hazSet,d.haz); loadSet(survSet,d.surv); loadSet(popSet,POP_DEFAULT); popMax=1e10;
+  Shiny.addCustomMessageHandler("set_curve", function(d){ driver=d.driver; focusSet="hazard"; loadSet(hazSet,d.haz); loadSet(survSet,d.surv); loadSet(popSet,POP_DEFAULT); popMax=1e10;
     yearVals=YRS0.slice(); recomputeSpanx(); buildWheels(); updateYearBtns();   // reset restores default years + all 5 points
     if(linearY) fitLinExp(); redraw(); prevSnap=snap(); });
   Shiny.addCustomMessageHandler("set_params", function(p){ showPoints=p.points; useCtrl=p.useCtrl; linearY=p.linearY; logTime=p.logTime; const w=split; split=p.split;
@@ -650,11 +741,14 @@ ui <- fluidPage(
       tags$span(style = "display:inline-block;width:18px;"),
       tags$button(id = "remYr", class = "cmpbtn", "Remove last year"),
       tags$button(id = "addYr", class = "cmpbtn", "Add new year")),
+  # #chartcol carries the axis gutters as padding (widths set by layoutLanes() in the overlay JS); the rows inside
+  # share its content box, so the wheels, plot and population cells stay aligned with the plot edges.
+  div(id = "chartcol", style = sprintf("padding:0 60px; max-width:%dpx; box-sizing:content-box;", Wpx),
   div(id = "wheelrow", style = sprintf("position:relative; width:100%%; max-width:%dpx; height:126px; margin-bottom:2px;", Wpx)),
-  div(id = "plotwrap", style = sprintf("position:relative; width:100%%; max-width:%dpx; aspect-ratio:%d/%d; margin-top:35px;", Wpx, Wpx, Hpx),
+  div(id = "plotwrap", style = sprintf("position:relative; width:100%%; max-width:%dpx; aspect-ratio:%d/%d; margin-top:55px;", Wpx, Wpx, Hpx),
       div(style = "position:absolute; inset:0; background:#0b3552;"),   # dark panel; all curves/area drawn by the SVG overlay
-      HTML('<svg id="overlay" style="width:100%;height:100%;"></svg>')),   # overflow:visible lets the linear-x year labels sit in the gap above (opened only in linear-x)
-  div(id = "popout", style = sprintf("position:relative; margin:12px 0; width:100%%; max-width:%dpx; min-height:140px; font-size:12px; color:#e46ba6;", Wpx)),
+      HTML('<svg id="overlay" style="width:100%;height:100%;"></svg>')),   # overflow:visible lets the axis labels (gutters) and linear-x year labels sit outside
+  div(id = "popout", style = sprintf("position:relative; margin:12px 0; width:100%%; max-width:%dpx; min-height:140px; font-size:12px; color:#e46ba6;", Wpx))),
   div(id = "live", style = "margin:8px 0; font-family:monospace; color:#cdd9e3;"),
   tags$script(overlay_js)
 )

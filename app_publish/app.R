@@ -407,7 +407,8 @@ server <- function(input, output, session) {
       group    = grp,
       hasArticle = file.exists(here("articles", paste0(id, ".qmd"))),
       articleUrl = paste0("articles/", id, ".html"),
-      articleInline = ART_SCAN$inline[[as.character(id)]] %||% ""
+      articleInline = ART_SCAN$inline[[as.character(id)]] %||% "",
+      articleLang = ART_SCAN$langs[[as.character(id)]] %||% "en"
     ))
   })
 
@@ -426,7 +427,8 @@ server <- function(input, output, session) {
         text = desc_map[[paste0(pre, id)]] %||% "", text_fi = desc_map[[paste0("fi_", pre, id)]] %||% "",
         hasArticle = file.exists(here("articles", paste0(id, ".qmd"))),
         articleUrl = paste0("articles/", id, ".html"),
-        articleInline = ART_SCAN$inline[[as.character(id)]] %||% ""
+        articleInline = ART_SCAN$inline[[as.character(id)]] %||% "",
+        articleLang = ART_SCAN$langs[[as.character(id)]] %||% "en"
       )
     }
     session$sendCustomMessage("expandAllInline", list(nodes = nodes))

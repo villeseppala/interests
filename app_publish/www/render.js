@@ -213,7 +213,7 @@ if (typeof Shiny === 'undefined') {
                        text: desc.text || '', text_fi: desc.text_fi || '',
                        nodeId: value, group: desc.group,
                        hasArticle: !!desc.hasArticle, articleUrl: desc.articleUrl || '',
-                       articleInline: desc.articleInline || '' });
+                       articleInline: desc.articleInline || '', articleLang: desc.articleLang || 'en' });
         }
       }
     }
@@ -339,8 +339,9 @@ var narrowNodeMult = 1;      // on narrow screens, multiply all node widths by t
 var qrEnabled = false;       // author toggle: show a QR code overlay in the graph area (bottom-right)
 var qrUrl = '';              // URL the QR encodes (author-entered)
 var qrSize = 110;            // QR display size in px (author slider)
-var centerColsDesktop = false;  // author toggle: also vertically-centre Theme/Skill on desktop (mobile
-                                // always centres). Same centring formula either way — see applyInlinePositions.
+var centerColsDesktop = false;  // author toggle ("Center columns"): vertically-centre Theme/Skill columns. Per aspect
+                                // mode (wide / tall value), and it is the ONLY switch — a narrow phone no longer
+                                // forces centring on its own. See applyInlinePositions.
 var ptypePct = 10;
 var mobileData = null;
 var selectedNodeId = null;
@@ -436,6 +437,9 @@ var fontNode = 12;
 var fontProject = 12;        // project-title font — set separately from the theme/skill title font (fontNode)
 var headerFillPct = 90;      // author %: scale each column header to fill this fraction of the column node width
 var headerTitleMax = 1.5;    // author: cap the column-title font at this multiple of the node-title font
+// Vertical breathing room of the fitted map: clear space above the column headers and below the last
+// node / column frame, so a column visibly ENDS inside the view rather than running into its edges.
+var FIT_TOP_PX = 16, FIT_BOTTOM_PX = 34, FIT_V_PX = FIT_TOP_PX + FIT_BOTTOM_PX;
 var frameLineW = 2;          // author: column-frame outline thickness in px (0 = off)
 var frameCornerR = 14;       // author: column-frame corner radius in px
 var frameFillPct = 50;       // author: column-frame fill on/off (0 = off, any value above = on)
@@ -842,9 +846,9 @@ function fitWithHeaders() {
   var H = container ? container.clientHeight : window.innerHeight;
   var bb = cy.elements().boundingBox();
   if (!bb || bb.w === 0) { cy.fit(undefined, 20); return; }
-  // Compute zoom so content fits with 20px side/bottom margins AND
-  // 8px + hm*zoom header clearance at top (hm = headerMargin from R payload).
-  // Vertical:   8 + hm*zoom + bb.h*zoom + 20 = H  →  zoom = (H−28)/(bb.h+hm)
+  // Compute zoom so content fits with 20px side margins, FIT_BOTTOM_PX below AND
+  // FIT_TOP_PX + hm*zoom header clearance at top (hm = headerMargin from R payload).
+  // Vertical:   FIT_TOP_PX + hm*zoom + bb.h*zoom + FIT_BOTTOM_PX = H  →  zoom = (H−FIT_V_PX)/(bb.h+hm)
   // Horizontal: 20 + bb.w*zoom + 20           = W  →  zoom = (W−40)/bb.w
   var hm = (lastData && lastData.headerMargin) || 70;
   // On mobile use zoomW (fill width) — the graph is typically taller than wide, so
@@ -860,7 +864,7 @@ function fitWithHeaders() {
   var mobileHdrExtra = useMobileLayout() ? (fontHdr1 * 2.4 + fontHdr2 * 1.3) * zoom : 0;
   cy.pan({
     x: W / 2 - (bb.x1 + bb.w / 2) * zoom,
-    y: 8 + hm * zoom - bb.y1 * zoom + mobileHdrExtra / 2
+    y: FIT_TOP_PX + hm * zoom - bb.y1 * zoom + mobileHdrExtra / 2
   });
 }
 
@@ -939,7 +943,7 @@ function applyInlineFill() {
   var hm = (lastData && lastData.headerMargin) || 70;
   // 3) Height-fit zoom (using the stable cached content height, not the live one) and horizontal slack.
   var bbH = (inlineFillBase.bboxH > 0) ? inlineFillBase.bboxH : bb.h;
-  var zh = (viewH - 28) / (bbH + hm);
+  var zh = (viewH - FIT_V_PX) / (bbH + hm);
   if (zh <= 0) return;
   var slackPx = (W - 40) - bb.w * zh;
   if (slackPx <= 0) return; // already width-constrained → nothing to distribute
@@ -1020,13 +1024,13 @@ function layoutInlineScroll() {
   // Fit BOTH dimensions of the base layout so the no-description view shows every node, then apply
   // the user's magnification (uiZoom). Columns still scroll vertically per-column at any zoom.
   var fitW = (W - 2 * sideMargin) / baseBB.w;
-  var fitH = (viewH - 28) / (baseBB.h + hm);
+  var fitH = (viewH - FIT_V_PX) / (baseBB.h + hm);
   // Desktop: fit the whole map (min of both). Narrow screens: fit to WIDTH only — the columns fill the
   // width (minimal side margins) and the content scrolls vertically. Width-only also keeps the zoom
   // independent of node heights, so the node-height multiplier makes nodes taller without shrinking text.
   var fitZoom = isNarrow() ? fitW : Math.min(fitW, fitH);
   var zoom = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), fitZoom * (uiZoom || 1)));
-  var topPad = 8 + hm * zoom;
+  var topPad = FIT_TOP_PX + hm * zoom;
   // Keep the graph below the fixed header bar even when it wraps to 2–3 rows on a narrow screen,
   // so the wrapped controls never cover the column headers.
   var hdrBar = document.getElementById('inline-header-right');
@@ -1055,11 +1059,11 @@ function layoutInlineScroll() {
   // columns can be vertically centred (see applyInlinePositions) even when nothing overflows / is open.
   if (!inlineBase && (isNarrow() || centerColsDesktop || baseBB.h * zoom > viewH - topPad - 8)) captureInlineBase();
   // Vertical focal: shift every column's scroll by the same Δ so the point under the cursor stays put
-  // while zooming. Node screen-Y = 8 + (layoutY − scroll)·zoom, so keeping a point fixed needs
-  // Δscroll = (cursorY − 8)·(1/prevZoom − 1/zoom). Each column then clamps to its own range (a short
+  // while zooming. Node screen-Y = FIT_TOP_PX + (layoutY − scroll)·zoom, so keeping a point fixed needs
+  // Δscroll = (cursorY − FIT_TOP_PX)·(1/prevZoom − 1/zoom). Each column then clamps to its own range (a short
   // column can lag at the extremes — an accepted trade-off for keeping per-column scroll).
   if (_zoomFocalY != null && prevZoom > 0 && inlineBase) {
-    var dS = (_zoomFocalY - 8) * (1 / prevZoom - 1 / zoom);
+    var dS = (_zoomFocalY - FIT_TOP_PX) * (1 / prevZoom - 1 / zoom);
     inlineColScroll.Theme   = (inlineColScroll.Theme   || 0) + dS;
     inlineColScroll.Project = (inlineColScroll.Project || 0) + dS;
     inlineColScroll.Skill   = (inlineColScroll.Skill   || 0) + dS;
@@ -1124,11 +1128,11 @@ function updateZoomLabel() {
   if (el) el.textContent = Math.round((uiZoom || 1) * 100) + '%';
 }
 
-// ── Reader-facing general text-size control (header A−/A+) ────────────────────
-// A GENERAL font control: the description font is the reference, and every other font (node titles,
-// project type, skill subs, column headers) is scaled by the SAME ratio, so the whole page grows and
-// shrinks together. descFontSize / _baseDescFont gives that ratio -> userFontScale. Persisted per
-// browser. (uiFontScale, the one-time mobile auto-fill below, multiplies on top of this.)
+// ── Reader-facing description text-size control (header A−/A+) ────────────────
+// Changes the DESCRIPTION font only (open-node description text and the sidebar description). Node
+// titles, project type, skill subs and column headers keep the author's sizes — the reader control
+// used to scale those by the same ratio, but that made the whole map reflow for a text-size tweak.
+// Persisted per browser. (uiFontScale, the one-time mobile auto-fill below, is a separate thing.)
 var DESC_FONT_MIN = 12, DESC_FONT_MAX = 30;
 function updateDescFontLabel() {
   var el = document.getElementById('inline-descfont-val');
@@ -1138,14 +1142,8 @@ function setDescFontSize(px, skipStore) {
   px = Math.max(DESC_FONT_MIN, Math.min(DESC_FONT_MAX, Math.round(px)));
   if (px === descFontSize) { updateDescFontLabel(); return; }
   descFontSize = px;
-  // Same ratio for every other font: 18 -> 21 grows node titles/headers by 21/18 too.
-  userFontScale = _baseDescFont ? (descFontSize / _baseDescFont) : 1;
-  applyNodeFontScale();
   applySidebarFonts();
-  var _pt = document.getElementById('page-title');   // sidebar page title rides the same scale
-  if (_pt) _pt.style.fontSize = fontHdr1 + 'px';
   if (cy && inlineBase) {                     // re-measure every open node's description, then reflow
-    restackAllColumnsForFonts();              // node fonts changed too — re-measure + re-stack columns
     Object.keys(inlineExpandedMap).forEach(function (id) {
       if (id === descEditId) setExpandedHeight(id, true);
       else setExpandedHeight(id, false);
@@ -1165,7 +1163,7 @@ function setDescFontSize(px, skipStore) {
 // A−/A+ control governs description text only, which keeps the width/zoom auto-sizing simple.
 var FONT_AUTOFILL_MAX = 1.8;
 var uiFontScale = 1;            // node-content font multiplier from the auto-fill (session, not persisted)
-var userFontScale = 1;          // reader's A−/A+ multiplier — applies to EVERY font, headers included
+var userFontScale = 1;          // kept at 1: the reader's A−/A+ no longer scales node/header fonts (description only)
 var _baseFonts = null;          // { node, project, ptype, subs, hdr1, hdr2 } — payload values before scaling
 var _baseDescFont = 18;         // payload description font — the reference the A−/A+ ratio is taken from
 
@@ -1231,7 +1229,7 @@ function computeAutoFillScale() {
   var W = ga.clientWidth, viewH = ga.clientHeight || window.innerHeight;
   var hm = (lastData && lastData.headerMargin) || 70;
   var fitW = (W - 40) / bb.w;
-  var topPadPx = 8 + hm * fitW;
+  var topPadPx = FIT_TOP_PX + hm * fitW;
   var hdrBar = document.getElementById('inline-header-right');
   if (hdrBar) { var hbH = hdrBar.getBoundingClientRect().height; if (hbH > 0) topPadPx = Math.max(topPadPx, hbH + 6); }
   var availCytoH = (viewH - topPadPx - 12) / fitW;
@@ -1286,10 +1284,11 @@ function applyInlinePositions() {
   var viewH = ga ? (ga.clientHeight || window.innerHeight) : window.innerHeight;
   var zoom = cy.zoom(), panY = cy.pan().y;
   var viewportBottomCyto = (viewH - panY) / zoom;
-  var bottomClear = (isNarrow() ? 76 : 20) / zoom;
-  // Vertically centre the Theme/Skill columns: always on narrow (mobile), and on desktop too when the
-  // author enabled it. Same formula in both cases (centred on the Project span, below).
-  var narrowCenter = (isNarrow() || centerColsDesktop) && !useMobileLayout();
+  var bottomClear = (isNarrow() ? 76 : FIT_BOTTOM_PX) / zoom;   // scrolled to the end, the frame still clears the bottom
+  // Vertically centre the Theme/Skill columns when the author enabled it for the active aspect mode.
+  // (Formerly also forced on whenever isNarrow() — i.e. below 768px — which silently overrode the tall
+  // setting once the window got narrower than that, so "tall = top-aligned" only held near ratio 1.)
+  var narrowCenter = centerColsDesktop && !useMobileLayout();
   var cols = {}, globalTop = Infinity;
   cy.nodes().forEach(function (n) {
     if (inlineBase[n.id()]) {
@@ -1466,6 +1465,43 @@ function buildElements(data) {
 }
 
 /* ── Node HTML — font sizes from layout sliders ──────────────────────────── */
+
+// Project-type cell sizing. The type column is a fixed % of the node width, so the widest possible label
+// (every EN + FI variant, so ALL project nodes share one type font) may not fit at the base size. Desktop:
+// shrink the font until it does. Narrow screens: break the label onto two lines instead ("Web-" / "site")
+// and only shrink if even the longer half does not fit. Known labels break at a natural point; anything
+// else at its last space before the middle, or mid-word with a hyphen.
+var PTYPE_FI = { 'Text': 'Teksti', 'Text, long': 'Pitkä teksti', 'Text, short': 'Lyhyt teksti', 'Website': 'Nettisivu' };
+var PTYPE_BREAKS = { 'Website': ['Web-', 'site'], 'Nettisivu': ['Netti-', 'sivu'], 'Text, long': ['Text,', 'long'],
+  'Text, short': ['Text,', 'short'], 'Pitkä teksti': ['Pitkä', 'teksti'], 'Lyhyt teksti': ['Lyhyt', 'teksti'] };
+function ptypeParts(s) {
+  s = s || '';
+  if (PTYPE_BREAKS[s]) return PTYPE_BREAKS[s];
+  var i = s.lastIndexOf(' ', Math.ceil(s.length / 2) + 1);
+  if (i > 0) return [s.slice(0, i), s.slice(i + 1)];
+  if (s.length < 6) return [s];
+  var m = Math.ceil(s.length / 2); return [s.slice(0, m) + '-', s.slice(m)];
+}
+// -> { font: px, twoLine: bool } for the type cell of a project node `nodeW` wide showing `ptypeRaw`.
+function ptypeLayout(nodeW, ptypeRaw) {
+  var fontPx = fontPtype + 2, twoLine = false;
+  var colW = ptypeRaw ? Math.round(nodeW * ptypePct / 100) : 0;
+  if (colW <= 0) return { font: fontPx, twoLine: false };
+  var textW = colW - 5;    // the type column has 0 2.5px padding (left+right)
+  var cands = Object.keys(PTYPE_FI);
+  cands = cands.concat(cands.map(function (k) { return PTYPE_FI[k]; }));
+  if (ptypeRaw && cands.indexOf(ptypeRaw) < 0) cands.push(ptypeRaw);
+  var wMax = 0;
+  cands.forEach(function (c) { var w = measureTextPx(c, fontPx); if (w > wMax) wMax = w; });
+  if (wMax > textW && textW > 0) {
+    if (isNarrow()) {
+      twoLine = true; wMax = 0;
+      cands.forEach(function (c) { ptypeParts(c).forEach(function (p) { var w = measureTextPx(p, fontPx); if (w > wMax) wMax = w; }); });
+    }
+    if (wMax > textW) fontPx = Math.max(7, Math.floor(fontPx * textW / wMax));
+  }
+  return { font: fontPx, twoLine: twoLine };
+}
 
 function dualLabel(en, fi) {
   var en_esc = esc(en || '');
@@ -1817,25 +1853,17 @@ function nodeBodyHtml(data, noGradient) {
   }
   if (g === 'Project') {
     var ptypeRaw = data.ptype || '';
-    var ptypeFi = { 'Text': 'Teksti', 'Text, long': 'Pitkä teksti', 'Text, short': 'Lyhyt teksti', 'Website': 'Nettisivu' };
-    var ptypeLabel = dualLabel(ptypeRaw, ptypeFi[ptypeRaw] || ptypeRaw);
     var nodeW = data.w || projectNodeWidth;
     var ptypeColW = (!mobileMode && ptypeRaw) ? Math.round(nodeW * ptypePct / 100) : 0;
-    // Shrink the type label so it never overflows its fixed-width column (the column is a % of node
-    // width, but the font grows with the mobile auto-fill — so "Website" would clip to "Websit").
-    // Measure the WIDEST possible label (every EN + FI variant), not just this node's, so ALL project
-    // nodes end up with the SAME type-font size — shrinking "Website" shrinks "Text" to match.
-    var ptypeFontPx = fontPtype + 2;
-    if (ptypeColW > 0) {
-      var typeTextW = ptypeColW - 5;    // the type column has 0 2.5px padding (left+right)
-      var _cands = Object.keys(ptypeFi);
-      _cands = _cands.concat(_cands.map(function (k) { return ptypeFi[k]; }));
-      if (ptypeRaw && _cands.indexOf(ptypeRaw) < 0) _cands.push(ptypeRaw);
-      var wMax = 0;
-      _cands.forEach(function (s) { var w = measureTextPx(s, ptypeFontPx); if (w > wMax) wMax = w; });
-      if (wMax > typeTextW && typeTextW > 0) ptypeFontPx = Math.max(7, Math.floor(ptypeFontPx * typeTextW / wMax));
-    }
-    var ptypeFontSize = ptypeFontPx + 'px';
+    // Type font + one/two-line decision shared by every project node (see ptypeLayout): the label must
+    // never overflow its fixed-width column (the font grows with the mobile auto-fill).
+    var ptl = ptypeLayout(mobileMode ? 0 : nodeW, ptypeRaw);
+    var ptypeFiTxt = PTYPE_FI[ptypeRaw] || ptypeRaw;
+    var ptypeLabel = ptl.twoLine
+      ? '<span class="en-only">' + ptypeParts(ptypeRaw).map(esc).join('<br>') + '</span>' +
+        '<span class="fi-only">' + ptypeParts(ptypeFiTxt).map(esc).join('<br>') + '</span>'
+      : dualLabel(ptypeRaw, ptypeFiTxt);
+    var ptypeFontSize = ptl.font + 'px';
     // Title side padding: LEFT clears the accordion chevron; RIGHT is minimal (projects have no right
     // chevron), so the node fits a tighter horizontal space. autoFitProjectWidth matches these.
     var projPadL = Math.max(9, accGutter) + nodeTextPad;
@@ -1871,17 +1899,22 @@ function nodeBodyHtml(data, noGradient) {
 //     (the node grows to fit the whole text — no inner scroll), and
 //   • "Read in window →" link that opens the external full-fidelity Quarto page in a new tab.
 // `open` controls whether the inline body is currently unfolded.
+// Articles are written in ONE language (front matter `lang: fi`, else English); when that differs from
+// the language the page is viewed in, the labels say so: "Read more here (in Finnish)" / "Lue lisää
+// tästä (englanniksi)". Same-language articles get the plain label.
 function articleControlsHtml(d, open) {
   if (!articlesEnabled || !d || !d.hasArticle) return '';
   var hasInline = !!(d.articleInline && String(d.articleInline).trim());
+  var fi = currentLang === 'fi', artLang = (d.articleLang === 'fi') ? 'fi' : 'en';
+  var other = (artLang !== currentLang) ? (fi ? ' (englanniksi)' : ' (in Finnish)') : '';
   var out = '<div class="inline-article-row">';
   if (hasInline) {
-    var lbl = open ? ((currentLang === 'fi') ? '▾ Piilota' : '▾ Hide')
-                   : ((currentLang === 'fi') ? '▸ Lue lisää tästä' : '▸ Read more here');
+    var lbl = open ? (fi ? '▾ Piilota' : '▾ Hide')
+                   : ((fi ? '▸ Lue lisää tästä' : '▸ Read more here') + other);
     out += '<span class="inline-article-expand" data-node-id="' + d.nodeId + '">' + lbl + '</span>';
   }
   if (d.articleUrl) {
-    var label = (currentLang === 'fi') ? 'Lue lisää ikkunassa →' : 'Read more in window →';
+    var label = (fi ? 'Lue lisää uudessa ikkunassa' : 'Read more in a new window') + other + ' →';
     out += '<a class="inline-article-link" href="' + d.articleUrl + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
   }
   out += '</div>';
@@ -1912,7 +1945,7 @@ function toggleArticleInline(id) {
 // to rest exactly where the column's first node normally starts — never over the column headings.
 function inlineContentTopPx() {
   var hm = (lastData && lastData.headerMargin) || 70;
-  var t = 8 + hm * ((cy && cy.zoom()) || 1);
+  var t = FIT_TOP_PX + hm * ((cy && cy.zoom()) || 1);
   var hdrBar = document.getElementById('inline-header-right');
   if (hdrBar) { var hbH = hdrBar.getBoundingClientRect().height; if (hbH > 0) t = Math.max(t, hbH + 6); }
   return t;
@@ -2228,7 +2261,7 @@ function autoFitOpenedNode(id) {
   var W = ga.clientWidth, viewH = ga.clientHeight || window.innerHeight;
   var baseBB = inlineBaseBBox(); if (!baseBB || baseBB.w === 0) return;
   var hm = (lastData && lastData.headerMargin) || 70;
-  var fitW = (W - 40) / baseBB.w, fitH = (viewH - 28) / (baseBB.h + hm);   // match layoutInlineScroll's fit
+  var fitW = (W - 40) / baseBB.w, fitH = (viewH - FIT_V_PX) / (baseBB.h + hm);   // match layoutInlineScroll's fit
   var fitZoom = isNarrow() ? fitW : Math.min(fitW, fitH);
   if (!(fitZoom > 0)) return;
   var w = node.data('w') || 200;
@@ -2279,7 +2312,7 @@ function expandNodeFromDesc(d, skipReflow) {
   var dText = useFi ? d.text_fi : (d.text || '');
   var dLang = useFi ? 'fi' : 'en';
   var art = { nodeId: d.nodeId, hasArticle: !!d.hasArticle,
-              articleUrl: d.articleUrl || '', articleInline: d.articleInline || '' };
+              articleUrl: d.articleUrl || '', articleInline: d.articleInline || '', articleLang: d.articleLang || 'en' };
   var artHtml = articleControlsHtml(art, false);
   expandNodeInline(d.nodeId, mdToHtml(dText) + artHtml, dText, dLang, artHtml, skipReflow, art);
 }
@@ -3309,11 +3342,17 @@ function positionHeaders(data) {
       //  • node-region piece (z 4, behind nodes) — a rounded rect whose top half is hidden by the mask;
       //  • title-strip piece (z 11, above the mask) — from the title top down to the mask bottom, where
       //    there are no nodes, so it fills behind the title only.
+      // With "headers on stack" a centred column's title sits BELOW the top mask, where the title-strip
+      // piece (bounded by the mask) cannot reach; then the node-region rect itself starts at the title
+      // top, so the fill still covers the whole header instead of only its lower half.
+      var hdrBelowMask = maskBottomPx != null && (box.top - 4) >= maskBottomPx;
+      var fillTop = hdrBelowMask ? box.top - 4 : top;
+      var rf = Math.min(frameCornerR, (right - left) / 2, (bottom - fillTop) / 2);
       if (fillSvg) {
         var fr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        fr.setAttribute('x', left); fr.setAttribute('y', top);
-        fr.setAttribute('width', right - left); fr.setAttribute('height', bottom - top);
-        fr.setAttribute('rx', r); fr.setAttribute('ry', r);
+        fr.setAttribute('x', left); fr.setAttribute('y', fillTop);
+        fr.setAttribute('width', right - left); fr.setAttribute('height', bottom - fillTop);
+        fr.setAttribute('rx', rf); fr.setAttribute('ry', rf);
         fr.setAttribute('fill', colColumnBg); fr.setAttribute('fill-opacity', frameFillAlpha());
         fillSvg.appendChild(fr);
       }
@@ -3470,7 +3509,7 @@ function applyDataGlobals(data) {
     var _dfs = null; try { _dfs = localStorage.getItem('descFontSize'); } catch (e) {}
     if (_dfs != null && !isNaN(+_dfs)) descFontSize = Math.max(DESC_FONT_MIN, Math.min(DESC_FONT_MAX, +_dfs));
   }
-  userFontScale = _baseDescFont ? (descFontSize / _baseDescFont) : 1;   // restore the reader's ratio
+  userFontScale = 1;                       // reader's A−/A+ affects descriptions only, never node/header fonts
   applyNodeFontScale();
   applySidebarFonts();
   applySidebarFonts();
@@ -3668,7 +3707,11 @@ function collapsedNodeHeight(nd) {
   else if (g === 'Skill') h = measureSkillNodeHeight(nd, w);
   else if (g === 'Theme' || g === 'About') h = measureThemeNodeHeight(nd, w);
   else return nd.h || 46;
-  if (g === 'Project' && isNarrow()) h = Math.max(h, Math.round(2 * fontProject * 1.3 + 8));  // two-row floor
+  if (g === 'Project' && isNarrow()) {
+    h = Math.max(h, Math.round(2 * fontProject * 1.3 + 8));  // two-row floor
+    var ptl = ptypeLayout(w, nd.ptype || '');               // a two-line type label needs its own two rows
+    if (ptl.twoLine) h = Math.max(h, Math.round(2 * ptl.font * 1.25 + 8));
+  }
   return h;
 }
 
@@ -4588,7 +4631,7 @@ Shiny.addCustomMessageHandler('showDescPanel', function (msg) {
     mdTitle.textContent = dTitle;
     // Mobile sheet / desktop sidebar are plain panels (no inline-node expand): link to the article only.
     mdBody.innerHTML = mdToHtml(dText) +
-      articleControlsHtml({ nodeId: msg.nodeId, hasArticle: msg.hasArticle, articleUrl: msg.articleUrl }, false);
+      articleControlsHtml({ nodeId: msg.nodeId, hasArticle: msg.hasArticle, articleUrl: msg.articleUrl, articleLang: msg.articleLang }, false);
     mdTitle.style.color = c;
     if (mdClose) { mdClose.style.color = c; mdClose.style.borderColor = c; }
     if (mdHdr) mdHdr.style.borderBottomColor = c;
@@ -4607,7 +4650,7 @@ Shiny.addCustomMessageHandler('showDescPanel', function (msg) {
     if (!panel || !title || !body) return;
     title.textContent = dTitle;
     body.innerHTML = mdToHtml(dText) +
-      articleControlsHtml({ nodeId: msg.nodeId, hasArticle: msg.hasArticle, articleUrl: msg.articleUrl }, false);
+      articleControlsHtml({ nodeId: msg.nodeId, hasArticle: msg.hasArticle, articleUrl: msg.articleUrl, articleLang: msg.articleLang }, false);
     applySidebarFonts();
     panel.style.borderColor = c; title.style.color = c;
     if (close) { close.style.color = c; close.style.borderColor = c; }

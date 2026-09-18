@@ -47,3 +47,8 @@ site/articles/**/quarto-contrib/shinylive-*/**/*.d.ts
 site/articles/**/quarto-contrib/shinylive-*/**/*.map
 site/articles/**/quarto-contrib/shinylive-*/**/*.bak
 site/articles/**/quarto-contrib/shinylive-*/**/tests/
+
+# Per-page shinylive/webR runtime copies (~80 MB each). tools/build_static.R moves the first one to
+# site/articles/shinylive-libs/ (committed) and deletes the rest; stray copies from a bare
+# `quarto render` stay out of git.
+site/articles/*_files/libs/quarto-contrib/
