@@ -6,90 +6,96 @@ inline: true
 lang: fi
 ---
 
-(Tämä vielä hyvin kesken)
+Muutama eri taho suunnittelee Kemijärvelle [pumppuvoimalaitosta](#hankkeet). Pumppuvoima on vesivoiman muoto, jossa käytetään halvan sähkön aikana sähköä pumppaamaan vettä ylös vesistöstä yläaltaaseen, josta sitä juoksutetaan voimalaitoksen kautta takaisin ala-altaaseen (joki tai järvi) kalliin sähkön aikana sähkön tuottamiseksi.
 
-## Yleiststä 
-
-Muutama eri taho suunnittelee Kemijärvelle pumppuvoimalaitosta (linkit lopussa). Pumppuvoima on vesivoiman muoto, jossa käytetään halvan sähkön aikana sähköä pumppaamaan vettä ylös vesistöstä vaaran laelle ja juoksutetaan sitä alas kalliin sähkön aikana takaisin voimalaitoksen kautta tuottamaan sähköä. Sähkön hintavaihteluiden lisääntyminen on lisännyt kiinnostusta pumppuvoimaan. 
-
-Nähdäkseni pumppuvoima voi olla hyvin hyödyllinen Suomen sähköverkolle niin sähkön keskihinnan laskemisen kuin luonto- ja ilmastohyötyjenkin näkökulmasta. 
-
+Nähdäkseni pumppuvoima voi olla hyvin hyödyllinen Suomen sähköverkolle niin sähkön keskihinnan laskemisen ja sähköverkon tasapainon kuin luonto- ja ilmastohyötyjenkin näkökulmasta. Teksti on vielä keskeneräistä ajattelua, kuulen mielelläni palautetta.
 
 ## Hyöty sähkön hinnalle ja sähköverkon joustavuudelle
-Tuulivoiman määrä suhteessa muuhun sähköntuotantoon on niin suuri, että tuulisuus määrittää nykyään vahvasti sähkön hintaa. Välillä tuulivoima kattaa reilusti yli puolet Suomen sähköntuotannosta, välillä ei prosenttiakaan. Tuulivoiman tuotanto on edullista, mutta sen lisärakentaminen edellyttää, että sähköjärjestelmässä on joustavuutta tuotantovaihteluiden tasoittamiseen. 
+
+Sähkön hintavaihteluiden lisääntyminen on lisännyt kiinnostusta pumppuvoimaan. Sähkön hintaa heiluttaa etenkin tuulivoiman tuotanto. Välillä tuulivoima kattaa reilusti yli puolet Suomen sähköntuotannosta, välillä ei prosenttiakaan. Tuulivoiman rakennuskustannukset ovat matalat, mutta sen lisärakentaminen edellyttää, että sähköjärjestelmässä on tarpeeksi joustoa tuotantovaihteluiden tasoittamiseen.
 
 <details>
-<summary>Sähköverkon jouston kehityksestä</summary>
 
-Viime vuosina etenkin kaukolämmön sähkökattilat ovat lisänneet kysynnän joustoa, kun yhteydessä oleviin lämpöakkuihin voidaan varastoida lämpöä halvan sähkön aikoina. Tämä lisää tuulivoiman kannattavuutta. 
+<summary>Lisää sähköverkon jouston kehityksestä viime aikoina</summary>
 
-Sähkökattilat kuitenkin vähentävät osaltaan tarjontajoustoa, kun kaukolämmön ja sähkön yhteistuotanto vähenee, kun polttokattiloita on osin korvattu sähkökattiloita (Useimmissa kaukolämpöverkossa molemmat jatkavat toki rinnakkain ainakin toistaiseksi). 
+Viime vuosina etenkin kaukolämmön sähkökattilat ovat lisänneet kysynnän joustoa, kun yhteydessä oleviin lämpöakkuihin voidaan varastoida lämpöä halvan sähkön aikoina. Tämä lisää tuulivoiman kannattavuutta.
 
-Viime vuonna valmistunut siirtoyhteys Ruotsiin lisää sekä kysyntä- että tarjontajoustoa, mutta voi olla, että uusien yhteyksiä rakennus on kiven alla, kun Ruotsi on tullut kriittiseksi sähkön hintojen varjelulle ulkomaiselta kysynnältä. Ruotsinkin tarjonta riippuu vesitilanteesta. 
+Sähkökattilat kuitenkin vähentävät osaltaan tarjontajoustoa, kun kaukolämmön ja sähkön yhteistuotanto vähenee, kun polttokattiloita on osin korvattu sähkökattiloilla (Useimmissa kaukolämpöverkossa molemmat jatkavat toki rinnakkain ainakin toistaiseksi). Myös teollisuudessa tällaiset joustot ovat yleistyneet.
 
+Viime vuonna valmistunut siirtoyhteys Ruotsiin lisää sekä kysyntä- että tarjontajoustoa, mutta voi olla, että uusien yhteyksiä rakennus on kiven alla, kun Ruotsi on tullut kriittiseksi sähkön hintojen varjelulle ulkomaiselta kysynnältä. Ruotsin tarjonta taas riippuu vesitilanteesta.
 
 </details>
 
+Sähköä varastoimaan pystyvä pumppuvesivoima tarjoaa järjestelmään sekä kysyntä- että tarjontajoustoa. Tuulisella säällä sähköä voidaan varastoida, ja tuulettomalla säällä svarastoja purkaa. Samoin voidaan varastoida yöajan halpaa sähköä (yöllä kysyntä usein matalampaa) päiväsajalle. Koska sähkön tarjonta joustaa muutoin heikosti korkeilla hinnoilla, niin tarjonnan siirtäminen pumppuvoiman kautta tuottaa selkeän nettohyödyn, kun katsotaan sähkön keskihintaa yli ajan. AFRY:n Kemijoki Oy:lla teettämän arvion mukaan reilun 1000MW pumppuvoimakapasiteetin rakentaminen toisi 200 miljoonan euron kokonaisvähennyksen sähkölaskuihin vuodessa[^1]. En ole kuitenkaan ainakaan toistaiseksi löytänyt varsinaista raporttia julkisesti (kellään linkkiä?). 1000MW vastaa 10 prosenttia Suomen nykyisestä sähkön keskikulutuksesta.
 
-Energiaa varastoimaan pystyvä vesivoima tarjoaa sekä kysyntä- että tarjontajoustoa. Tuulisella säällä sähköä voidaan varastoida, ja tuulettomalla säällä sähköä voidaan purkaa. Koska sähkön tarjonta johtaa muutoin heikosti korkeilla hinnoilla, niin tarjonnan siirtäminen tuottaa selkeän nettohyödyn kun katsotaan sähkön keskihintaa eri ajanajaksoilla. 
-
-AFRY:n Kemijoki Oy:lla teettämän arvion mukaan 1000MW lisäys tarkoittaisi 200 miljoonan euron kokonaisvähennystä sähkölaskuihin. https://yle.fi/a/74-20190914
-En ole kuitenkaan ainakaan toistaiseksi löytänyt varsinaista raporttia julkisesti. 
-
+[^1]: https://yle.fi/a/74-20190914
 
 ## Hyöty ilmastolle
 
-- Pumppuvoiman tarjontajousto vähentää fossiilisten polttamiseen. Tämä vaikutus ulottuu myös Suomen ulkopuolelle siirtoyhteyksien ansiosta.  
-- Jousto parantaa uusiutuvien kannattavuutta ja niiden rakentamista. 
-- Jouston ja uusiutuvien kasvun tuoma sähkön hinnan lasku lisää talouden sähköistymistä (mm. liikenne ja teollisuus). 
+Pumppuvoiman tarjontajousto vähentää fossiilisten ja puun polttoa sähkön tuotannossa. Tämä vaikutus ulottuu myös Suomen ulkopuolelle siirtoyhteyksien ansiosta.
 
-Nämä vaikutukset vähentävät päästöjä.  
+Tarjontajousto parantaa uusiutuvien kannattavuutta (koska saadaan aiempaa korkeampi hinta sähköstä juuri silloin kun uusiutuvien tuotanto on korkeaa) ja siten niiden rakentamista, mikä auttaa korvaamaan polttoa lisää.
 
-## Luonto- ja ekologisuus (verrattuna akkujen rakentamiseen)
-- Hankkeet aiheuttavat paikallisia luontohaittoja etenkin Kemijärven ympäristössä. Rakennusvaihe tuottaa haittoja. Itse pumppuvoiman käyttö aiheuttaa vedenpinnan vaihtleua ja haittaa eliöstölle.
+Jouston ja uusiutuvien lisärakentamisen kasvun tuoma sähkön tarjonan kasvu ja keskihinnan lasku lisää talouden sähköistymistä (mm. liikenne ja teollisuus), mikä entisestään vähentää polttamista. Tämä uusi kysyntä toki nostaa taas sähkön hintaa osin, mutta siten että ilmastohyöty on saavutettu.
 
-Hankkeiden luvitusprosessin mukaiset ympäristövaikutusarvioinnit ovat yhä kesken. 
+## Vertailua akkuihin, eli mitä tapahtuu jos hankkeita ei rakenneta
 
-- Akkukapasiteetti kasvaa kovaa vauhtia. Käytännössä pumppuvoimalaitos vähentäisi tarvetta akuille määrällä, joka vastaa jonkinlaista tehon ja varastointikapasiteetin yhdistelmää. 
+(En ole lainkaan akkujen asiantuntija, ja tässä paljon pohjautuu googlailuun ja Clauden kanssa pallotteluun. Raaka-ainetarpeesta voi vinkata lähteitä ja näkemyksiä)
 
-Pohjolan Voiman Puhti-hankkeen voimala olisi suurin. Sen 25 000 MW varasto mahdollistaisi kahden ja puolen tunnin maksimituulivoimatuotannon (kokonaisteho 9500 MW) varastoinnin. 
+Haittojen vertailussa olennaista on arvioida, että mitä tapahtuu, jos pumppuvoimaa ei rakenneta. Se jarruttaa ainakin jossain määrin uusiutuvien rakentamista ja ylläpitää polttamista. Vielä isompi vaikutus on, että pumppuvoiman sijaan säätövoimaksi rakennetaan enemmän akkuja. Suomessa on nyt käytössä yli 1000 MW akkutehoa[^2], ja tulossa vielä paljon enemmän.
 
-Teho on 550 MW, mikä vastaa x% Suomen sähkön keskikulutuksesta.
+[^2]: <https://www.fingrid.fi/en/news/news/2026/the-combined-capacity-of-electricity-storages-in-finland-now-exceeds-1000-mw>
 
+Pumppuvoima vähentäisi tarvetta akuille. Tyypillinen sähköakkukontti on noin 6m pitkä ja 2,5 metriä leveä, ja sen teho on 2,5MW ja varastointikyky 5MWh. Puhti-pumppuvoimahankkeen voimalan teho on 500MW ja sen varaston suuruus voisi olla jopa 25 000 MWh. Eli mikäli katsotaan tehoa, niin Puhti-voimala korvaisi 200 akkukonttia. Mikäli katsotaan varastointia, niin Puhti korvaisi 5000 sellaista. Todellinen korvaavuus on jossain sillä välillä, varmaan lähempänä 5000:ta, sillä verkossa alkaa olla pulaa nähdäkseni etenkin varastokyvystä, ei tehosta.
 
-Akkukonttien määrä vähenisi 500-5000:lla kontilla. Mikäli katsotaan tehoa, niin tarvitaan 500 kontillista. 
-Mikäli katsotaan varastointia, tarvitaan 5000 kontillista. 
-(Linkki tähän)
+Nykyiset LFP-akut vaativat akkukemian osalta yli 2 kiloa grafiittia, litiumia, rautaa ja fosforia per kWh[^3], eli yli 10 tonnia per kontti tai yli 50 000 tonnia per 25 000 MWh. Mikäli arvioidaan, että Puhti kestää 60 ja akusto 20 vuotta, niin näitä materiaaleja tarvitaan 150 000 tonnia (5000 kontillista x 3). LIsäksi akustojen rakenteisiin vaaditaan esimerkiksi kuparia ja alumiinia. Osa materiaaleista voidaan toki kierrättää akkujen käyttöiän päätteeksi, mutta louhinta- ja jalostushaitat ovat silti suuret. Jatkossa on mahdollista, että esimerkiksi Natriumioni-akut yleistyvät, mutta niiden käyttöä ei kai ole vielä Suomessa suunnitteilla. Niissä etenkin kriittisten materiaalien raaka-ainetarve olisi huomattavasti vähäisempi.
 
-Vähentää akkumineraalien louhintaa vastaavalla määrällä. 
-Vaikka emme lisäisi energiankulutusta enää, tarvitsemme huomattavasti lisää juuri sähköä liikenteen ja teollisuuden päästöjen lopettamiseksi. 
+[^3]: <https://theicct.org/wp-content/uploads/2024/12/ID-206-%E2%80%93-Battery-outlook_report_final.pdf> s. 23
 
+Kuten muutkaan energianmuodot, pumppuvoima ei ole haitatonta. Hankkeiden luvitusprosessin mukaiset ympäristövaikutusarvioinnit ovat yhä kesken. Pumppuvoiman rakentaminen vaatii etenkin betonia ja terästä. Kemijärven ympäristöön kohdistuu haittoja; Rakennusvaihe tuottaa haittoja mm. ruoppauksesta. Itse käytönaikainen pumppaus aiheuttaa vedenpinnan vaihtelua ja haittaa eliöstölle. Veden alle jäävältä tunturialueelta vapautuu päästöjä ja sen luontoarvot menetetään.
 
+Oman tuntumani mukaan akkujen ympäristö- että ilmastohaitat ovat pumppuvoimaa suuremmat, mutta näkisin tästä mieluusti asiantuntijoiden arviotia. Ehkä vertailu myös helpottuu YVA-arviointien valmistuessa.
 
+Akkujen louhinta- ja muut ympäristöhaitat ovat poissa näkyvistämme ja säätelymme ulottumattomissa ja niihin voi liittyä paljon epävarmuuksia. Tämän ei pidä saada meitä suhtautumaan niihin ainakaan suopeammin kuin pumppuvoiman haittoihin.
 
-## Hyväksyttävyys (Taloudellinen kompensaatio kunnalle)
-- Kemijärven kaupunginvaltuusto on toistaiseksi vastustanut kategorisesti hankkeita. 
-Haittoja tulisi kompensoida mahdollisimman paikallisesti. 
-- Kiinteistöverotuotot. Kemijoki Oy laskenut, että ensimmäisinä vuosina x miljoonaa vuodessa (vrt. Kemijärven vuosibudjetti x miljoonaa euroa)
+## Ovatko akut ainoa vaihtoehto pumppuvoimalle?
 
-- Mikäli useita hankkeita, niin tulisiko järjestää tarjouskilpailu? Siinä tulisi antaa painoa varaston suuruudelle. 
+Perinteistä patovesivoimaa Suomeen ei mahdu kai rakentaa enempää. Suomen vesivoiman maksimivarastointikapasiteetti on noin 5,5TWh eli 5 500 000 MWh[^4]. Patovesivoiman säädettävä teho on kuitenkin siihen nähden pieni, kevättulvakauden ulkopuolella noin 500-1700MW tulovirtaamasta riippuen, säätämättömän pohjatehon ollessa 500-1000MW[^5]. Pumppuvoiman voisi siten toimia komplementtina patovesivoiman ja akkujen välissä mitä tulee tehon ja varastojen välillä tasapainotteluun. Se mahdollistaisi myös paremmin joidenkin pienten tai vain pohjavoimana toimivien vesivoimaloiden purkamisen luontohyötyjen saamiseksi.
 
+[^4]: <https://energiavirasto.fi/documents/11120570/13026619/S%C3%A4hk%C3%B6n+toimitusvarmuus+vuonna+2022.pdf/beb5dcf4-3963-ceae-ae53-8efc7ed0115b/S%C3%A4hk%C3%B6n+toimitusvarmuus+vuonna+2022.pdf?t=1669885238812>
+
+[^5]: <https://mmm.fi/documents/1410837/1516651/MMM%20Vesivoima%20loppuraportti%2013.5.2025_Vesivoiman%20vaikutus%20Suomen%20s%C3%A4hk%C3%B6j%C3%A4rjestelm%C3%A4%C3%A4n%20ja%20merkitt%C3%A4vimpien%20vesivoimakohteiden%20tunnistaminen%20yhteiskunnallisten%20intressien%20yhteensovittamiseksi.pdf/143ee63f-eb56-0f23-c8f7-3dd412f1d434?t=1748337916725> s.18
+
+Vaihtoehtona on myös keskittyä ydinvoimaan. Suomessa on melko vahva kannatus ydinvoimalle, alan toimintaa ja loppusijoitusratkaisu. Se olisi luultavasti ekologisesti paras ratkaisu, mutta kustannustekijät voivat tulla vastaan isossa mittakaavassa. Lisäksi Suomi saattaa olla Euroopan parhaita paikkoja tuulivoiman lisärakentamiselle, sillä olemme kaukana muusta tuulivoimatuotannosta, jolloin hyödymme tuulisuuden epäkorrelaatiosta. Suomi on myös harvaan asuttu - meillä riittää tilaa. Ydinvoimaa saattaa hyvinkin olla järkevä rakentaa lisää, mutta sen sijaan että kannattaa mennä siihen täysillä, niin paras ratkaisu voi olla ydinvoima + uusiutuvat + sähkövarastot -kombo, jossa jokaisen osuus kasvaa.
+
+Myös siirtoyhteyksien parantaminen auttaisi sähköjärjestelmän tasoittamisessa. Viime vuonna valmistunut siirtoyhteys Pohjois-Ruotsiin helpotti järjestelmää huomattavasti, kun pääsimme sen kautta yhä paremmin kiinni Pohjoisen vesivoimasäätövoimaan. Nyt Euroopassa on kuitenkin päällä jonkinlaisen "sähköprotektionismin" tuulet, ja uusien yhteyksien jouston varaan ei pidä laskea. Niitäkin on toki tärkeä edistää[^6]. Lisäksi Pohjois-Ruotsin ja Suomen tuulisuus korreloi, ja sielläkin on patovesivoiman joustoa saatavilla vain rajallisesti.
+
+[^6]: <https://villeseppala.github.io/interests/articles/207.html>
+
+Voidaan myös pysyä poltossa yhä vahvemmin. Polttaminen on kuitenkin hyvin haitallista ilmastomielessä, lukuunottamatta hakkuutähteiden hyödyntämistä, sillä niiden hiili pääsisi ilmaan joka tapauksessa nopeasti muutamassa vuodessa.
+
+Sähkön käyttöä voidaan myös rajoittaa. Vaikka muuttuisimme yhä enemmän teollisuusyhteiskunnasta palveluyhteiskunnaksi ja vaikka energiatehokkuus paranisi, niin sähkön käyttöä tarvitaan paljon lisää ilmastonmuutoksen torjumiseksi. Vaikka emme edes lisäisi energiankulutusta enää, tarvitsemme huomattavasti lisää juuri sähköä liikenteen ja teollisuuden yms. päästöjen lopettamiseksi. Lisäksi, Suomessa sähköjärjestelmä on jo maailman vähäpäästöisimpiä. Se puhuu sen puolesta, että meidän kannattaa varmistaa, että sähkön käyttöä tulee juuri meille. Se auttaa myös kansantaloutta verotulojen muodossa. Toki tällä on osin myös globaalisti jonkin verran sähkön käyttöä kasvattava vaikutus, verrattuna siihen että käyttö joutuu harkitsemaan aavistuksen kalliimpien kohteiden välillä.
+
+## Paikallinen hyväksyttävyys esteenä hankkeille
+
+Kemijärvi kaupunginvaltuusto päättää kunnan alueelle tulevista hankkeista. Se on toistaiseksi vastustanut kategorisesti hankkeita. Paikallisen hyväksyttävyyden saavuttaminen onkin tärkeää hankkeiden menestykselle. Ainakin näitä voisi tulee edistää:
+
+-   Laitosten rakentajien tulee mahdollisuuksien mukaan hyvittää ympäristöhaittoja ekologisella kompensaatiolla[^7], ja se tulee toteuttaa mahdollisimman paikallisesti.
+
+-   Kaupunkilaisia tulee tiedottaa myös hankkeen hyödyistä mahdollisimman hyvin. Mikäli esimerkiksi ympäristöjärjestöt arvioivat nettohyödyt nettohaittoja suuremmiksi, niiden tulisi tuoda se esiin. Arvioinnissa tulee pyrkiä olemaan realistisia juuri siitä, että mitkä ovat pumppuvoiman rakentamatta jättämisen vaikutukset. Tässä ollaan oudossa tilanteessa, jossa rakentamatta jättämisen hyödyt ovat äärimmäisen paikallisia, mutta rakentamien hyödyt äärimmäisen kansallisia ja globaaleja, eli tilanne vaatii uhrautuvuutta, jonka arvo tulee tuoda esiin.
+
+-   Paikallisten tulee saada riittävä taloudellinen korvaus paikallisesta haitasta ja uhrautuvuudesta. Pumppuvoimaloita ei ole Suomessa ennestään (maailmalla on paljon), ja niiden kiinteistöveron suuruudesta on ilmeisesti jonkin verran epävarmuutta. Kemijärven kaupunki on laskenut, että 10 vuoden aikana kiinteistöverotuotot olisivat 28 miljoonaa ja 40 vuoden aikana 65 miljoonaa[^8]. Kaupunki toivoo jutun mukaan kaikkineen 9 miljoonan euron vuosituottoja. Lukemat koskevat ilmeisesti Kemijoki Oy:n hanketta (550MW/6250MWh). Niitä voi suhteuttaa hankkeen 800 miljoonan investointikustannukseen ja noin 50-100(?) vuoden käyttöikään. Olisiko hanke yhä kannattava 9 miljoonan euron maksuilla kunnalle? Mikäli ei olisi, niin tulisiko valtion tukea hanketta? Se voi riippua myös siitä, että missä määrin AFRY:n laskema arvio 200 miljoonan vuotuisesta alennuksesta sähkölaskuihin on oikeansuuntainen.
+
+[^7]: <https://ym.fi/ekologinen-kompensaatio>
+
+[^8]: <https://yle.fi/a/74-20213804>
 
 ## Linkkejä
 
-### Hankkeita
+### Hankkeita {#hankkeet}
 
-Kemijoki Oy, Ailangantunturi: 
-550 MW, 6 250 MWh
-https://www.kemijoki.fi/toimintamme/pumppuvoimalaitokset/ailangantunturin-pumppuvoimalaitos/
+Kemijoki Oy, Ailangantunturi: 550 MW, 6 250 MWh, investointikustannus 800 miljoonaa https://www.kemijoki.fi/toimintamme/pumppuvoimalaitokset/ailangantunturin-pumppuvoimalaitos/
 
+Pohjolan Voima, Askanaava, Puhti-hanke, : 500 MW, 25 000 MWh, investointikustannus 700 miljoonaa. https://www.pohjolanvoima.fi/wp-content/uploads/2026/05/puhti-esite-a4-2026.pdf
 
-Pohjolan Voima, Askanaava, Puhti-hanke, : 
-500 MW, 25 000 MWh. 
-https://www.pohjolanvoima.fi/wp-content/uploads/2026/05/puhti-esite-a4-2026.pdf
-
-
-
-Suomen Voima, 100 MW hankkeet Kapusta ja Vaaranlampi: 
-https://www.ymparisto.fi/fi/osallistu-ja-vaikuta/ymparistovaikutusten-arviointi/vaaranlampien-pumppuvoimalahanke-ja-voimajohto-kemijarvi-rovaniemi
-https://www.ymparisto.fi/fi/osallistu-ja-vaikuta/ymparistovaikutusten-arviointi/kapustan-pumppuvoimalahanke-kemijarvi
+Suomen Voima, 100 MW hankkeet Kapusta ja Vaaranlampi: https://www.ymparisto.fi/fi/osallistu-ja-vaikuta/ymparistovaikutusten-arviointi/vaaranlampien-pumppuvoimalahanke-ja-voimajohto-kemijarvi-rovaniemi https://www.ymparisto.fi/fi/osallistu-ja-vaikuta/ymparistovaikutusten-arviointi/kapustan-pumppuvoimalahanke-kemijarvi

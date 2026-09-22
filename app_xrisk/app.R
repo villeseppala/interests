@@ -2,7 +2,7 @@
 # Extinction-risk visualiser — replica of the right-hand data panel from the
 # concept slide. Recomputes the whole cascade in R from the per-period annual
 # extinction rates + population checkpoints (2-4 periods, set by the time-scale
-# slider: 100 / 1 000 / 10 000 years), so it also serves as a clean
+# slider: 100 / 1 000 / 10 000 / 100 000 years), so it also serves as a clean
 # recomputation to diff against the slide.
 #
 # Interaction (JavaScript): click an "Annual extinction probability" cell to
@@ -20,19 +20,19 @@ library(shiny)
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
 # ── model config ────────────────────────────────────────────────────────────
-# The horizon is a power of ten (100 / 1 000 / 10 000 years) chosen by the reader; the checkpoints
+# The horizon is a power of ten (100 / 1 000 / 10 000 / 100 000 years) chosen by the reader; the checkpoints
 # are START plus every power of ten up to it, so the periods are always 10, 90, 900, 9000 years.
 # Everything that depends on the horizon lives in the list model_for() returns — nothing below
 # assumes a fixed number of columns.
 START     <- 2026
-SCALE_EXP <- 2:4                                 # slider positions: 10^2 .. 10^4 years
+SCALE_EXP <- 2:5                                 # slider positions: 10^2 .. 10^5 years
 DEF_EXP   <- 3                                   # default horizon 1 000 years (lighter than 10 000)
-ALL_RATES <- c(0.0005, 0.0005, 0.0001, 0.00005)  # 0.05%, 0.05%, 0.01%, 0.005% per year, by period
+ALL_RATES <- c(0.0005, 0.0005, 0.0001, 0.00005, 0.00001)  # 0.05%, 0.05%, 0.01%, 0.005%, 0.001% per year, by period
 POP0      <- 8.3e9                               # constant 8300 M default at every checkpoint
 LIFE_EXP  <- 75
 
 model_for <- function(scale_exp) {
-  cps       <- START + c(0, 10^seq_len(scale_exp))       # 2026, 2036, 2126, (3026, (12026))
+  cps       <- START + c(0, 10^seq_len(scale_exp))       # 2026, 2036, 2126, (3026, (12026, (102026)))
   n         <- length(cps)
   seg_start <- cps[-n] + 1                                # first year of each period
   seg_end   <- cps[-1]                                    # last  year of each period
@@ -147,8 +147,12 @@ group3 <- function(s) {
 #                 but still adjustable — lets the user ramp big places fast)
 #   digit_color : function(is_zero, is_lead) -> CSS colour or NULL (inherit)
 #   sign_char/sign_color : optional leading sign slot (for deltas)
+# ref_txt: baseline value shown in parentheses as one more slot after the suffix, level with the digit
+# row (it is a column like the digits, with the same arrow spacers). ref_ghost = TRUE renders it invisible:
+# the delta row carries that ghost so its digits still sit exactly under the value's digits.
 build_slots <- function(native, to_disp, decimals, suffix, pad = NULL, editable = TRUE,
-                        digit_color = NULL, sign_char = NULL, sign_color = NULL) {
+                        digit_color = NULL, sign_char = NULL, sign_color = NULL,
+                        ref_txt = NULL, ref_ghost = FALSE) {
   a <- abs(native)
   whole <- formatC(a * to_disp, format = "f", digits = decimals)   # non-scientific; rounds
   parts <- strsplit(whole, ".", fixed = TRUE)[[1]]
@@ -216,17 +220,26 @@ build_slots <- function(native, to_disp, decimals, suffix, pad = NULL, editable 
       if (editable) span(class = "arsp")) else NULL
 
   ng <- length(groups)
-  lapply(seq_len(ng), function(gi) {
+  out <- lapply(seq_len(ng), function(gi) {
     items <- lapply(groups[[gi]], mkslot)
     if (gi == 1  && !is.null(sign_slot))   items <- c(list(sign_slot), items)     # sign stays with the leading digit
     if (gi == ng && !is.null(suffix_slot)) items <- c(items, list(suffix_slot))   # suffix stays with the trailing digit
     do.call(tags$span, c(list(class = "dgroup"), items))
   })
+  if (!is.null(ref_txt)) {                          # baseline: its own group, so it may wrap as a unit on narrow cells
+    ref_slot <- tags$span(class = "sep", if (editable) span(class = "arsp"),
+      tags$b(class = if (ref_ghost) "dch vref ghost" else "dch vref", ref_txt),
+      if (editable) span(class = "arsp"))
+    out <- c(out, list(tags$span(class = "dgroup", ref_slot)))
+  }
+  out
 }
 
 # editable value cell: per-digit spinner
+# ref_txt (both cell builders): when given, the baseline value is shown in parentheses right after the
+# value, level with its digits (see build_slots); the delta row gets an invisible copy so it stays aligned.
 gcell_edit <- function(col, cur, ref, kind, vi, to_disp, decimals, suffix,
-                       good = "more_good", sub = NULL, color, pad = NULL, top = NULL) {
+                       good = "more_good", sub = NULL, color, pad = NULL, top = NULL, ref_txt = NULL) {
   dv   <- cur - ref
   cpos <- if (good == "more_good") GOOD else BAD    # colour when delta positive
   cneg <- if (good == "more_good") BAD  else GOOD
@@ -241,18 +254,22 @@ gcell_edit <- function(col, cur, ref, kind, vi, to_disp, decimals, suffix,
     if (!is.null(top)) div(class = "vtop", HTML(top)),
     div(class = "vstack",
       div(class = "vmain digits", style = paste0("color:", color, ";"),
-          build_slots(cur, to_disp, decimals, suffix, pad, TRUE)),
+          build_slots(cur, to_disp, decimals, suffix, pad, TRUE, ref_txt = ref_txt)),
       div(class = "vdelta digits",
           build_slots(dv, to_disp, decimals, suffix, pad, FALSE,   # no ▲/▼ on deltas — number-key entry only
-                      digit_color = digit_color, sign_char = sgn, sign_color = dcol))),
+                      digit_color = digit_color, sign_char = sgn, sign_color = dcol,
+                      ref_txt = ref_txt, ref_ghost = TRUE))),
     if (!is.null(sub)) div(class = "vsub", HTML(sub)))
 }
+# baseline text for the ref_txt slot: same display scale/decimals as the value it sits next to
+f_ref <- function(v, to_disp, decimals, suffix)
+  paste0("(", formatC(v * to_disp, format = "f", digits = decimals, big.mark = " "), suffix, ")")
 
 # read-only value cell: value + a digit-aligned (non-editable) delta below it.
 # The delta shows one grey zero under each value digit when there is no change,
 # and the signed change (leading zeros greyed) when there is.
 gcell_ro <- function(col, cur, ref, to_disp, decimals, suffix, kind = "more_good",
-                     sub = NULL, color, delta = TRUE) {
+                     sub = NULL, color, delta = TRUE, ref_txt = NULL) {
   dv   <- cur - ref
   cpos <- if (kind == "more_good") GOOD else BAD
   cneg <- if (kind == "more_good") BAD  else GOOD
@@ -269,10 +286,11 @@ gcell_ro <- function(col, cur, ref, to_disp, decimals, suffix, kind = "more_good
       # are the same width and wrap in lockstep (no ragged extra line).
       div(class = "vmain digits", style = paste0("color:", color, ";"),
           build_slots(cur, to_disp, decimals, suffix, pad, FALSE,
-                      sign_char = if (delta) "±" else NULL, sign_color = "transparent")),
+                      sign_char = if (delta) "±" else NULL, sign_color = "transparent", ref_txt = ref_txt)),
       if (delta) div(class = "vdelta digits",
           build_slots(dv, to_disp, decimals, suffix, pad, FALSE,
-                      digit_color = digit_color, sign_char = sgn, sign_color = dcol))),
+                      digit_color = digit_color, sign_char = sgn, sign_color = dcol,
+                      ref_txt = ref_txt, ref_ghost = TRUE))),
     if (!is.null(sub)) div(class = "vsub", HTML(sub)))
 }
 
@@ -325,7 +343,7 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
 .grow{display:grid;grid-template-columns:172px repeat(var(--ncols,8),1fr);align-items:start;
   max-width:calc(172px + var(--ncols,8) * var(--halfcol));
   border-bottom:1px solid rgba(255,255,255,.05);}
-/* horizon slider: compact, dark-themed, three stops (100 / 1 000 / 10 000 years) */
+/* horizon slider: compact, dark-themed, four stops (100 / 1 000 / 10 000 / 100 000 years) */
 .scalectl{display:flex;align-items:center;gap:10px;}
 .scalectl .form-group{margin:0;}
 .scalectl .irs{font-family:inherit;}
@@ -368,6 +386,13 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
 .vdelta{font-size:13px;margin-top:1px;font-weight:600;font-variant-numeric:tabular-nums;text-align:right;line-height:1.15;}
 .vdelta .d0{color:#8a97a3;}
 .vsub{font-size:11px;color:#8496a4;margin-top:3px;font-style:italic;line-height:1.35;}
+/* baseline value ("Show baseline values"): same colour as the value (inherited), regular weight, a little
+   smaller; .ghost is the delta row's invisible copy that keeps its digits under the value's */
+.dch.vref{font-weight:400;font-size:12px;padding-left:4px;white-space:nowrap;}
+.ratio.vref{font-weight:400;font-size:12px;}
+.dch.vref.ghost{visibility:hidden;}
+.controls .checkbox{margin:0;} .controls .checkbox label{color:#cdd9e3;font-size:13px;font-weight:400;cursor:pointer;}
+.controls .checkbox input{margin-right:5px;}
 .vgrowth{grid-row:1;align-self:start;margin-top:22px;text-align:center;font-size:12px;color:#8496a4;
   font-style:italic;white-space:nowrap;padding:0 3px;pointer-events:none;}
 @media (max-width:860px){ .vgrowth{grid-row:auto;margin-top:3px;} }  /* narrow: drop below, no overlap */
@@ -404,7 +429,7 @@ var rates = [0.0005, 0.0005, 0.0001];
 var pops  = [8.3e9, 8.3e9, 8.3e9, 8.3e9];
 var LEN   = [10, 90, 900];                       // interval lengths (years)
 var baseRates = rates.slice(), basePops = pops.slice();   // comparison baseline (from server)
-var sel   = {kind:'rate', i:1, place:0.00001, delta:false};  // value/delta + which digit
+var sel   = {kind:'rate', i:0, place:0.00001, delta:false};  // first period, second-to-last decimal (0.001%); value/delta + which digit
 
 // ── undo / redo history: client-side snapshots of {rates, pops} ──
 var histStack = [{rates: rates.slice(), pops: pops.slice()}];
@@ -432,7 +457,16 @@ function undo(){ if(histIdx > 0){ histIdx--; restoreHist(); } }
 function redo(){ if(histIdx < histStack.length - 1){ histIdx++; restoreHist(); } }
 
 function pushState(){ if(window.Shiny) Shiny.setInputValue('state', {rates:rates, pops:pops}, {priority:'event'}); recordHistory(); }
-function cellOf(s){ return document.querySelector('.xedit[data-kind="'+s.kind+'"][data-i="'+s.i+'"]'); }
+// Complementary display kinds: the "show annual survival" / "show extinction probability" checkboxes
+// re-render rows 1-2 with data-kind rate_c / surv_c, whose value is 1 - the underlying one. Editing them
+// writes back through the same rate / survival machinery. A selection survives the toggle by following
+// its cell to the other kind name.
+var ALT_KIND = { rate:'rate_c', rate_c:'rate', surv:'surv_c', surv_c:'surv' };
+function cellOf(s){
+  var c = document.querySelector('.xedit[data-kind="'+s.kind+'"][data-i="'+s.i+'"]');
+  if(!c && ALT_KIND[s.kind]){ c = document.querySelector('.xedit[data-kind="'+ALT_KIND[s.kind]+'"][data-i="'+s.i+'"]'); if(c) s.kind = ALT_KIND[s.kind]; }
+  return c;
+}
 function digsOf(c){ if(!c) return []; return Array.prototype.slice.call(c.querySelectorAll((sel.delta ? '.vdelta' : '.vmain') + ' .dig')); }
 function allCells(){ return Array.prototype.slice.call(document.querySelectorAll('.xedit')); }
 function digDelta(el){ return parseFloat(el.getAttribute('data-delta')); }
@@ -474,12 +508,19 @@ function setSurv(i, T){
   }
   pushState();
 }
-var MINPLACE = { rate:1e-6, surv:1e-6, pop:1e6 };  // smallest editable digit per kind
-function valOf(kind, i, rArr, pArr){ return kind === 'surv' ? survOf(rArr, i) : (kind === 'rate' ? rArr : pArr)[i]; }
+var MINPLACE = { rate:1e-6, surv:1e-6, pop:1e6, rate_c:1e-6, surv_c:1e-6 };  // smallest editable digit per kind
+function valOf(kind, i, rArr, pArr){
+  if(kind === 'surv')   return survOf(rArr, i);
+  if(kind === 'surv_c') return 1 - survOf(rArr, i);      // cumulative extinction probability
+  if(kind === 'rate_c') return 1 - rArr[i];              // annual survival probability
+  return (kind === 'rate' ? rArr : pArr)[i];
+}
 function curVal(){  return valOf(sel.kind, sel.i, rates, pops); }
 function baseVal(){ return valOf(sel.kind, sel.i, baseRates, basePops); }
 function setValAbs(v){                            // write the actual value (backtrace for surv)
   if(sel.kind === 'surv'){ setSurv(sel.i, v); }
+  else if(sel.kind === 'surv_c'){ setSurv(sel.i, 1 - v); }
+  else if(sel.kind === 'rate_c'){ rates[sel.i] = Math.min(1, Math.max(0, +(1 - v).toFixed(12))); pushState(); }
   else { var arr = (sel.kind === 'rate') ? rates : pops; arr[sel.i] = Math.max(0, +v.toFixed(12)); pushState(); }
 }
 // when sel.delta, we edit the change (value − baseline); otherwise the value itself
@@ -586,12 +627,12 @@ if(window.Shiny){
     LEN = v.len.slice(); rates = v.rates.slice(); pops = v.pops.slice();
     baseRates = rates.slice(); basePops = pops.slice();
     histStack = [{rates: rates.slice(), pops: pops.slice()}]; histIdx = 0;
-    var last = (sel.kind === 'pop' ? pops.length : rates.length) - 1;
+    var last = (sel.kind === 'pop' ? pops.length : rates.length) - 1;   // rate/rate_c/surv/surv_c all index periods
     if(sel.i > last) sel.i = last;
     pushState(); applyHighlight(); updateHistBtns();
   });
 }
-// Horizon slider labels: it runs 2..4 (exponents); show the reader "100 y / 1 000 y / 10 000 y".
+// Horizon slider labels: it runs 2..5 (exponents); show the reader "100 y / 1 000 y / 10 000 y / 100 000 y".
 function fmtScale(n){ return String(Math.pow(10, n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' y'; }
 $(document).on('shiny:connected', function(){
   var s = $('#hscale').data('ionRangeSlider');
@@ -615,7 +656,10 @@ ui <- fluidPage(
       actionButton("surv100", "100% survival", class = "btn"),
       uiOutput("basebtns", inline = TRUE),
       actionButton("reset", "Reset to defaults", class = "btn"),
-      # Horizon: 100 / 1 000 / 10 000 years. The slider holds the exponent (2..4); a JS prettify
+      checkboxInput("showref",   "Show baseline values", FALSE, width = "auto"),
+      checkboxInput("rate_comp", HTML(sprintf("<span style='color:%s;'>Annual survival instead of extinction</span>", COL_RATE)), FALSE, width = "auto"),
+      checkboxInput("surv_comp", HTML(sprintf("<span style='color:%s;'>Extinction probability instead of survival</span>", COL_SURV)), FALSE, width = "auto"),
+      # Horizon: 100 / 1 000 / 10 000 / 100 000 years. The slider holds the exponent (2..5); a JS prettify
       # hook shows the reader the year count instead. Default 1 000 keeps the first load light.
       div(class = "scalectl",
         span(class = "khint", "Time scale"),
@@ -708,6 +752,9 @@ server <- function(input, output, session) {
     ycol <- function(j) 2 * j                         # grid start for year j
     gcol <- function(i) 2 * i + 1                     # grid start for gap i (between year i & i+1)
     J <- seq_len(n); I <- seq_len(np)                 # column / gap indices
+    # "Show baseline values": the baseline in parentheses beside the value, first three variables only
+    sr <- isTRUE(input$showref)
+    rtxt <- function(v, to_disp, decimals, suffix) if (sr) f_ref(v, to_disp, decimals, suffix) else NULL
 
     # header: years centered over their columns
     header <- do.call(tags$div, c(list(class = "grow ghead",
@@ -724,27 +771,38 @@ server <- function(input, output, session) {
           div(HTML(paste0("&larr; ", m$seg_len[i], " years &rarr;"))),
           div(class = "ivlrng", HTML(paste0(fmt_year(m$seg_start[i]), "&ndash;", fmt_year(m$seg_end[i]))))))))
 
-    # 1 · annual extinction probability — editable, sits in the gaps between years
-    rate_cells <- lapply(I, function(i)
-      gcell_edit(gcol(i), cur = cur$rates[i], ref = ref$rates[i], kind = "rate", vi = i,
-        to_disp = 100, decimals = 4, suffix = "%", good = "more_bad",
-        top   = paste0("<span class='ratio'>1 in ", f_int(1 / cur$rates[i]), "</span>"),
-        color = COL_RATE))
+    # Complementary views: row 1 as annual SURVIVAL (1 - e_t), row 2 as cumulative EXTINCTION (1 - s_t).
+    # Same editable cells; the JS maps the rate_c / surv_c kinds back onto the rates (see ALT_KIND).
+    rc <- isTRUE(input$rate_comp); sc <- isTRUE(input$surv_comp)
 
-    # 2 · survival probability given past extinction — editable (backtraces to rates)
+    # 1 · annual extinction (or survival) probability — editable, sits in the gaps between years
+    rate_cells <- lapply(I, function(i) {
+      cv <- if (rc) 1 - cur$rates[i] else cur$rates[i]
+      rv <- if (rc) 1 - ref$rates[i] else ref$rates[i]
+      gcell_edit(gcol(i), cur = cv, ref = rv, kind = if (rc) "rate_c" else "rate", vi = i,
+        to_disp = 100, decimals = 4, suffix = "%", good = if (rc) "more_good" else "more_bad",
+        top   = paste0("<span class='ratio'>1 in ", f_int(1 / cur$rates[i]), "</span>",   # odds of extinction either way
+                       if (sr) paste0(" <span class='ratio vref'>(1 in ", f_int(1 / ref$rates[i]), ")</span>")),
+        color = COL_RATE, ref_txt = rtxt(rv, 100, 4, "%"))
+    })
+
+    # 2 · survival (or extinction) probability given past extinction — editable (backtraces to rates)
     surv_cells <- lapply(J, function(j) {
-      if (j == 1)                                     # 2026 is fixed at 100%
-        return(gcell(ycol(1), f_pct(cur$surv[1]), color = COL_SURV))
-      gcell_edit(ycol(j), cur = cur$surv[j], ref = ref$surv[j], kind = "surv", vi = j - 1,
-        to_disp = 100, decimals = 4, suffix = "%", good = "more_good",
-        color = COL_SURV)
+      if (j == 1)                                     # 2026 is fixed at 100% survival / 0% extinction
+        return(gcell(ycol(1), f_pct(if (sc) 0 else cur$surv[1]), color = COL_SURV))
+      cv <- if (sc) 1 - cur$surv[j] else cur$surv[j]
+      rv <- if (sc) 1 - ref$surv[j] else ref$surv[j]
+      gcell_edit(ycol(j), cur = cv, ref = rv, kind = if (sc) "surv_c" else "surv", vi = j - 1,
+        to_disp = 100, decimals = 4, suffix = "%", good = if (sc) "more_bad" else "more_good",
+        color = COL_SURV, ref_txt = rtxt(rv, 100, 4, "%"))
     })
 
     # 3 · cumulative survived years of humanity
     years_cells <- lapply(J, function(j)
       if (j == 1) gcell_ro(ycol(j), cur$cum_years[j], cur$cum_years[j], 1, 4, "y", delta = FALSE, color = COL_SURV)
       else gcell_ro(ycol(j), cur$cum_years[j], ref$cum_years[j], 1, 4, "y", "more_good",
-             sub = paste0("of ", f_int(elapsed[j]), "y potential"), color = COL_SURV))
+             sub = paste0("of ", f_int(elapsed[j]), "y potential"), color = COL_SURV,
+             ref_txt = rtxt(ref$cum_years[j], 1, 4, "y")))
 
     # 4 · potential population if survived — editable checkpoints
     pop_pot_cells <- lapply(J, function(j)
@@ -780,10 +838,15 @@ server <- function(input, output, session) {
     div(class = "grid-wrap", style = paste0("--ncols:", 2 * n, ";--halfcol:", 46 + 7 * n, "px;"),
       header,
       intervals,
-      metric_grow("Annual extinction<br>probability<br><span class='ital'>if survived until then</span>",  COL_RATE, rate_cells,    cls = "erow", row = "rate",
-                  formula = mv("e<sub>t</sub>", COL_RATE)),
-      metric_grow("Survival probability<br><span class='ital'>given past extinction probabilities</span>",  COL_SURV, surv_cells,    cls = "erow", row = "surv",
-                  formula = paste0(mv("s<sub>t</sub>", COL_SURV), " = ", bigop("&prod;", "i=2027", "t"),
+      metric_grow(if (rc) "Annual survival<br>probability<br><span class='ital'>if survived until then</span>"
+                  else    "Annual extinction<br>probability<br><span class='ital'>if survived until then</span>",
+                  COL_RATE, rate_cells, cls = "erow", row = "rate",
+                  formula = if (rc) paste0("1 &minus; ", mv("e<sub>t</sub>", COL_RATE)) else mv("e<sub>t</sub>", COL_RATE)),
+      metric_grow(if (sc) "Extinction probability<br><span class='ital'>given past extinction probabilities</span>"
+                  else    "Survival probability<br><span class='ital'>given past extinction probabilities</span>",
+                  COL_SURV, surv_cells, cls = "erow", row = "surv",
+                  formula = paste0(if (sc) paste0("1 &minus; ", mv("s<sub>t</sub>", COL_SURV)) else mv("s<sub>t</sub>", COL_SURV),
+                                   " = ", if (sc) "1 &minus; " else "", bigop("&prod;", "i=2027", "t"),
                                    " (1 &minus; ", mv("e<sub>i</sub>", COL_RATE), ")")),
       metric_grow("Cumulative survived<br>years of humanity",                                 COL_SURV, years_cells,   row = "years",
                   formula = paste0(mv("L<sub>t</sub>", COL_SURV), " = ", bigop("&sum;", "i=2027", "t"),

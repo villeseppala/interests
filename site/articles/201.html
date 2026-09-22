@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-09-19">
+<meta name="dcterms.date" content="2026-09-22">
 
 <title>Website for demonstrating existential risk</title>
 <style>
@@ -78,7 +78,7 @@ ul.task-list li input[type="checkbox"] {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">September 19, 2026</p>
+      <p class="date">September 22, 2026</p>
     </div>
   </div>
   
@@ -105,7 +105,7 @@ ul.task-list li input[type="checkbox"] {
 </figure>
 </div>
 <p>Below are two early, fully interactive version of the site, that I produced with Claude Code. They are still running entirely in browser instead of external server, so the first load takes a few seconds while the R runtime downloads and they might feel a bit sluggish. Also, I haven’t really planned them for mobile use yet.</p>
-<p>The first one focuses on presenting a lot of variables (inputs/outputs). Click any extinction probability, survival probability or potential-population digit and adjust it with the arrows, arrow keys, or by typing a number. For example, decreasing the annual extinction probability over just the next ten years from 0.05% to 0.049% would save nearly 80 million lives in expectation over the next 10 000 years, with all else equal.</p>
+<p>The first one focuses on presenting a lot of variables (inputs/outputs). Click any extinction probability, survival probability or potential-population digit and adjust it with the arrows, arrow keys, or by typing a number. For example, decreasing the annual extinction probability over just the next ten years from 0.05% to 0.049% would save over 10 million lives in expectation over the next 1000 years, with all else equal.</p>
 <p><a href="https://villeseppala.github.io/interests/articles/xrisk-app.html" target="_blank">Open the app full-screen in a new tab ↗</a></p>
 <!-- XRISK-APP:START -->
 <pre class="shinylive-r" data-engine="r"><code>#| '!! shinylive warning !!': |
@@ -117,7 +117,7 @@ ul.task-list li input[type="checkbox"] {
 # Extinction-risk visualiser — replica of the right-hand data panel from the
 # concept slide. Recomputes the whole cascade in R from the per-period annual
 # extinction rates + population checkpoints (2-4 periods, set by the time-scale
-# slider: 100 / 1 000 / 10 000 years), so it also serves as a clean
+# slider: 100 / 1 000 / 10 000 / 100 000 years), so it also serves as a clean
 # recomputation to diff against the slide.
 #
 # Interaction (JavaScript): click an "Annual extinction probability" cell to
@@ -135,19 +135,19 @@ library(shiny)
 `%||%` &lt;- function(a, b) if (is.null(a)) b else a
 
 # ── model config ────────────────────────────────────────────────────────────
-# The horizon is a power of ten (100 / 1 000 / 10 000 years) chosen by the reader; the checkpoints
+# The horizon is a power of ten (100 / 1 000 / 10 000 / 100 000 years) chosen by the reader; the checkpoints
 # are START plus every power of ten up to it, so the periods are always 10, 90, 900, 9000 years.
 # Everything that depends on the horizon lives in the list model_for() returns — nothing below
 # assumes a fixed number of columns.
 START     &lt;- 2026
-SCALE_EXP &lt;- 2:4                                 # slider positions: 10^2 .. 10^4 years
+SCALE_EXP &lt;- 2:5                                 # slider positions: 10^2 .. 10^5 years
 DEF_EXP   &lt;- 3                                   # default horizon 1 000 years (lighter than 10 000)
-ALL_RATES &lt;- c(0.0005, 0.0005, 0.0001, 0.00005)  # 0.05%, 0.05%, 0.01%, 0.005% per year, by period
+ALL_RATES &lt;- c(0.0005, 0.0005, 0.0001, 0.00005, 0.00001)  # 0.05%, 0.05%, 0.01%, 0.005%, 0.001% per year, by period
 POP0      &lt;- 8.3e9                               # constant 8300 M default at every checkpoint
 LIFE_EXP  &lt;- 75
 
 model_for &lt;- function(scale_exp) {
-  cps       &lt;- START + c(0, 10^seq_len(scale_exp))       # 2026, 2036, 2126, (3026, (12026))
+  cps       &lt;- START + c(0, 10^seq_len(scale_exp))       # 2026, 2036, 2126, (3026, (12026, (102026)))
   n         &lt;- length(cps)
   seg_start &lt;- cps[-n] + 1                                # first year of each period
   seg_end   &lt;- cps[-1]                                    # last  year of each period
@@ -262,8 +262,12 @@ group3 &lt;- function(s) {
 #                 but still adjustable — lets the user ramp big places fast)
 #   digit_color : function(is_zero, is_lead) -&gt; CSS colour or NULL (inherit)
 #   sign_char/sign_color : optional leading sign slot (for deltas)
+# ref_txt: baseline value shown in parentheses as one more slot after the suffix, level with the digit
+# row (it is a column like the digits, with the same arrow spacers). ref_ghost = TRUE renders it invisible:
+# the delta row carries that ghost so its digits still sit exactly under the value's digits.
 build_slots &lt;- function(native, to_disp, decimals, suffix, pad = NULL, editable = TRUE,
-                        digit_color = NULL, sign_char = NULL, sign_color = NULL) {
+                        digit_color = NULL, sign_char = NULL, sign_color = NULL,
+                        ref_txt = NULL, ref_ghost = FALSE) {
   a &lt;- abs(native)
   whole &lt;- formatC(a * to_disp, format = "f", digits = decimals)   # non-scientific; rounds
   parts &lt;- strsplit(whole, ".", fixed = TRUE)[[1]]
@@ -331,17 +335,26 @@ build_slots &lt;- function(native, to_disp, decimals, suffix, pad = NULL, editab
       if (editable) span(class = "arsp")) else NULL
 
   ng &lt;- length(groups)
-  lapply(seq_len(ng), function(gi) {
+  out &lt;- lapply(seq_len(ng), function(gi) {
     items &lt;- lapply(groups[[gi]], mkslot)
     if (gi == 1  &amp;&amp; !is.null(sign_slot))   items &lt;- c(list(sign_slot), items)     # sign stays with the leading digit
     if (gi == ng &amp;&amp; !is.null(suffix_slot)) items &lt;- c(items, list(suffix_slot))   # suffix stays with the trailing digit
     do.call(tags$span, c(list(class = "dgroup"), items))
   })
+  if (!is.null(ref_txt)) {                          # baseline: its own group, so it may wrap as a unit on narrow cells
+    ref_slot &lt;- tags$span(class = "sep", if (editable) span(class = "arsp"),
+      tags$b(class = if (ref_ghost) "dch vref ghost" else "dch vref", ref_txt),
+      if (editable) span(class = "arsp"))
+    out &lt;- c(out, list(tags$span(class = "dgroup", ref_slot)))
+  }
+  out
 }
 
 # editable value cell: per-digit spinner
+# ref_txt (both cell builders): when given, the baseline value is shown in parentheses right after the
+# value, level with its digits (see build_slots); the delta row gets an invisible copy so it stays aligned.
 gcell_edit &lt;- function(col, cur, ref, kind, vi, to_disp, decimals, suffix,
-                       good = "more_good", sub = NULL, color, pad = NULL, top = NULL) {
+                       good = "more_good", sub = NULL, color, pad = NULL, top = NULL, ref_txt = NULL) {
   dv   &lt;- cur - ref
   cpos &lt;- if (good == "more_good") GOOD else BAD    # colour when delta positive
   cneg &lt;- if (good == "more_good") BAD  else GOOD
@@ -356,18 +369,22 @@ gcell_edit &lt;- function(col, cur, ref, kind, vi, to_disp, decimals, suffix,
     if (!is.null(top)) div(class = "vtop", HTML(top)),
     div(class = "vstack",
       div(class = "vmain digits", style = paste0("color:", color, ";"),
-          build_slots(cur, to_disp, decimals, suffix, pad, TRUE)),
+          build_slots(cur, to_disp, decimals, suffix, pad, TRUE, ref_txt = ref_txt)),
       div(class = "vdelta digits",
           build_slots(dv, to_disp, decimals, suffix, pad, FALSE,   # no ▲/▼ on deltas — number-key entry only
-                      digit_color = digit_color, sign_char = sgn, sign_color = dcol))),
+                      digit_color = digit_color, sign_char = sgn, sign_color = dcol,
+                      ref_txt = ref_txt, ref_ghost = TRUE))),
     if (!is.null(sub)) div(class = "vsub", HTML(sub)))
 }
+# baseline text for the ref_txt slot: same display scale/decimals as the value it sits next to
+f_ref &lt;- function(v, to_disp, decimals, suffix)
+  paste0("(", formatC(v * to_disp, format = "f", digits = decimals, big.mark = " "), suffix, ")")
 
 # read-only value cell: value + a digit-aligned (non-editable) delta below it.
 # The delta shows one grey zero under each value digit when there is no change,
 # and the signed change (leading zeros greyed) when there is.
 gcell_ro &lt;- function(col, cur, ref, to_disp, decimals, suffix, kind = "more_good",
-                     sub = NULL, color, delta = TRUE) {
+                     sub = NULL, color, delta = TRUE, ref_txt = NULL) {
   dv   &lt;- cur - ref
   cpos &lt;- if (kind == "more_good") GOOD else BAD
   cneg &lt;- if (kind == "more_good") BAD  else GOOD
@@ -384,10 +401,11 @@ gcell_ro &lt;- function(col, cur, ref, to_disp, decimals, suffix, kind = "more_g
       # are the same width and wrap in lockstep (no ragged extra line).
       div(class = "vmain digits", style = paste0("color:", color, ";"),
           build_slots(cur, to_disp, decimals, suffix, pad, FALSE,
-                      sign_char = if (delta) "±" else NULL, sign_color = "transparent")),
+                      sign_char = if (delta) "±" else NULL, sign_color = "transparent", ref_txt = ref_txt)),
       if (delta) div(class = "vdelta digits",
           build_slots(dv, to_disp, decimals, suffix, pad, FALSE,
-                      digit_color = digit_color, sign_char = sgn, sign_color = dcol))),
+                      digit_color = digit_color, sign_char = sgn, sign_color = dcol,
+                      ref_txt = ref_txt, ref_ghost = TRUE))),
     if (!is.null(sub)) div(class = "vsub", HTML(sub)))
 }
 
@@ -440,7 +458,7 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
 .grow{display:grid;grid-template-columns:172px repeat(var(--ncols,8),1fr);align-items:start;
   max-width:calc(172px + var(--ncols,8) * var(--halfcol));
   border-bottom:1px solid rgba(255,255,255,.05);}
-/* horizon slider: compact, dark-themed, three stops (100 / 1 000 / 10 000 years) */
+/* horizon slider: compact, dark-themed, four stops (100 / 1 000 / 10 000 / 100 000 years) */
 .scalectl{display:flex;align-items:center;gap:10px;}
 .scalectl .form-group{margin:0;}
 .scalectl .irs{font-family:inherit;}
@@ -483,6 +501,13 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
 .vdelta{font-size:13px;margin-top:1px;font-weight:600;font-variant-numeric:tabular-nums;text-align:right;line-height:1.15;}
 .vdelta .d0{color:#8a97a3;}
 .vsub{font-size:11px;color:#8496a4;margin-top:3px;font-style:italic;line-height:1.35;}
+/* baseline value ("Show baseline values"): same colour as the value (inherited), regular weight, a little
+   smaller; .ghost is the delta row's invisible copy that keeps its digits under the value's */
+.dch.vref{font-weight:400;font-size:12px;padding-left:4px;white-space:nowrap;}
+.ratio.vref{font-weight:400;font-size:12px;}
+.dch.vref.ghost{visibility:hidden;}
+.controls .checkbox{margin:0;} .controls .checkbox label{color:#cdd9e3;font-size:13px;font-weight:400;cursor:pointer;}
+.controls .checkbox input{margin-right:5px;}
 .vgrowth{grid-row:1;align-self:start;margin-top:22px;text-align:center;font-size:12px;color:#8496a4;
   font-style:italic;white-space:nowrap;padding:0 3px;pointer-events:none;}
 @media (max-width:860px){ .vgrowth{grid-row:auto;margin-top:3px;} }  /* narrow: drop below, no overlap */
@@ -519,7 +544,7 @@ var rates = [0.0005, 0.0005, 0.0001];
 var pops  = [8.3e9, 8.3e9, 8.3e9, 8.3e9];
 var LEN   = [10, 90, 900];                       // interval lengths (years)
 var baseRates = rates.slice(), basePops = pops.slice();   // comparison baseline (from server)
-var sel   = {kind:'rate', i:1, place:0.00001, delta:false};  // value/delta + which digit
+var sel   = {kind:'rate', i:0, place:0.00001, delta:false};  // first period, second-to-last decimal (0.001%); value/delta + which digit
 
 // ── undo / redo history: client-side snapshots of {rates, pops} ──
 var histStack = [{rates: rates.slice(), pops: pops.slice()}];
@@ -547,7 +572,16 @@ function undo(){ if(histIdx &gt; 0){ histIdx--; restoreHist(); } }
 function redo(){ if(histIdx &lt; histStack.length - 1){ histIdx++; restoreHist(); } }
 
 function pushState(){ if(window.Shiny) Shiny.setInputValue('state', {rates:rates, pops:pops}, {priority:'event'}); recordHistory(); }
-function cellOf(s){ return document.querySelector('.xedit[data-kind="'+s.kind+'"][data-i="'+s.i+'"]'); }
+// Complementary display kinds: the "show annual survival" / "show extinction probability" checkboxes
+// re-render rows 1-2 with data-kind rate_c / surv_c, whose value is 1 - the underlying one. Editing them
+// writes back through the same rate / survival machinery. A selection survives the toggle by following
+// its cell to the other kind name.
+var ALT_KIND = { rate:'rate_c', rate_c:'rate', surv:'surv_c', surv_c:'surv' };
+function cellOf(s){
+  var c = document.querySelector('.xedit[data-kind="'+s.kind+'"][data-i="'+s.i+'"]');
+  if(!c &amp;&amp; ALT_KIND[s.kind]){ c = document.querySelector('.xedit[data-kind="'+ALT_KIND[s.kind]+'"][data-i="'+s.i+'"]'); if(c) s.kind = ALT_KIND[s.kind]; }
+  return c;
+}
 function digsOf(c){ if(!c) return []; return Array.prototype.slice.call(c.querySelectorAll((sel.delta ? '.vdelta' : '.vmain') + ' .dig')); }
 function allCells(){ return Array.prototype.slice.call(document.querySelectorAll('.xedit')); }
 function digDelta(el){ return parseFloat(el.getAttribute('data-delta')); }
@@ -589,12 +623,19 @@ function setSurv(i, T){
   }
   pushState();
 }
-var MINPLACE = { rate:1e-6, surv:1e-6, pop:1e6 };  // smallest editable digit per kind
-function valOf(kind, i, rArr, pArr){ return kind === 'surv' ? survOf(rArr, i) : (kind === 'rate' ? rArr : pArr)[i]; }
+var MINPLACE = { rate:1e-6, surv:1e-6, pop:1e6, rate_c:1e-6, surv_c:1e-6 };  // smallest editable digit per kind
+function valOf(kind, i, rArr, pArr){
+  if(kind === 'surv')   return survOf(rArr, i);
+  if(kind === 'surv_c') return 1 - survOf(rArr, i);      // cumulative extinction probability
+  if(kind === 'rate_c') return 1 - rArr[i];              // annual survival probability
+  return (kind === 'rate' ? rArr : pArr)[i];
+}
 function curVal(){  return valOf(sel.kind, sel.i, rates, pops); }
 function baseVal(){ return valOf(sel.kind, sel.i, baseRates, basePops); }
 function setValAbs(v){                            // write the actual value (backtrace for surv)
   if(sel.kind === 'surv'){ setSurv(sel.i, v); }
+  else if(sel.kind === 'surv_c'){ setSurv(sel.i, 1 - v); }
+  else if(sel.kind === 'rate_c'){ rates[sel.i] = Math.min(1, Math.max(0, +(1 - v).toFixed(12))); pushState(); }
   else { var arr = (sel.kind === 'rate') ? rates : pops; arr[sel.i] = Math.max(0, +v.toFixed(12)); pushState(); }
 }
 // when sel.delta, we edit the change (value − baseline); otherwise the value itself
@@ -701,12 +742,12 @@ if(window.Shiny){
     LEN = v.len.slice(); rates = v.rates.slice(); pops = v.pops.slice();
     baseRates = rates.slice(); basePops = pops.slice();
     histStack = [{rates: rates.slice(), pops: pops.slice()}]; histIdx = 0;
-    var last = (sel.kind === 'pop' ? pops.length : rates.length) - 1;
+    var last = (sel.kind === 'pop' ? pops.length : rates.length) - 1;   // rate/rate_c/surv/surv_c all index periods
     if(sel.i &gt; last) sel.i = last;
     pushState(); applyHighlight(); updateHistBtns();
   });
 }
-// Horizon slider labels: it runs 2..4 (exponents); show the reader "100 y / 1 000 y / 10 000 y".
+// Horizon slider labels: it runs 2..5 (exponents); show the reader "100 y / 1 000 y / 10 000 y / 100 000 y".
 function fmtScale(n){ return String(Math.pow(10, n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' y'; }
 $(document).on('shiny:connected', function(){
   var s = $('#hscale').data('ionRangeSlider');
@@ -730,7 +771,10 @@ ui &lt;- fluidPage(
       actionButton("surv100", "100% survival", class = "btn"),
       uiOutput("basebtns", inline = TRUE),
       actionButton("reset", "Reset to defaults", class = "btn"),
-      # Horizon: 100 / 1 000 / 10 000 years. The slider holds the exponent (2..4); a JS prettify
+      checkboxInput("showref",   "Show baseline values", FALSE, width = "auto"),
+      checkboxInput("rate_comp", HTML(sprintf("&lt;span style='color:%s;'&gt;Annual survival instead of extinction&lt;/span&gt;", COL_RATE)), FALSE, width = "auto"),
+      checkboxInput("surv_comp", HTML(sprintf("&lt;span style='color:%s;'&gt;Extinction probability instead of survival&lt;/span&gt;", COL_SURV)), FALSE, width = "auto"),
+      # Horizon: 100 / 1 000 / 10 000 / 100 000 years. The slider holds the exponent (2..5); a JS prettify
       # hook shows the reader the year count instead. Default 1 000 keeps the first load light.
       div(class = "scalectl",
         span(class = "khint", "Time scale"),
@@ -823,6 +867,9 @@ server &lt;- function(input, output, session) {
     ycol &lt;- function(j) 2 * j                         # grid start for year j
     gcol &lt;- function(i) 2 * i + 1                     # grid start for gap i (between year i &amp; i+1)
     J &lt;- seq_len(n); I &lt;- seq_len(np)                 # column / gap indices
+    # "Show baseline values": the baseline in parentheses beside the value, first three variables only
+    sr &lt;- isTRUE(input$showref)
+    rtxt &lt;- function(v, to_disp, decimals, suffix) if (sr) f_ref(v, to_disp, decimals, suffix) else NULL
 
     # header: years centered over their columns
     header &lt;- do.call(tags$div, c(list(class = "grow ghead",
@@ -839,27 +886,38 @@ server &lt;- function(input, output, session) {
           div(HTML(paste0("&amp;larr; ", m$seg_len[i], " years &amp;rarr;"))),
           div(class = "ivlrng", HTML(paste0(fmt_year(m$seg_start[i]), "&amp;ndash;", fmt_year(m$seg_end[i]))))))))
 
-    # 1 · annual extinction probability — editable, sits in the gaps between years
-    rate_cells &lt;- lapply(I, function(i)
-      gcell_edit(gcol(i), cur = cur$rates[i], ref = ref$rates[i], kind = "rate", vi = i,
-        to_disp = 100, decimals = 4, suffix = "%", good = "more_bad",
-        top   = paste0("&lt;span class='ratio'&gt;1 in ", f_int(1 / cur$rates[i]), "&lt;/span&gt;"),
-        color = COL_RATE))
+    # Complementary views: row 1 as annual SURVIVAL (1 - e_t), row 2 as cumulative EXTINCTION (1 - s_t).
+    # Same editable cells; the JS maps the rate_c / surv_c kinds back onto the rates (see ALT_KIND).
+    rc &lt;- isTRUE(input$rate_comp); sc &lt;- isTRUE(input$surv_comp)
 
-    # 2 · survival probability given past extinction — editable (backtraces to rates)
+    # 1 · annual extinction (or survival) probability — editable, sits in the gaps between years
+    rate_cells &lt;- lapply(I, function(i) {
+      cv &lt;- if (rc) 1 - cur$rates[i] else cur$rates[i]
+      rv &lt;- if (rc) 1 - ref$rates[i] else ref$rates[i]
+      gcell_edit(gcol(i), cur = cv, ref = rv, kind = if (rc) "rate_c" else "rate", vi = i,
+        to_disp = 100, decimals = 4, suffix = "%", good = if (rc) "more_good" else "more_bad",
+        top   = paste0("&lt;span class='ratio'&gt;1 in ", f_int(1 / cur$rates[i]), "&lt;/span&gt;",   # odds of extinction either way
+                       if (sr) paste0(" &lt;span class='ratio vref'&gt;(1 in ", f_int(1 / ref$rates[i]), ")&lt;/span&gt;")),
+        color = COL_RATE, ref_txt = rtxt(rv, 100, 4, "%"))
+    })
+
+    # 2 · survival (or extinction) probability given past extinction — editable (backtraces to rates)
     surv_cells &lt;- lapply(J, function(j) {
-      if (j == 1)                                     # 2026 is fixed at 100%
-        return(gcell(ycol(1), f_pct(cur$surv[1]), color = COL_SURV))
-      gcell_edit(ycol(j), cur = cur$surv[j], ref = ref$surv[j], kind = "surv", vi = j - 1,
-        to_disp = 100, decimals = 4, suffix = "%", good = "more_good",
-        color = COL_SURV)
+      if (j == 1)                                     # 2026 is fixed at 100% survival / 0% extinction
+        return(gcell(ycol(1), f_pct(if (sc) 0 else cur$surv[1]), color = COL_SURV))
+      cv &lt;- if (sc) 1 - cur$surv[j] else cur$surv[j]
+      rv &lt;- if (sc) 1 - ref$surv[j] else ref$surv[j]
+      gcell_edit(ycol(j), cur = cv, ref = rv, kind = if (sc) "surv_c" else "surv", vi = j - 1,
+        to_disp = 100, decimals = 4, suffix = "%", good = if (sc) "more_bad" else "more_good",
+        color = COL_SURV, ref_txt = rtxt(rv, 100, 4, "%"))
     })
 
     # 3 · cumulative survived years of humanity
     years_cells &lt;- lapply(J, function(j)
       if (j == 1) gcell_ro(ycol(j), cur$cum_years[j], cur$cum_years[j], 1, 4, "y", delta = FALSE, color = COL_SURV)
       else gcell_ro(ycol(j), cur$cum_years[j], ref$cum_years[j], 1, 4, "y", "more_good",
-             sub = paste0("of ", f_int(elapsed[j]), "y potential"), color = COL_SURV))
+             sub = paste0("of ", f_int(elapsed[j]), "y potential"), color = COL_SURV,
+             ref_txt = rtxt(ref$cum_years[j], 1, 4, "y")))
 
     # 4 · potential population if survived — editable checkpoints
     pop_pot_cells &lt;- lapply(J, function(j)
@@ -895,10 +953,15 @@ server &lt;- function(input, output, session) {
     div(class = "grid-wrap", style = paste0("--ncols:", 2 * n, ";--halfcol:", 46 + 7 * n, "px;"),
       header,
       intervals,
-      metric_grow("Annual extinction&lt;br&gt;probability&lt;br&gt;&lt;span class='ital'&gt;if survived until then&lt;/span&gt;",  COL_RATE, rate_cells,    cls = "erow", row = "rate",
-                  formula = mv("e&lt;sub&gt;t&lt;/sub&gt;", COL_RATE)),
-      metric_grow("Survival probability&lt;br&gt;&lt;span class='ital'&gt;given past extinction probabilities&lt;/span&gt;",  COL_SURV, surv_cells,    cls = "erow", row = "surv",
-                  formula = paste0(mv("s&lt;sub&gt;t&lt;/sub&gt;", COL_SURV), " = ", bigop("&amp;prod;", "i=2027", "t"),
+      metric_grow(if (rc) "Annual survival&lt;br&gt;probability&lt;br&gt;&lt;span class='ital'&gt;if survived until then&lt;/span&gt;"
+                  else    "Annual extinction&lt;br&gt;probability&lt;br&gt;&lt;span class='ital'&gt;if survived until then&lt;/span&gt;",
+                  COL_RATE, rate_cells, cls = "erow", row = "rate",
+                  formula = if (rc) paste0("1 &amp;minus; ", mv("e&lt;sub&gt;t&lt;/sub&gt;", COL_RATE)) else mv("e&lt;sub&gt;t&lt;/sub&gt;", COL_RATE)),
+      metric_grow(if (sc) "Extinction probability&lt;br&gt;&lt;span class='ital'&gt;given past extinction probabilities&lt;/span&gt;"
+                  else    "Survival probability&lt;br&gt;&lt;span class='ital'&gt;given past extinction probabilities&lt;/span&gt;",
+                  COL_SURV, surv_cells, cls = "erow", row = "surv",
+                  formula = paste0(if (sc) paste0("1 &amp;minus; ", mv("s&lt;sub&gt;t&lt;/sub&gt;", COL_SURV)) else mv("s&lt;sub&gt;t&lt;/sub&gt;", COL_SURV),
+                                   " = ", if (sc) "1 &amp;minus; " else "", bigop("&amp;prod;", "i=2027", "t"),
                                    " (1 &amp;minus; ", mv("e&lt;sub&gt;i&lt;/sub&gt;", COL_RATE), ")")),
       metric_grow("Cumulative survived&lt;br&gt;years of humanity",                                 COL_SURV, years_cells,   row = "years",
                   formula = paste0(mv("L&lt;sub&gt;t&lt;/sub&gt;", COL_SURV), " = ", bigop("&amp;sum;", "i=2027", "t"),
@@ -1754,15 +1817,15 @@ shinyApp(ui, server)</code></pre>
 <ul>
 <li><p>User can select how long of a timeline to use. Choosig a long timeline can help to grasp the far reaching magnitude of changes in our own times. On the other hand, the longer time scale x-risk probabilities may be harder to evaluate, or at least there is little precedence of that in studies. This could also be a novelty of the site (see below about collecting estimates from experts).</p></li>
 <li><p>User can also choose the “inflection” time points themselves. Now, they are set at a power-of-ten intervals (2026-2036-2126 and so on…) but this can easily be made optional.</p></li>
-<li><p>The user can also simulate a number of possible futures/paths for humankind, given the chosen probabilities. Showing these paths, especially the extinction events depicted in them, can give a more tangible impressions of existential risk than the standard expected values.</p></li>
-<li><p>User can set estimates on how much removing a certain risk factor would reduce the overall x-risk. I have explored here why I think this could be a useful approach to individual x-risk: https://villeseppala.github.io/interests/articles/202.html It is a policy relevant angle and also helps circumvent the problem of risk being intertwined.</p></li>
+<li><p>The user can also simulate a number of possible futures/paths for humankind, given the set probabilities. Showing these paths, especially the extinction events depicted in them, can give a more tangible impressions of existential risk than the standard expected values.</p></li>
+<li><p>User can set estimates on how much removing a certain risk factor would reduce the overall x-risk. I have explored here why I think this could be a useful approach to individual x-risk: <a href="https://villeseppala.github.io/interests/articles/202.html" class="uri">https://villeseppala.github.io/interests/articles/202.html</a> It is a policy relevant angle and also helps circumvent the problem of risk being intertwined.</p></li>
 <li><p>Site can also be used to collect expert and general population estimates on existential risk, since users can export their selected probabilities to the site’s server. Expert evaluations could be filtered using some simple authentications mechanisms, such as identification codes. Estimates from experts or the general public can be used to set default values for the site, and their distribution can be shown to the user. This can be done while also giving the users the ability to set what variables they control and with what timelines, as the results can be interpolated.</p></li>
 <li><p>User can also look into catastrophic risk - risk that don’t cause extinction but a significant reduction in the human population. In addition to event probability, user could set how great the population reduction is (user can also set a probability distribution for this) as well as how quick the population recovery is.</p>
 <h4 id="thoughts-on-what-variables-to-use" class="anchored">Thoughts on what variables to use</h4>
 <p>User can choose which variables to use and show. I’m still considering what kind of variables to have as inputs and outputs (and which to have on by default), not limited to ones shown in the graphs. I’m pretty certain about including these, in addition to them:</p></li>
-<li><p>Annual survival probability per year as option to extinction survival probability per year (this is the second row variable in images/prototypes). This would help to make the variable better comparable to the default second row variable (survival by year).</p></li>
+<li><p>Annual survival probability per year as option to extinction survival probability per year (this is the second row variable in images/prototypes). This would help to make the variable better comparable to the default second row variable (survival by year). There is already option for this and the next one in the first prototype.</p></li>
 <li><p>Extinction probability by year in addition to survival probability by year (this is the second row variable in images/prototypes). This would make it better comparable to the default first row variable (extinction per year). It would also make it better comparable to existential risk estimates in the previous literature.</p></li>
-<li><p>Survived as an outcome variable. This is a kind of compromise between humankind’s cumulative survived years and the cumulative population outcomes. One generation would equal the time span of 75 or 100 years, for example. Thus the population count would not matter, but the outcome would give impression of longevity in comparison to the length of one’s own life.</p></li>
+<li><p>Survived generations as an outcome variable. This is a kind of compromise between humankind’s cumulative survived years and the cumulative population outcomes. One generation would equal the time span of 75 or 100 years, for example. Thus the population count would not matter, but the outcome would give impression of longevity in comparison to the length of one’s own life.</p></li>
 <li><p>Net utility/welfare/happiness. Some kind of measure. One could think of either the number one or the current population size as a reasonable anchoring point. Likewise to the potential population variable, user would set how the measure would progress in absence of extinction/catastrophic event, and the site then calculates the expected outcome for it.</p></li>
 </ul>
 <!-- -->
