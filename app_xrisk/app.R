@@ -124,7 +124,7 @@ VAR_ON <- setdiff(VAR_ROWS, c("gens", "ly"))
 # computed from its row's previous value ("h", across) and from values in rows above it (cross-row):
 cross_src <- function(row, j) switch(row,
   surv   = paste0("rate:", j - 1),                  # cs_t  <- ae over the period ending at t
-  years  = paste0("surv:", j),                      # L_t   <- cs_t
+  years  = paste0("surv:", j),                      # Y_t   <- cs_t
   gens   = paste0("surv:", j),                      # G_t   <- cs_t  (G_t = G_{t-1} + sum of cs over the period / 75)
   popexp = paste0(c("pop:", "surv:"), j),           # E_t   <- P_t, cs_t
   ly     = paste0("popexp:", j),                    # H_t   <- E_t
@@ -159,35 +159,11 @@ arrow_edges <- function(vis, n) {
 COL_RATE  <- "#e8836f"; COL_SURV <- "#4fb8d6"; COL_POP <- "#e46ba6"
 GOOD <- "#7fd18f"; BAD <- "#ee4d4d"; ZERO <- "#8a97a3"
 
-# delta pill: kind = "more_good" (up is green) or "more_bad" (up is red)
-fmt_delta <- function(cur, ref, kind, fmt) {
-  d  <- cur - ref
-  ds <- fmt(abs(d))
-  if (abs(d) < 1e-9 || !grepl("[1-9]", ds))            # no change, or rounds to 0 in display → grey ±0
-    return(span(class = "d0", "±0"))                    # ±0
-  good <- (d > 0) == (kind == "more_good")
-  sgn  <- if (d > 0) "+" else "−"                       # − for minus
-  span(style = paste0("color:", if (good) GOOD else BAD, ";"),
-       paste0(sgn, ds))
-}
-
-# plain (non-editable) value cell on the grid (spans 2 half-columns)
-gcell <- function(col, main, delta = NULL, sub = NULL, color = "#e8eef4") {
-  tags$div(class = "vcell", style = paste0("grid-column:", col, "/span 2;"),
-    div(class = "vstack",
-      div(class = "vmain", style = paste0("color:", color, ";"), HTML(main)),
-      if (!is.null(delta)) div(class = "vdelta", delta)),
-    if (!is.null(sub)) div(class = "vsub", HTML(sub)))
-}
-
-# fixed (non-editable) value in a row of editable cells: same digit slots as gcell_edit, with an empty
-# spacer where the ▲ arrows would be, so its number sits level with its editable neighbours'.
-gcell_fixed <- function(col, v, to_disp, decimals, suffix, color, pad = NULL)
-  tags$div(class = "vcell", style = paste0("grid-column:", col, "/span 2;"),
-    div(class = "vstack",
-      div(class = "arsp"),                         # where the ▲ row would be
-      div(class = "vmain digits", style = paste0("color:", color, ";"),
-          build_slots(v, to_disp, decimals, suffix, pad = pad, editable = FALSE))))
+# ── value cells, built as HTML text ─────────────────────────────────────────
+# The panel re-renders on every edit and holds thousands of per-digit elements. Building them as
+# htmltools tag objects cost ~0.7-1 s per edit natively (several times that under webR/shinylive),
+# almost all in tag construction and serialisation, so the cells are pasted as HTML strings instead
+# and handed to the tag tree as HTML(). Same elements and classes as before.
 
 # calendar year: thin-space separator only for 5+ digit years (12026 → "12 026")
 fmt_year <- function(y) { y <- as.integer(y); if (y >= 10000) group3(as.character(y)) else as.character(y) }
@@ -199,7 +175,9 @@ group3 <- function(s) {
   paste(rev(out), collapse = "")
 }
 
-# build digit slots for a number — used for both the value and its (editable) delta.
+sty_col <- function(col) if (is.null(col)) "" else paste0(' style="color:', col, ';"')
+
+# build digit slots for a number — used for both the value and its (editable) delta. Returns HTML text.
 #   native      : native value; abs() is shown, sign handled via sign_char
 #   to_disp     : multiplier to display units (rate 100 → %, pop 1/1e6 → m)
 #   decimals    : decimal places in display units
@@ -222,78 +200,59 @@ build_slots <- function(native, to_disp, decimals, suffix, pad = NULL, editable 
   s     <- if (length(parts) > 1) paste0(ip, ".", parts[2]) else ip
   chars <- strsplit(s, "")[[1]]
   n     <- length(chars)
+  isdig <- grepl("[0-9]", chars)
   dot   <- match(".", chars); if (is.na(dot)) dot <- n + 1
-  place <- rep(NA_real_, n)
-  k <- 0                                            # integer digits, right → left
-  for (p in seq(dot - 1, 1)) {
-    if (grepl("[0-9]", chars[p])) { place[p] <- (10^k) / to_disp; k <- k + 1 }
-  }
-  if (dot < n) {                                    # decimal digits, left → right
-    kk <- 1
-    for (p in seq(dot + 1, n)) {
-      if (grepl("[0-9]", chars[p])) { place[p] <- (10^(-kk)) / to_disp; kk <- kk + 1 }
-    }
-  }
-  lead <- rep(FALSE, n)                             # zeros before the first significant digit
-  seen <- FALSE
-  for (p in seq_len(n)) if (grepl("[0-9]", chars[p])) {
-    if (!seen && chars[p] == "0") lead[p] <- TRUE else seen <- TRUE
-  }
+  place <- rep(NA_real_, n)                         # place value of each digit, in native units
+  ii <- which(isdig & seq_len(n) < dot)             # integer digits: 10^0 at the right end
+  place[ii] <- 10^(rev(seq_along(ii)) - 1) / to_disp
+  di <- which(isdig & seq_len(n) > dot)             # decimal digits: 10^-1, 10^-2, ... left → right
+  place[di] <- 10^(-seq_along(di)) / to_disp
+  lead <- isdig & cumsum(isdig & chars != "0") == 0 # zeros before the first significant digit
   # editable digits carry ▲/▼ arrows (with matching spacers on separators so rows line up);
   # read-only digits carry neither, so those rows have no wasted vertical space.
   # decimal points / thousands separators / the suffix follow the digits' colour
   # (e.g. a grey delta's "." and "%" render in the same grey as its zeros)
   sep_col <- if (!is.null(digit_color)) digit_color(FALSE, FALSE) else NULL
-  mkslot <- function(p) {
+  up <- if (editable) '<span class="ar up">&#9650;</span>' else ""
+  dn <- if (editable) '<span class="ar dn">&#9660;</span>' else ""
+  sp <- if (editable) '<span class="arsp"></span>' else ""
+  sep_slot <- function(txt, cls = "dch", col = sep_col)
+    paste0('<span class="sep">', sp, '<b class="', cls, '"', sty_col(col), '>', txt, '</b>', sp, '</span>')
+  dlt  <- formatC(place, format = "e", digits = 6)
+  slot <- vapply(seq_len(n), function(p) {
     ch <- chars[p]
-    if (!is.na(place[p])) {
+    if (isdig[p]) {
       col <- if (!is.null(digit_color)) digit_color(ch == "0", lead[p])
              else if (!is.null(pad) && lead[p]) ZERO else NULL   # leading zeros: same grey as the ▲/▼ arrows
-      tags$span(class = "dig", `data-delta` = formatC(place[p], format = "e", digits = 6),
-        if (editable) span(class = "ar up", HTML("&#9650;")),
-        tags$b(class = "dch", style = if (!is.null(col)) paste0("color:", col, ";"), ch),
-        if (editable) span(class = "ar dn", HTML("&#9660;")))
-    } else
-      tags$span(class = "sep",
-        if (editable) span(class = "arsp"),
-        tags$b(class = "dch", style = if (!is.null(sep_col)) paste0("color:", sep_col, ";"),
-               if (ch == " ") HTML("&nbsp;") else ch),
-        if (editable) span(class = "arsp"))
-  }
-  # split positions into thousands-groups (a space starts a new group; the dot +
-  # decimals stay with their group). Each group is one non-breaking wrap unit, so a
-  # number wraps only between groups — never mid-group — on narrow widths.
-  groups <- list(); cur_g <- integer(0)
-  for (p in seq_len(n)) {
-    if (chars[p] == " ") { if (length(cur_g)) groups <- c(groups, list(cur_g)); cur_g <- p }
-    else cur_g <- c(cur_g, p)
-  }
-  if (length(cur_g)) groups <- c(groups, list(cur_g))
-
-  sign_slot <- if (!is.null(sign_char))
-    tags$span(class = "sep", if (editable) span(class = "arsp"),
-      tags$b(class = "dch sgn", style = if (!is.null(sign_color)) paste0("color:", sign_color, ";"),
-             HTML(sign_char)), if (editable) span(class = "arsp")) else NULL
-  suffix_slot <- if (nzchar(suffix))
-    tags$span(class = "sep", if (editable) span(class = "arsp"),
-      tags$b(class = "dch suf", style = if (!is.null(sep_col)) paste0("color:", sep_col, ";"), HTML(suffix)),
-      if (editable) span(class = "arsp")) else NULL
-
-  ng <- length(groups)
-  out <- lapply(seq_len(ng), function(gi) {
-    items <- lapply(groups[[gi]], mkslot)
-    if (gi == 1  && !is.null(sign_slot))   items <- c(list(sign_slot), items)     # sign stays with the leading digit
-    if (gi == ng && !is.null(suffix_slot)) items <- c(items, list(suffix_slot))   # suffix stays with the trailing digit
-    do.call(tags$span, c(list(class = "dgroup"), items))
-  })
-  if (!is.null(ref_txt)) {                          # baseline: its own group, so it may wrap as a unit on narrow cells
-    ref_slot <- tags$span(class = "sep", if (editable) span(class = "arsp"),
-      tags$b(class = if (ref_ghost) "dch vref ghost" else "dch vref", ref_txt),
-      if (editable) span(class = "arsp"))
-    out <- c(out, list(tags$span(class = "dgroup", ref_slot)))
-  }
+      paste0('<span class="dig" data-delta="', dlt[p], '">', up, '<b class="dch"', sty_col(col), '>', ch, '</b>', dn, '</span>')
+    } else sep_slot(if (ch == " ") "&nbsp;" else ch)
+  }, "")
+  # split positions into thousands-groups (a space starts a new group; the dot + decimals stay with
+  # their group). Each group is one inline-flex unit; the sign stays with the leading group and the
+  # suffix with the trailing one.
+  gid    <- cumsum(chars == " ")
+  groups <- unname(vapply(split(slot, gid), paste, "", collapse = ""))
+  if (!is.null(sign_char))
+    groups[1] <- paste0(sep_slot(sign_char, "dch sgn", sign_color), groups[1])
+  if (nzchar(suffix))
+    groups[length(groups)] <- paste0(groups[length(groups)], sep_slot(suffix, "dch suf"))
+  out <- paste0('<span class="dgroup">', groups, '</span>', collapse = "")
+  if (!is.null(ref_txt))                            # baseline: its own group
+    out <- paste0(out, '<span class="dgroup">',
+                  sep_slot(ref_txt, if (ref_ghost) "dch vref ghost" else "dch vref", NULL), '</span>')
   out
 }
+
+# a value cell on the grid (spans 2 half-columns); attrs = extra attribute text
+vcell_html <- function(col, inner, cls = "vcell", attrs = "")
+  paste0('<div class="', cls, '" style="grid-column:', col, '/span 2;"', attrs, '>', inner, '</div>')
+
+# fixed (non-editable) value in a row of editable cells: same digit slots as gcell_edit, with an empty
+# spacer where the ▲ arrows would be, so its number sits level with its editable neighbours'.
+gcell_fixed <- function(col, v, to_disp, decimals, suffix, color, pad = NULL)
+  HTML(vcell_html(col, paste0('<div class="vstack"><div class="arsp"></div>',
+    '<div class="vmain digits"', sty_col(color), '>',
+    build_slots(v, to_disp, decimals, suffix, pad = pad, editable = FALSE), '</div></div>')))
 
 # editable value cell: per-digit spinner
 # ref_txt (both cell builders): when given, the baseline value is shown in parentheses right after the
@@ -308,17 +267,17 @@ gcell_edit <- function(col, cur, ref, kind, vi, to_disp, decimals, suffix,
   dcol <- if (disp_zero) ZERO else if (dv > 0) cpos else cneg
   sgn  <- if (disp_zero) "±" else if (dv > 0) "+" else "−"
   digit_color <- function(is0, lead) if (lead) ZERO else dcol
-  tags$div(class = "vcell xedit", style = paste0("grid-column:", col, "/span 2;"),
-    `data-kind` = kind, `data-i` = vi - 1,
-    if (!is.null(top)) div(class = "vtop", HTML(top)),
-    div(class = "vstack",
-      div(class = "vmain digits", style = paste0("color:", color, ";"),
-          build_slots(cur, to_disp, decimals, suffix, pad, TRUE, ref_txt = ref_txt)),
-      div(class = "vdelta digits",
-          build_slots(dv, to_disp, decimals, suffix, pad, FALSE,   # no ▲/▼ on deltas — number-key entry only
-                      digit_color = digit_color, sign_char = sgn, sign_color = dcol,
-                      ref_txt = ref_txt, ref_ghost = TRUE))),
-    if (!is.null(sub)) div(class = "vsub", HTML(sub)))
+  HTML(vcell_html(col, cls = "vcell xedit", attrs = paste0(' data-kind="', kind, '" data-i="', vi - 1, '"'), paste0(
+    if (!is.null(top)) paste0('<div class="vtop">', top, '</div>'),
+    '<div class="vstack">',
+      '<div class="vmain digits"', sty_col(color), '>',
+        build_slots(cur, to_disp, decimals, suffix, pad, TRUE, ref_txt = ref_txt), '</div>',
+      '<div class="vdelta digits">',
+        build_slots(dv, to_disp, decimals, suffix, pad, FALSE,   # no ▲/▼ on deltas — number-key entry only
+                    digit_color = digit_color, sign_char = sgn, sign_color = dcol,
+                    ref_txt = ref_txt, ref_ghost = TRUE), '</div>',
+    '</div>',
+    if (!is.null(sub)) paste0('<div class="vsub">', sub, '</div>'))))
 }
 # baseline text for the ref_txt slot: same display scale/decimals as the value it sits next to
 f_ref <- function(v, to_disp, decimals, suffix)
@@ -339,18 +298,18 @@ gcell_ro <- function(col, cur, ref, to_disp, decimals, suffix, kind = "more_good
   dcol <- if (disp_zero) ZERO else if (dv > 0) cpos else cneg
   sgn  <- if (disp_zero) "±" else if (dv > 0) "+" else "−"
   digit_color <- function(is0, lead) if (lead) ZERO else dcol
-  tags$div(class = "vcell", style = paste0("grid-column:", col, "/span 2;"),
-    div(class = "vstack",
-      # value carries an invisible sign slot when a delta follows, so value and delta
-      # are the same width and wrap in lockstep (no ragged extra line).
-      div(class = "vmain digits", style = paste0("color:", color, ";"),
-          build_slots(cur, to_disp, decimals, suffix, pad, FALSE,
-                      sign_char = if (delta) "±" else NULL, sign_color = "transparent", ref_txt = ref_txt)),
-      if (delta) div(class = "vdelta digits",
-          build_slots(dv, to_disp, decimals, suffix, pad, FALSE,
-                      digit_color = digit_color, sign_char = sgn, sign_color = dcol,
-                      ref_txt = ref_txt, ref_ghost = TRUE))),
-    if (!is.null(sub)) div(class = "vsub", HTML(sub)))
+  HTML(vcell_html(col, paste0(
+    '<div class="vstack">',
+      # value carries an invisible sign slot when a delta follows, so value and delta are the same width
+      '<div class="vmain digits"', sty_col(color), '>',
+        build_slots(cur, to_disp, decimals, suffix, pad, FALSE,
+                    sign_char = if (delta) "±" else NULL, sign_color = "transparent", ref_txt = ref_txt), '</div>',
+      if (delta) paste0('<div class="vdelta digits">',
+        build_slots(dv, to_disp, decimals, suffix, pad, FALSE,
+                    digit_color = digit_color, sign_char = sgn, sign_color = dcol,
+                    ref_txt = ref_txt, ref_ghost = TRUE), '</div>'),
+    '</div>',
+    if (!is.null(sub)) paste0('<div class="vsub">', sub, '</div>'))))
 }
 
 # big-operator (∏ / ∑) with limits stacked over/under the symbol
@@ -569,7 +528,20 @@ function restoreHist(){
 function undo(){ if(histIdx > 0){ histIdx--; restoreHist(); } }
 function redo(){ if(histIdx < histStack.length - 1){ histIdx++; restoreHist(); } }
 
-function pushState(){ if(window.Shiny) Shiny.setInputValue('state', {rates:rates, pops:pops}, {priority:'event'}); recordHistory(); }
+// Sending edits to R. A re-render takes a noticeable moment (much longer under shinylive/webR), so while
+// R is still busy with one edit, further edits only update the local state; the latest state is sent
+// once R reports idle. A single edit is sent at once; a held key or wheel spin costs one extra render,
+// not one per step. The fallback timer un-sticks the gate if an idle event never arrives.
+var serverBusy = false, statePending = false, busyTimer = null;
+function sendState(){
+  if(!window.Shiny) return;
+  Shiny.setInputValue('state', {rates:rates, pops:pops}, {priority:'event'});
+  serverBusy = true;
+  clearTimeout(busyTimer); busyTimer = setTimeout(function(){ serverBusy = false; flushState(); }, 5000);
+}
+function flushState(){ if(statePending && !serverBusy){ statePending = false; sendState(); } }
+$(document).on('shiny:idle', function(){ serverBusy = false; clearTimeout(busyTimer); flushState(); });
+function pushState(){ if(serverBusy) statePending = true; else sendState(); recordHistory(); }
 // Complementary display kinds: the "show annual survival" / "show extinction probability" checkboxes
 // re-render rows 1-2 with data-kind rate_c / surv_c, whose value is 1 - the underlying one. Editing them
 // writes back through the same rate / survival machinery. A selection survives the toggle by following
@@ -995,6 +967,10 @@ server <- function(input, output, session) {
 
   ref_state <- reactive(fit_state(if (mode() == "previous") hist$prev else ref_static(), M()))
 
+  # the cascade, computed once per change and shared by the table and the summary
+  cur_r <- reactive({ s <- state_r(); compute(s$rates, s$pops, M()) })
+  ref_r <- reactive({ s <- ref_state(); compute(s$rates, s$pops, M()) })
+
   # Horizon changed: resize the current state (keeping edits to the periods both horizons share),
   # hand it to the client, and rebase deltas/history on it — a structural change, not an edit.
   observeEvent(input$hscale, {
@@ -1036,8 +1012,8 @@ server <- function(input, output, session) {
   output$panel <- renderUI({
     m   <- M(); n <- m$n; np <- n - 1                 # checkpoints / periods for this horizon
     st  <- state_r(); rf <- ref_state()
-    cur <- compute(st$rates, st$pops, m)
-    ref <- compute(rf$rates, rf$pops, m)
+    cur <- cur_r()
+    ref <- ref_r()
     elapsed <- c(0, cumsum(m$seg_len))               # 0,10,100,(1000,(10000))
     ycol <- function(j) 2 * j                         # grid start for year j
     gcol <- function(i) 2 * i + 1                     # grid start for gap i (between year i & i+1)
@@ -1133,7 +1109,7 @@ server <- function(input, output, session) {
 
     # arrow endpoints: each value cell carries its node id ("row:j"; the rate row is indexed by period)
     tag_nodes <- function(cells, row, idx)
-      Map(function(cl, k) tagAppendAttributes(cl, `data-node` = paste0(row, ":", k)), cells, idx)
+      Map(function(cl, k) HTML(sub("^<div ", paste0("<div data-node=\"", row, ":", k, "\" "), cl)), cells, idx)
     rate_cells    <- tag_nodes(rate_cells,    "rate",   I)
     surv_cells    <- tag_nodes(surv_cells,    "surv",   J)
     years_cells   <- tag_nodes(years_cells,   "years",  J)
@@ -1166,7 +1142,7 @@ server <- function(input, output, session) {
                   COL_SURV, surv_cells, cls = "erow", row = "surv", toggle = rtoggle("surv_comp", sc, "Show cumulative extinction", "Show cumulative survival"),
                   formula = fx_surv),
       years = metric_grow("Cumulative survived years of humanity",                                 COL_SURV, years_cells,   row = "years",
-                  formula = paste0(mv("L<sub>t</sub>", COL_SURV), " = ", bigop("&sum;", "i=2027", "t"),
+                  formula = paste0(mv("Y<sub>t</sub>", COL_SURV), " = ", bigop("&sum;", "i=2027", "t"),
                                    " ", csv("i"))),
       gens = metric_grow("Cumulative survived generations <span class='ital'>(75y)</span>",       COL_SURV, gens_cells,    row = "gens",
                   formula = paste0(mv("G<sub>t</sub>", COL_SURV), " = ", bigop("&sum;", "i=2027", "t"), " ", csv("i"), " / 75")),
@@ -1204,7 +1180,7 @@ server <- function(input, output, session) {
   output$summary <- renderUI({
     st  <- state_r()
     m   <- M(); n <- m$n
-    cur <- compute(st$rates, st$pops, m)
+    cur <- cur_r()
     hl  <- function(txt, col) sprintf("<b style='color:%s;'>%s</b>", col, txt)   # value in its row's colour
     div(class = "summary", HTML(paste0(
       "With these rates, humanity survives to ", hl(fmt_year(max(m$cps)), "#e8eef4"),

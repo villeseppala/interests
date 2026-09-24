@@ -1,0 +1,93 @@
+
+> cat("x-risk app: per-edit R time (native)  —  ", format(Sys.time()), "\n\n")
+x-risk app: per-edit R time (native)  —   2026-09-24 12:50:08 
+
+
+> for (hs in c(3, 5)) {                           # 1 000 y and 100 000 y horizons
++   M     <- app$model_for(hs)
++   rates <- M$def_rates; pops <- M$ .... [TRUNCATED] 
+Horizon 10^3 years (4 checkpoints), all rows visible
+  compute() once            :     0.40 ms
+  panel re-render per edit  :   110.00 ms
+  panel+summary+foot / edit :   102.50 ms
+
+Horizon 10^5 years (6 checkpoints), all rows visible
+  compute() once            :    26.90 ms
+  panel re-render per edit  :   178.00 ms
+  panel+summary+foot / edit :   164.00 ms
+
+
+> cat("Rprof, 10^5-year horizon panel renders — top functions by total time\n")
+Rprof, 10^5-year horizon panel renders — top functions by total time
+
+> print(head(summaryRprof(rprof_out)$by.total, 30))
+                                total.time total.pct self.time self.pct
+"eval"                               1.160    100.00     0.005     0.43
+"withCallingHandlers"                1.160    100.00     0.005     0.43
+"..stacktraceoff.."                  1.160    100.00     0.000     0.00
+"..stacktraceon.."                   1.160    100.00     0.000     0.00
+"captureStackTraces"                 1.160    100.00     0.000     0.00
+"contextFunc"                        1.160    100.00     0.000     0.00
+"ctx$run"                            1.160    100.00     0.000     0.00
+"domain$wrapSync"                    1.160    100.00     0.000     0.00
+"env$runWith"                        1.160    100.00     0.000     0.00
+"force"                              1.160    100.00     0.000     0.00
+"isolate"                            1.160    100.00     0.000     0.00
+"original_source"                    1.160    100.00     0.000     0.00
+"promises::with_promise_domain"      1.160    100.00     0.000     0.00
+"rlang::eval_tidy"                   1.160    100.00     0.000     0.00
+"source"                             1.160    100.00     0.000     0.00
+"testServer"                         1.160    100.00     0.000     0.00
+"with_otel_span_context"             1.160    100.00     0.000     0.00
+"withMockContext"                    1.160    100.00     0.000     0.00
+"withr::with_options"                1.160    100.00     0.000     0.00
+"withReactiveDomain"                 1.160    100.00     0.000     0.00
+"withVisible"                        1.160    100.00     0.000     0.00
+"system.time"                        1.155     99.57     0.000     0.00
+"session$setInputs"                  1.130     97.41     0.000     0.00
+"<Anonymous>"                        1.115     96.12     0.015     1.29
+"lapply"                             1.100     94.83     0.025     2.16
+"FUN"                                1.095     94.40     0.060     5.17
+"private$flush"                      1.090     93.97     0.000     0.00
+"doTryCatch"                         1.080     93.10     0.000     0.00
+"tryCatch"                           1.080     93.10     0.000     0.00
+"tryCatchList"                       1.080     93.10     0.000     0.00
+
+> cat("\nRprof — top functions by self time\n")
+
+Rprof — top functions by self time
+
+> print(head(summaryRprof(rprof_out)$by.self, 30))
+              self.time self.pct total.time total.pct
+"ifelse"          0.080     6.90      0.115      9.91
+"paste0"          0.075     6.47      0.335     28.88
+"FUN"             0.060     5.17      1.095     94.40
+"match"           0.050     4.31      0.050      4.31
+"which"           0.045     3.88      0.110      9.48
+"formatC"         0.040     3.45      0.170     14.66
+"numeric"         0.035     3.02      0.035      3.02
+"$"               0.030     2.59      0.040      3.45
+"sub"             0.030     2.59      0.035      3.02
+"cumsum"          0.030     2.59      0.030      2.59
+"lapply"          0.025     2.16      1.100     94.83
+"vapply"          0.025     2.16      0.130     11.21
+">="              0.025     2.16      0.025      2.16
+"HTML"            0.020     1.72      0.370     31.90
+"build_slots"     0.020     1.72      0.225     19.40
+"gsub"            0.020     1.72      0.035      3.02
+"group3"          0.020     1.72      0.030      2.59
+"&"               0.020     1.72      0.020      1.72
+"<="              0.020     1.72      0.020      1.72
+"gc"              0.020     1.72      0.020      1.72
+"<Anonymous>"     0.015     1.29      1.115     96.12
+".Call"           0.015     1.29      0.060      5.17
+"rlang::hash"     0.015     1.29      0.050      4.31
+"paste"           0.015     1.29      0.025      2.16
+"grepl"           0.015     1.29      0.020      1.72
+"*"               0.015     1.29      0.015      1.29
+"structure"       0.015     1.29      0.015      1.29
+"do.call"         0.010     0.86      0.080      6.90
+"prettyNum"       0.010     0.86      0.055      4.74
+"tagWrite"        0.010     0.86      0.055      4.74
+
+> sink()
