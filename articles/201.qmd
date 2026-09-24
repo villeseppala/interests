@@ -21,120 +21,28 @@ Below are two early, fully interactive version of the site, that I produced with
 
 The first one focuses on presenting a lot of variables (inputs/outputs). Click any extinction probability, survival probability or potential-population digit and adjust it with the arrows, arrow keys, or by typing a number. For example, decreasing the annual extinction probability over just the next ten years from 0.05% to 0.049% would save over 10 million lives in expectation over the next 1000 years, with all else equal.
 
-[Open the app full-screen in a new tab ↗](https://villeseppala.github.io/interests/articles/xrisk-app.html){target="_blank"}
+[Open the app full-screen in a new tab ↗](https://villeseppala.github.io/interests/articles/xriskb-app.html){target="_blank"}
 
 <!-- XRISK-APP:START -->
 ```{shinylive-r}
 #| standalone: true
 #| viewerHeight: "clamp(900px, 92vh, 1150px)"
 # ────────────────────────────────────────────────────────────────────────────
-# Extinction-risk visualiser — replica of the right-hand data panel from the
-# concept slide. Recomputes the whole cascade in R from the per-period annual
-# extinction rates + population checkpoints (2-4 periods, set by the time-scale
-# slider: 100 / 1 000 / 10 000 / 100 000 years), so it also serves as a clean
-# recomputation to diff against the slide.
+# Extinction-risk visualiser, variant B: the same page as app_xrisk, but every edit is handled in the
+# browser. The cascade, the table, the summary, the baselines, undo/redo and the time-scale change all
+# run in JavaScript (below); R only serves the page once and the server does nothing per edit.
+# That makes edits instant in the shinylive (webR) embed, where app_xrisk re-renders the table through
+# webR on every keystroke. app_xrisk stays the reference: this file mirrors its model (the year-by-year
+# cascade) and its markup, so the two can be compared number for number.
 #
-# Interaction (JavaScript): click an "Annual extinction probability" cell to
-# select a period, then:
-#   ← / →  move selection between periods
-#   ↑ / ↓  raise / lower that period's annual rate (Shift = fine step)
-# The whole table + comparison deltas update live. "Set baseline" freezes the
-# current state as the comparison reference; "Reset" restores defaults.
-# The "Variables" multi-select chooses which metric rows are shown (and so editable).
-# Values are boxed, with SVG arrows from each value to the values it is computed from ("Show arrows").
-#
-# Run:  shiny::runApp("app_xrisk")
+# Run:  shiny::runApp("app_xriskb")
 # ────────────────────────────────────────────────────────────────────────────
 
 library(shiny)
 
-`%||%` <- function(a, b) if (is.null(a)) b else a
-
-# ── model config ────────────────────────────────────────────────────────────
-# The horizon is a power of ten (100 / 1 000 / 10 000 / 100 000 years) chosen by the reader; the checkpoints
-# are START plus every power of ten up to it, so the periods are always 10, 90, 900, 9000 years.
-# Everything that depends on the horizon lives in the list model_for() returns — nothing below
-# assumes a fixed number of columns.
-START     <- 2026
-SCALE_EXP <- 2:5                                 # slider positions: 10^2 .. 10^5 years
-DEF_EXP   <- 3                                   # default horizon 1 000 years (lighter than 10 000)
-ALL_RATES <- c(0.0005, 0.0005, 0.0001, 0.00005, 0.00001)  # 0.05%, 0.05%, 0.01%, 0.005%, 0.001% per year, by period
-POP0      <- 8.3e9                               # constant 8300 M default at every checkpoint
-LIFE_EXP  <- 75
-
-model_for <- function(scale_exp) {
-  cps       <- START + c(0, 10^seq_len(scale_exp))       # 2026, 2036, 2126, (3026, (12026, (102026)))
-  n         <- length(cps)
-  seg_start <- cps[-n] + 1                                # first year of each period
-  seg_end   <- cps[-1]                                    # last  year of each period
-  list(n = n, cps = cps, seg_start = seg_start, seg_end = seg_end,
-       seg_len   = seg_end - seg_start + 1,               # 10, 90, 900, ...
-       yrs_all   = START:max(cps),
-       def_rates = ALL_RATES[seq_len(n - 1)],
-       def_pops  = rep(POP0, n))
-}
-
-# Coerce a {rates, pops} state to a model's checkpoint count: keep whatever the reader already set
-# for the periods both horizons share, and fill the rest with defaults. Used when the horizon
-# changes (edits to the first periods survive) and to keep rendering coherent in the moment
-# between the slider moving and the client sending back a resized state.
-fit_state <- function(s, M) {
-  fill <- function(x, def) { k <- min(length(x), length(def)); def[seq_len(k)] <- x[seq_len(k)]; def }
-  list(rates = fill(as.numeric(s$rates), M$def_rates),
-       pops  = fill(as.numeric(s$pops),  M$def_pops))
-}
-
-# potential population per year: geometric interpolation between the (editable)
-# checkpoint values, so the potential-population column stays internally
-# consistent — it hits the checkpoint values exactly at the checkpoint years.
-build_pop <- function(pop_cps, M) {
-  yrs <- M$yrs_all; cps <- M$cps
-  pop <- numeric(length(yrs))
-  for (k in seq_len(length(cps) - 1)) {
-    y0 <- cps[k]; y1 <- cps[k + 1]; v0 <- pop_cps[k]; v1 <- pop_cps[k + 1]
-    ix <- which(yrs >= y0 & yrs <= y1)
-    pop[ix] <- v0 * (v1 / v0) ^ ((yrs[ix] - y0) / (y1 - y0))
-  }
-  pop
-}
-
-# ── the cascade ─────────────────────────────────────────────────────────────
-compute <- function(rates, pop_cps, M) {
-  yrs <- M$yrs_all
-  POP_ALL <- build_pop(pop_cps, M)
-  seg  <- findInterval(yrs, M$seg_start)             # 0 for 2026, else 1..n-1
-  r    <- ifelse(seg >= 1, rates[pmax(seg, 1)], 0)
-  surv <- cumprod(1 - r)                             # survival to end of year
-  pop_exp <- POP_ALL * surv
-  lived   <- seg >= 1                                # years that actually count
-  cum_years  <- cumsum(ifelse(lived, surv,    0))
-  cum_ly     <- cumsum(ifelse(lived, pop_exp, 0))
-  cum_ly_pot <- cumsum(ifelse(lived, POP_ALL, 0))
-  ix <- match(M$cps, yrs)
-  growth <- c(NA, (pop_cps[-1] / pop_cps[-length(pop_cps)]) ^ (1 / diff(M$cps)) - 1)
-  list(
-    rates      = rates,
-    pop_cps    = pop_cps,
-    growth     = growth,
-    surv       = surv[ix],
-    pop_pot    = POP_ALL[ix],
-    pop_exp    = pop_exp[ix],
-    cum_years  = cum_years[ix],
-    cum_ly     = cum_ly[ix],
-    cum_ly_pot = cum_ly_pot[ix],
-    lives      = cum_ly[ix]     / LIFE_EXP,
-    gens       = cum_years[ix]  / LIFE_EXP,
-    lives_pot  = cum_ly_pot[ix] / LIFE_EXP
-  )
-}
-
-# ── formatting ──────────────────────────────────────────────────────────────
-f_rate  <- function(x) paste0(formatC(x * 100, digits = 4, format = "f"), "%")
-f_pct   <- function(x) paste0(formatC(x * 100, digits = 4, format = "f"), "%")
-f_int   <- function(x) formatC(round(x), format = "f", digits = 0, big.mark = " ")
-f_years <- function(x) paste0(formatC(x, digits = 4, format = "f", big.mark = " "), "y")
-f_pop_m <- function(x) paste0(f_int(x / 1e6), "m")
-f_ly    <- function(x) paste0(f_int(x), " ly")
+# ── settings the page needs when it is built (the model itself lives in the JavaScript) ──
+SCALE_EXP <- 2:5                                 # time-scale slider: 10^2 .. 10^5 years
+DEF_EXP   <- 3                                   # default horizon 1 000 years — keep equal to DEF_EXP in the JS
 
 # metric rows, in display order: data-row id -> label in the "Variables" dropdown
 VAR_ROWS <- c("Annual extinction probability"   = "rate",
@@ -148,271 +56,8 @@ VAR_ROWS <- c("Annual extinction probability"   = "rate",
 # rows shown on first load (the rest start unticked in the Variables menu)
 VAR_ON <- setdiff(VAR_ROWS, c("gens", "ly"))
 
-# ── dependency arrows ───────────────────────────────────────────────────────
-# Nodes are "row:j" (checkpoint j; for the rate row, period j). For checkpoints j >= 2, each value is
-# computed from its row's previous value ("h", across) and from values in rows above it (cross-row):
-cross_src <- function(row, j) switch(row,
-  surv   = paste0("rate:", j - 1),                  # cs_t  <- ae over the period ending at t
-  years  = paste0("surv:", j),                      # L_t   <- cs_t
-  gens   = paste0("surv:", j),                      # G_t   <- cs_t  (G_t = G_{t-1} + sum of cs over the period / 75)
-  popexp = paste0(c("pop:", "surv:"), j),           # E_t   <- P_t, cs_t
-  ly     = paste0("popexp:", j),                    # H_t   <- E_t
-  lives  = paste0("popexp:", j),                    # N_t   <- E_t  (N_t = N_{t-1} + sum of E over the period / 75)
-  NULL)
-HORIZ_ROWS <- c("surv", "years", "gens", "ly", "lives")   # running totals: each value builds on its previous value
-
-# Edge list for the visible rows, as "from,to,type;..." — type h (across), v (from the row directly
-# above) or d (skips over visible rows, so the JS routes it round the side instead of through them).
-# A source in a hidden row is replaced by what that row was itself derived from (recursively, cross-row
-# only); if nothing visible remains, the arrow is dropped.
-arrow_edges <- function(vis, n) {
-  expand <- function(id) {
-    row <- sub(":.*", "", id)
-    if (row %in% vis) return(id)
-    unique(unlist(lapply(cross_src(row, as.integer(sub(".*:", "", id))), expand)))
-  }
-  ord <- VAR_ROWS[VAR_ROWS %in% vis]
-  out <- character(0)
-  for (row in vis) for (j in seq_len(n)[-1]) {
-    if (row %in% HORIZ_ROWS) out <- c(out, paste(paste0(row, ":", j - 1), paste0(row, ":", j), "h", sep = ","))
-    for (s in unique(unlist(lapply(cross_src(row, j), expand)))) {
-      srow  <- sub(":.*", "", s)
-      skips <- match(row, ord) - match(srow, ord) > 1
-      out <- c(out, paste(s, paste0(row, ":", j), if (skips) "d" else "v", sep = ","))
-    }
-  }
-  paste(unique(out), collapse = ";")
-}
-
-# colours
-COL_RATE  <- "#e8836f"; COL_SURV <- "#4fb8d6"; COL_POP <- "#e46ba6"
-GOOD <- "#7fd18f"; BAD <- "#ee4d4d"; ZERO <- "#8a97a3"
-
-# delta pill: kind = "more_good" (up is green) or "more_bad" (up is red)
-fmt_delta <- function(cur, ref, kind, fmt) {
-  d  <- cur - ref
-  ds <- fmt(abs(d))
-  if (abs(d) < 1e-9 || !grepl("[1-9]", ds))            # no change, or rounds to 0 in display → grey ±0
-    return(span(class = "d0", "±0"))                    # ±0
-  good <- (d > 0) == (kind == "more_good")
-  sgn  <- if (d > 0) "+" else "−"                       # − for minus
-  span(style = paste0("color:", if (good) GOOD else BAD, ";"),
-       paste0(sgn, ds))
-}
-
-# plain (non-editable) value cell on the grid (spans 2 half-columns)
-gcell <- function(col, main, delta = NULL, sub = NULL, color = "#e8eef4") {
-  tags$div(class = "vcell", style = paste0("grid-column:", col, "/span 2;"),
-    div(class = "vstack",
-      div(class = "vmain", style = paste0("color:", color, ";"), HTML(main)),
-      if (!is.null(delta)) div(class = "vdelta", delta)),
-    if (!is.null(sub)) div(class = "vsub", HTML(sub)))
-}
-
-# fixed (non-editable) value in a row of editable cells: same digit slots as gcell_edit, with an empty
-# spacer where the ▲ arrows would be, so its number sits level with its editable neighbours'.
-gcell_fixed <- function(col, v, to_disp, decimals, suffix, color, pad = NULL)
-  tags$div(class = "vcell", style = paste0("grid-column:", col, "/span 2;"),
-    div(class = "vstack",
-      div(class = "arsp"),                         # where the ▲ row would be
-      div(class = "vmain digits", style = paste0("color:", color, ";"),
-          build_slots(v, to_disp, decimals, suffix, pad = pad, editable = FALSE))))
-
-# calendar year: thin-space separator only for 5+ digit years (12026 → "12 026")
-fmt_year <- function(y) { y <- as.integer(y); if (y >= 10000) group3(as.character(y)) else as.character(y) }
-
-# insert thin-space thousands separators into a plain digit string
-group3 <- function(s) {
-  ch <- rev(strsplit(s, "")[[1]]); out <- character(0)
-  for (i in seq_along(ch)) { if (i > 1 && (i - 1) %% 3 == 0) out <- c(out, " "); out <- c(out, ch[i]) }
-  paste(rev(out), collapse = "")
-}
-
-# build digit slots for a number — used for both the value and its (editable) delta.
-#   native      : native value; abs() is shown, sign handled via sign_char
-#   to_disp     : multiplier to display units (rate 100 → %, pop 1/1e6 → m)
-#   decimals    : decimal places in display units
-#   pad         : if set, always show this many integer digits (leading zeros greyed
-#                 but still adjustable — lets the user ramp big places fast)
-#   digit_color : function(is_zero, is_lead) -> CSS colour or NULL (inherit)
-#   sign_char/sign_color : optional leading sign slot (for deltas)
-# ref_txt: baseline value shown in parentheses as one more slot after the suffix, level with the digit
-# row (it is a column like the digits, with the same arrow spacers). ref_ghost = TRUE renders it invisible:
-# the delta row carries that ghost so its digits still sit exactly under the value's digits.
-build_slots <- function(native, to_disp, decimals, suffix, pad = NULL, editable = TRUE,
-                        digit_color = NULL, sign_char = NULL, sign_color = NULL,
-                        ref_txt = NULL, ref_ghost = FALSE) {
-  a <- abs(native)
-  whole <- formatC(a * to_disp, format = "f", digits = decimals)   # non-scientific; rounds
-  parts <- strsplit(whole, ".", fixed = TRUE)[[1]]
-  ip    <- parts[1]
-  if (!is.null(pad) && nchar(ip) < pad) ip <- paste0(strrep("0", pad - nchar(ip)), ip)
-  ip    <- group3(ip)                                              # thin-space thousands on integer part
-  s     <- if (length(parts) > 1) paste0(ip, ".", parts[2]) else ip
-  chars <- strsplit(s, "")[[1]]
-  n     <- length(chars)
-  dot   <- match(".", chars); if (is.na(dot)) dot <- n + 1
-  place <- rep(NA_real_, n)
-  k <- 0                                            # integer digits, right → left
-  for (p in seq(dot - 1, 1)) {
-    if (grepl("[0-9]", chars[p])) { place[p] <- (10^k) / to_disp; k <- k + 1 }
-  }
-  if (dot < n) {                                    # decimal digits, left → right
-    kk <- 1
-    for (p in seq(dot + 1, n)) {
-      if (grepl("[0-9]", chars[p])) { place[p] <- (10^(-kk)) / to_disp; kk <- kk + 1 }
-    }
-  }
-  lead <- rep(FALSE, n)                             # zeros before the first significant digit
-  seen <- FALSE
-  for (p in seq_len(n)) if (grepl("[0-9]", chars[p])) {
-    if (!seen && chars[p] == "0") lead[p] <- TRUE else seen <- TRUE
-  }
-  # editable digits carry ▲/▼ arrows (with matching spacers on separators so rows line up);
-  # read-only digits carry neither, so those rows have no wasted vertical space.
-  # decimal points / thousands separators / the suffix follow the digits' colour
-  # (e.g. a grey delta's "." and "%" render in the same grey as its zeros)
-  sep_col <- if (!is.null(digit_color)) digit_color(FALSE, FALSE) else NULL
-  mkslot <- function(p) {
-    ch <- chars[p]
-    if (!is.na(place[p])) {
-      col <- if (!is.null(digit_color)) digit_color(ch == "0", lead[p])
-             else if (!is.null(pad) && lead[p]) ZERO else NULL   # leading zeros: same grey as the ▲/▼ arrows
-      tags$span(class = "dig", `data-delta` = formatC(place[p], format = "e", digits = 6),
-        if (editable) span(class = "ar up", HTML("&#9650;")),
-        tags$b(class = "dch", style = if (!is.null(col)) paste0("color:", col, ";"), ch),
-        if (editable) span(class = "ar dn", HTML("&#9660;")))
-    } else
-      tags$span(class = "sep",
-        if (editable) span(class = "arsp"),
-        tags$b(class = "dch", style = if (!is.null(sep_col)) paste0("color:", sep_col, ";"),
-               if (ch == " ") HTML("&nbsp;") else ch),
-        if (editable) span(class = "arsp"))
-  }
-  # split positions into thousands-groups (a space starts a new group; the dot +
-  # decimals stay with their group). Each group is one non-breaking wrap unit, so a
-  # number wraps only between groups — never mid-group — on narrow widths.
-  groups <- list(); cur_g <- integer(0)
-  for (p in seq_len(n)) {
-    if (chars[p] == " ") { if (length(cur_g)) groups <- c(groups, list(cur_g)); cur_g <- p }
-    else cur_g <- c(cur_g, p)
-  }
-  if (length(cur_g)) groups <- c(groups, list(cur_g))
-
-  sign_slot <- if (!is.null(sign_char))
-    tags$span(class = "sep", if (editable) span(class = "arsp"),
-      tags$b(class = "dch sgn", style = if (!is.null(sign_color)) paste0("color:", sign_color, ";"),
-             HTML(sign_char)), if (editable) span(class = "arsp")) else NULL
-  suffix_slot <- if (nzchar(suffix))
-    tags$span(class = "sep", if (editable) span(class = "arsp"),
-      tags$b(class = "dch suf", style = if (!is.null(sep_col)) paste0("color:", sep_col, ";"), HTML(suffix)),
-      if (editable) span(class = "arsp")) else NULL
-
-  ng <- length(groups)
-  out <- lapply(seq_len(ng), function(gi) {
-    items <- lapply(groups[[gi]], mkslot)
-    if (gi == 1  && !is.null(sign_slot))   items <- c(list(sign_slot), items)     # sign stays with the leading digit
-    if (gi == ng && !is.null(suffix_slot)) items <- c(items, list(suffix_slot))   # suffix stays with the trailing digit
-    do.call(tags$span, c(list(class = "dgroup"), items))
-  })
-  if (!is.null(ref_txt)) {                          # baseline: its own group, so it may wrap as a unit on narrow cells
-    ref_slot <- tags$span(class = "sep", if (editable) span(class = "arsp"),
-      tags$b(class = if (ref_ghost) "dch vref ghost" else "dch vref", ref_txt),
-      if (editable) span(class = "arsp"))
-    out <- c(out, list(tags$span(class = "dgroup", ref_slot)))
-  }
-  out
-}
-
-# editable value cell: per-digit spinner
-# ref_txt (both cell builders): when given, the baseline value is shown in parentheses right after the
-# value, level with its digits (see build_slots); the delta row gets an invisible copy so it stays aligned.
-gcell_edit <- function(col, cur, ref, kind, vi, to_disp, decimals, suffix,
-                       good = "more_good", sub = NULL, color, pad = NULL, top = NULL, ref_txt = NULL) {
-  dv   <- cur - ref
-  cpos <- if (good == "more_good") GOOD else BAD    # colour when delta positive
-  cneg <- if (good == "more_good") BAD  else GOOD
-  dshow <- formatC(abs(dv) * to_disp, format = "f", digits = decimals)   # decimals kept: a padded % cell can move by < 1
-  disp_zero <- abs(dv) < 1e-12 || !grepl("[1-9]", dshow)   # exact, or rounds to 0 in display → grey
-  dcol <- if (disp_zero) ZERO else if (dv > 0) cpos else cneg
-  sgn  <- if (disp_zero) "±" else if (dv > 0) "+" else "−"
-  digit_color <- function(is0, lead) if (lead) ZERO else dcol
-  tags$div(class = "vcell xedit", style = paste0("grid-column:", col, "/span 2;"),
-    `data-kind` = kind, `data-i` = vi - 1,
-    if (!is.null(top)) div(class = "vtop", HTML(top)),
-    div(class = "vstack",
-      div(class = "vmain digits", style = paste0("color:", color, ";"),
-          build_slots(cur, to_disp, decimals, suffix, pad, TRUE, ref_txt = ref_txt)),
-      div(class = "vdelta digits",
-          build_slots(dv, to_disp, decimals, suffix, pad, FALSE,   # no ▲/▼ on deltas — number-key entry only
-                      digit_color = digit_color, sign_char = sgn, sign_color = dcol,
-                      ref_txt = ref_txt, ref_ghost = TRUE))),
-    if (!is.null(sub)) div(class = "vsub", HTML(sub)))
-}
-# baseline text for the ref_txt slot: same display scale/decimals as the value it sits next to
-f_ref <- function(v, to_disp, decimals, suffix)
-  paste0("(", formatC(v * to_disp, format = "f", digits = decimals, big.mark = " "), suffix, ")")
-
-# read-only value cell: value + a digit-aligned (non-editable) delta below it.
-# The delta shows one grey zero under each value digit when there is no change,
-# and the signed change (leading zeros greyed) when there is.
-gcell_ro <- function(col, cur, ref, to_disp, decimals, suffix, kind = "more_good",
-                     sub = NULL, color, delta = TRUE, ref_txt = NULL) {
-  dv   <- cur - ref
-  cpos <- if (kind == "more_good") GOOD else BAD
-  cneg <- if (kind == "more_good") BAD  else GOOD
-  vwhole <- formatC(abs(cur) * to_disp, format = "f", digits = decimals)
-  pad    <- nchar(strsplit(vwhole, ".", fixed = TRUE)[[1]][1])       # value's integer-digit width
-  dshow  <- formatC(abs(dv) * to_disp, format = "f", digits = decimals)
-  disp_zero <- abs(dv) < 1e-9 || !grepl("[1-9]", dshow)             # exact, or rounds to 0 in display
-  dcol <- if (disp_zero) ZERO else if (dv > 0) cpos else cneg
-  sgn  <- if (disp_zero) "±" else if (dv > 0) "+" else "−"
-  digit_color <- function(is0, lead) if (lead) ZERO else dcol
-  tags$div(class = "vcell", style = paste0("grid-column:", col, "/span 2;"),
-    div(class = "vstack",
-      # value carries an invisible sign slot when a delta follows, so value and delta
-      # are the same width and wrap in lockstep (no ragged extra line).
-      div(class = "vmain digits", style = paste0("color:", color, ";"),
-          build_slots(cur, to_disp, decimals, suffix, pad, FALSE,
-                      sign_char = if (delta) "±" else NULL, sign_color = "transparent", ref_txt = ref_txt)),
-      if (delta) div(class = "vdelta digits",
-          build_slots(dv, to_disp, decimals, suffix, pad, FALSE,
-                      digit_color = digit_color, sign_char = sgn, sign_color = dcol,
-                      ref_txt = ref_txt, ref_ghost = TRUE))),
-    if (!is.null(sub)) div(class = "vsub", HTML(sub)))
-}
-
-# big-operator (∏ / ∑) with limits stacked over/under the symbol
-bigop <- function(sym, lo, up)
-  sprintf('<span class="bigop"><span class="lim up">%s</span><span class="op">%s</span><span class="lim lo">%s</span></span>',
-          up, sym, lo)
-
-# colour a variable symbol (with its subscript) to match its metric's colour
-mv <- function(txt, col) sprintf('<span style="color:%s;">%s</span>', col, txt)
-
-# a full metric row (label in column 1, then its value cells).
-# cls = "erow" tints the whole row (label included) to flag it as editable.
-# row = the row id (data-row), matching its entry in the Variables dropdown.
-# toggle = optional control under the formula (see rtoggle).
-metric_grow <- function(label, color, cells, cls = NULL, row = NULL, formula = NULL, toggle = NULL)
-  do.call(tags$div, c(list(class = trimws(paste("grow", cls %||% "")), `data-row` = row,
-    tags$div(class = "rlabel", style = paste0("color:", color, ";"),
-      div(class = "rlblwrap",
-        span(class = "rlbl", HTML(label)),
-        if (!is.null(formula)) div(class = "rformula", HTML(formula)),
-        toggle))),
-    cells))
-
-# Per-row "switch to the complement" button. Its text names the view a click switches TO, so it flips
-# with the mode (label_off while the default view shows, label_on while the complement shows). The
-# panel re-renders on every edit, so this is a plain button (not a Shiny input binding); JS flips
-# input$<id> (see the .rtog handler).
-rtoggle <- function(id, on, label_off, label_on)
-  tags$button(type = "button", class = if (on) "rtog on" else "rtog",
-    `data-input` = id, `data-on` = if (on) "1" else "0",
-    HTML(paste0("&#8644;&nbsp;", if (on) label_on else label_off)))
-
 # ── UI ──────────────────────────────────────────────────────────────────────
+# styles: copied verbatim from app_xrisk/app.R
 css <- r"(
 body{background:#0b3552;color:#e8eef4;font-family:Arial,Helvetica,sans-serif;margin:0;}
 .wrap{max-width:1240px;margin:0 auto;padding:18px 11px 70px;}
@@ -565,16 +210,413 @@ body.nofx .rformula{display:none;}          /* "Show formulas" unticked */
 )"
 
 js <- r"(
-// Initial arrays match the server's default horizon (1 000 years = 4 checkpoints, 3 periods).
-// A horizon change arrives as a 'setScale' message that replaces all three.
-var rates = [0.0005, 0.0005, 0.0001];
-var pops  = [8.3e9, 8.3e9, 8.3e9, 8.3e9];
-var LEN   = [10, 90, 900];                       // interval lengths (years)
-var baseRates = rates.slice(), basePops = pops.slice();   // comparison baseline (from server)
-var sel   = {kind:'rate', i:0, place:0.00001, delta:false};  // first period, second-to-last decimal (0.001%); value/delta + which digit
+// ════════════════════════════════════════════════════════════════════════════
+// The whole per-edit loop runs here — model → table HTML → arrows — with no R involved.
+// Sections: model · formatting · cells and rows · state, baselines and history · editing (as in
+// app_xrisk) · arrows and column fitting (as in app_xrisk) · controls.
+// ════════════════════════════════════════════════════════════════════════════
 
-// ── undo / redo history: client-side snapshots of {rates, pops} ──
-var histStack = [{rates: rates.slice(), pops: pops.slice()}];
+// ── model (mirrors app_xrisk's R: START, ALL_RATES, POP0, LIFE_EXP, model_for, fit_state, compute) ──
+var START = 2026, LIFE_EXP = 75, POP0 = 8.3e9;
+var DEF_EXP = 3;                                  // default horizon 10^3 years; the slider's R default must match
+var ALL_RATES = [0.0005, 0.0005, 0.0001, 0.00005, 0.00001];   // per period: 0.05%, 0.05%, 0.01%, 0.005%, 0.001% a year
+var COL_RATE = '#e8836f', COL_SURV = '#4fb8d6', COL_POP = '#e46ba6';
+var GOOD = '#7fd18f', BAD = '#ee4d4d', ZERO = '#8a97a3';
+var ROWS = ['rate', 'surv', 'years', 'gens', 'pop', 'popexp', 'ly', 'lives'];   // display order
+
+// Checkpoints are START plus every power of ten up to the horizon (2026, 2036, 2126, 3026, ...); the
+// periods between them are 10, 90, 900, ... years long.
+function modelFor(e){
+  var cps = [START];
+  for(var k = 1; k <= e; k++) cps.push(START + Number('1e' + k));
+  var n = cps.length, segStart = [], segEnd = [], segLen = [], defPops = [];
+  for(var i = 0; i < n - 1; i++){ segStart.push(cps[i] + 1); segEnd.push(cps[i + 1]); segLen.push(cps[i + 1] - cps[i]); }
+  for(var j = 0; j < n; j++) defPops.push(POP0);
+  return {n:n, cps:cps, segStart:segStart, segEnd:segEnd, segLen:segLen, defRates:ALL_RATES.slice(0, n - 1), defPops:defPops};
+}
+// Fit a {rates, pops} state to a model's size: keep the values for the periods both share, fill the rest
+// with defaults (a horizon change keeps the reader's edits to the early periods).
+function fitState(s, M){
+  function fill(x, def){ var out = def.slice(); for(var k = 0; k < Math.min(x.length, def.length); k++) out[k] = +x[k]; return out; }
+  return {rates: fill(s.rates, M.defRates), pops: fill(s.pops, M.defPops)};
+}
+// The cascade, year by year exactly as the R version, read off at the checkpoints. Potential population
+// is interpolated geometrically between checkpoints; a checkpoint year takes the value of the period that
+// starts there (as build_pop, where the later period overwrites the shared endpoint). Survival is the
+// running product of (1 - rate); the cumulative totals count every year after START.
+function compute(rates, pops, M){
+  var cps = M.cps, n = M.n;
+  var o = {rates:rates, growth:[NaN], surv:[], popPot:[], popExp:[], cumYears:[], cumLy:[], cumLyPot:[],
+           lives:[], gens:[], livesPot:[]};
+  var surv = 1, cy = 0, cly = 0, clyp = 0;
+  function record(pop){
+    o.surv.push(surv); o.popPot.push(pop); o.popExp.push(pop * surv);
+    o.cumYears.push(cy); o.cumLy.push(cly); o.cumLyPot.push(clyp);
+    o.lives.push(cly / LIFE_EXP); o.gens.push(cy / LIFE_EXP); o.livesPot.push(clyp / LIFE_EXP);
+  }
+  record(pops[0]);
+  for(var i = 0; i < n - 1; i++){
+    var y0 = cps[i], y1 = cps[i + 1], v0 = pops[i], ratio = pops[i + 1] / v0, span = y1 - y0, r = rates[i];
+    var pop = v0;
+    for(var y = y0 + 1; y <= y1; y++){
+      pop = (y === y1 && i < n - 2) ? pops[i + 1] : v0 * Math.pow(ratio, (y - y0) / span);
+      surv *= 1 - r;
+      cy += surv; cly += pop * surv; clyp += pop;
+    }
+    record(pop);
+    o.growth.push(Math.pow(pops[i + 1] / pops[i], 1 / span) - 1);
+  }
+  return o;
+}
+
+// ── formatting (R's formatC / f_int / group3 equivalents) ──
+// thousands separators (a plain space) into a digit string: "1234567" → "1 234 567"
+function group3(s){
+  var out = '';
+  for(var i = 0; i < s.length; i++){ if(i > 0 && (s.length - i) % 3 === 0) out += ' '; out += s.charAt(i); }
+  return out;
+}
+// formatC(x, format = "f", digits = d[, big.mark = " "])
+function fmtF(x, d, big){
+  if(isNaN(x)) return 'NaN';
+  if(!isFinite(x)) return x > 0 ? 'Inf' : '-Inf';
+  var s = x.toFixed(d), neg = s.charAt(0) === '-';
+  if(neg) s = s.slice(1);
+  if(big){ var p = s.split('.'); p[0] = group3(p[0]); s = p.join('.'); }
+  return (neg ? '-' : '') + s;
+}
+function fInt(x){ return fmtF(Math.round(x), 0, true); }
+function fPct(x){ return fmtF(x * 100, 4) + '%'; }
+function fYears(x){ return fmtF(x, 4, true) + 'y'; }
+function fmtYear(y){ return y >= 10000 ? group3(String(y)) : String(y); }   // thin separator only for 5+ digits
+// baseline text for the ref slot: same display scale / decimals as the value it sits beside
+function fRef(v, toDisp, decimals, suffix){ return '(' + fmtF(v * toDisp, decimals, true) + suffix + ')'; }
+function sty(col){ return col == null ? '' : ' style="color:' + col + ';"'; }
+// formatC(x, format = "e", digits = 6): R writes at least two exponent digits (1.000000e-05)
+function expR(x){ return x.toExponential(6).replace(/e([+-])(\d)$/, function(m, s, d){ return 'e' + s + '0' + d; }); }
+
+// ── cells and rows: the same markup app_xrisk's R builds ──
+// Digit slots for a number (value or its delta), as HTML text. See build_slots in app_xrisk for the
+// layout rules. o: pad, editable (default true), digitColor(is0, lead), signChar, signColor, refTxt, refGhost.
+function buildSlots(nat, toDisp, decimals, suffix, o){
+  o = o || {};
+  var editable = o.editable !== false, pad = o.pad, digitColor = o.digitColor, k;
+  var parts = fmtF(Math.abs(nat) * toDisp, decimals).split('.'), ip = parts[0];
+  if(pad != null && ip.length < pad) ip = new Array(pad - ip.length + 1).join('0') + ip;
+  ip = group3(ip);
+  var chars = (parts.length > 1 ? ip + '.' + parts[1] : ip).split(''), n = chars.length;
+  var dot = chars.indexOf('.'); if(dot < 0) dot = n;
+  var isdig = chars.map(function(c){ return c >= '0' && c <= '9'; });
+  var place = new Array(n), nInt = 0, seenInt = 0, dec = 0;   // place value of each digit, in native units
+  for(k = 0; k < dot; k++) if(isdig[k]) nInt++;
+  for(k = 0; k < n; k++){
+    if(!isdig[k]) continue;
+    if(k < dot){ seenInt++; place[k] = Number('1e' + (nInt - seenInt)) / toDisp; }
+    else { dec++; place[k] = Number('1e-' + dec) / toDisp; }
+  }
+  var lead = [], seen = false;                                  // zeros before the first significant digit
+  for(k = 0; k < n; k++){
+    lead[k] = false;
+    if(isdig[k]){ if(!seen && chars[k] === '0') lead[k] = true; else seen = true; }
+  }
+  var sepCol = digitColor ? digitColor(false, false) : null;
+  var up = editable ? '<span class="ar up">&#9650;</span>' : '';
+  var dn = editable ? '<span class="ar dn">&#9660;</span>' : '';
+  var sp = editable ? '<span class="arsp"></span>' : '';
+  function sepSlot(txt, cls, col){
+    return '<span class="sep">' + sp + '<b class="' + (cls || 'dch') + '"' + sty(col === undefined ? sepCol : col) + '>' +
+           txt + '</b>' + sp + '</span>';
+  }
+  var groups = [], g = '';                     // thousands-groups: a space starts a new one
+  for(k = 0; k < n; k++){
+    var ch = chars[k], slot;
+    if(isdig[k]){
+      var col = digitColor ? digitColor(ch === '0', lead[k]) : ((pad != null && lead[k]) ? ZERO : null);
+      slot = '<span class="dig" data-delta="' + expR(place[k]) + '">' + up +
+             '<b class="dch"' + sty(col) + '>' + ch + '</b>' + dn + '</span>';
+    } else slot = sepSlot(ch === ' ' ? '&nbsp;' : ch);
+    if(ch === ' ' && k > 0){ groups.push(g); g = ''; }
+    g += slot;
+  }
+  groups.push(g);
+  if(o.signChar != null) groups[0] = sepSlot(o.signChar, 'dch sgn', o.signColor == null ? null : o.signColor) + groups[0];
+  if(suffix) groups[groups.length - 1] += sepSlot(suffix, 'dch suf');
+  var out = groups.map(function(x){ return '<span class="dgroup">' + x + '</span>'; }).join('');
+  if(o.refTxt != null)
+    out += '<span class="dgroup">' + sepSlot(o.refTxt, o.refGhost ? 'dch vref ghost' : 'dch vref', null) + '</span>';
+  return out;
+}
+// a value cell on the grid (spans 2 half-columns); node = the arrow endpoint id ("row:j")
+function vcellHtml(col, inner, cls, attrs){
+  return '<div class="' + (cls || 'vcell') + '" style="grid-column:' + col + '/span 2;"' + (attrs || '') + '>' + inner + '</div>';
+}
+function nodeAttr(node){ return node ? ' data-node="' + node + '"' : ''; }
+// delta colouring shared by both value-cell kinds: grey ± when the change rounds to zero in display
+function deltaLook(dv, toDisp, decimals, good, eps){
+  var cpos = good === 'more_bad' ? BAD : GOOD, cneg = good === 'more_bad' ? GOOD : BAD;
+  var dshow = fmtF(Math.abs(dv) * toDisp, decimals);
+  var dz = Math.abs(dv) < eps || !/[1-9]/.test(dshow);
+  var dcol = dz ? ZERO : (dv > 0 ? cpos : cneg);
+  return {col: dcol, sgn: dz ? '±' : (dv > 0 ? '+' : '−'), digitColor: function(is0, lead){ return lead ? ZERO : dcol; }};
+}
+// fixed value in a row of editable cells: a spacer where the ▲ row would be keeps its number level
+function gcellFixed(col, v, toDisp, decimals, suffix, color, pad, node){
+  return vcellHtml(col, '<div class="vstack"><div class="arsp"></div><div class="vmain digits"' + sty(color) + '>' +
+    buildSlots(v, toDisp, decimals, suffix, {pad: pad, editable: false}) + '</div></div>', 'vcell', nodeAttr(node));
+}
+// editable value cell (per-digit spinner) with its delta row.
+// o: col, cur, ref, kind, vi, toDisp, decimals, suffix, good, sub, color, pad, top, refTxt, node
+function gcellEdit(o){
+  var dv = o.cur - o.ref, d = deltaLook(dv, o.toDisp, o.decimals, o.good, 1e-12);
+  return vcellHtml(o.col,
+    (o.top != null ? '<div class="vtop">' + o.top + '</div>' : '') +
+    '<div class="vstack">' +
+      '<div class="vmain digits"' + sty(o.color) + '>' +
+        buildSlots(o.cur, o.toDisp, o.decimals, o.suffix, {pad: o.pad, refTxt: o.refTxt}) + '</div>' +
+      '<div class="vdelta digits">' +                         // no ▲/▼ on deltas — number-key entry only
+        buildSlots(dv, o.toDisp, o.decimals, o.suffix, {pad: o.pad, editable: false, digitColor: d.digitColor,
+                   signChar: d.sgn, signColor: d.col, refTxt: o.refTxt, refGhost: true}) + '</div>' +
+    '</div>' +
+    (o.sub != null ? '<div class="vsub">' + o.sub + '</div>' : ''),
+    'vcell xedit', nodeAttr(o.node) + ' data-kind="' + o.kind + '" data-i="' + (o.vi - 1) + '"');
+}
+// read-only value cell: value + a digit-aligned delta below it (delta: false for the first checkpoint).
+// o: col, cur, ref, toDisp, decimals, suffix, kind, sub, color, delta, refTxt, node
+function gcellRo(o){
+  var delta = o.delta !== false, dv = o.cur - o.ref, d = deltaLook(dv, o.toDisp, o.decimals, o.kind, 1e-9);
+  var pad = fmtF(Math.abs(o.cur) * o.toDisp, o.decimals).split('.')[0].length;   // value's integer-digit width
+  return vcellHtml(o.col,
+    '<div class="vstack">' +
+      '<div class="vmain digits"' + sty(o.color) + '>' +              // invisible sign slot: same width as the delta
+        buildSlots(o.cur, o.toDisp, o.decimals, o.suffix, {pad: pad, editable: false,
+                   signChar: delta ? '±' : null, signColor: 'transparent', refTxt: o.refTxt}) + '</div>' +
+      (delta ? '<div class="vdelta digits">' +
+        buildSlots(dv, o.toDisp, o.decimals, o.suffix, {pad: pad, editable: false, digitColor: d.digitColor,
+                   signChar: d.sgn, signColor: d.col, refTxt: o.refTxt, refGhost: true}) + '</div>' : '') +
+    '</div>' +
+    (o.sub != null ? '<div class="vsub">' + o.sub + '</div>' : ''),
+    'vcell', nodeAttr(o.node));
+}
+function bigop(sym, lo, up){
+  return '<span class="bigop"><span class="lim up">' + up + '</span><span class="op">' + sym +
+         '</span><span class="lim lo">' + lo + '</span></span>';
+}
+function mv(txt, col){ return '<span style="color:' + col + ';">' + txt + '</span>'; }
+function metricGrow(label, color, cells, cls, row, formula, toggle){
+  return '<div class="' + ('grow ' + (cls || '')).trim() + '" data-row="' + row + '">' +
+    '<div class="rlabel" style="color:' + color + ';"><div class="rlblwrap">' +
+      '<span class="rlbl">' + label + '</span>' +
+      (formula ? '<div class="rformula">' + formula + '</div>' : '') + (toggle || '') +
+    '</div></div>' + cells + '</div>';
+}
+// per-row "switch to the complement" button; its text names the view a click switches TO
+function rtoggle(id, on, labelOff, labelOn){
+  return '<button type="button" class="rtog' + (on ? ' on' : '') + '" data-input="' + id + '" data-on="' + (on ? '1' : '0') +
+         '">&#8644;&nbsp;' + (on ? labelOn : labelOff) + '</button>';
+}
+
+// Dependency arrows (see arrow_edges in app_xrisk): for checkpoints j >= 2 each value comes from its
+// row's previous value (h) and from rows above; a source in a hidden row is replaced by what that row
+// was derived from, and an arrow that skips visible rows is type d.
+var CROSS = {
+  surv:   function(j){ return ['rate:' + (j - 1)]; },           // cs_t <- ae over the period ending at t
+  years:  function(j){ return ['surv:' + j]; },                 // Y_t  <- cs_t
+  gens:   function(j){ return ['surv:' + j]; },                 // G_t  <- cs_t
+  popexp: function(j){ return ['pop:' + j, 'surv:' + j]; },     // E_t  <- P_t, cs_t
+  ly:     function(j){ return ['popexp:' + j]; },               // H_t  <- E_t
+  lives:  function(j){ return ['popexp:' + j]; }                // N_t  <- E_t
+};
+var HORIZ = ['surv', 'years', 'gens', 'ly', 'lives'];            // running totals
+function arrowEdges(vis, n){
+  function addU(arr, x){ if(arr.indexOf(x) < 0) arr.push(x); }
+  function expand(id){
+    var p = id.split(':'), row = p[0];
+    if(vis.indexOf(row) >= 0) return [id];
+    var out = [];
+    if(CROSS[row]) CROSS[row](+p[1]).forEach(function(s){ expand(s).forEach(function(x){ addU(out, x); }); });
+    return out;
+  }
+  var out = [];
+  vis.forEach(function(row){
+    for(var j = 2; j <= n; j++){
+      if(HORIZ.indexOf(row) >= 0) addU(out, row + ':' + (j - 1) + ',' + row + ':' + j + ',h');
+      var srcs = [];
+      if(CROSS[row]) CROSS[row](j).forEach(function(s){ expand(s).forEach(function(x){ addU(srcs, x); }); });
+      srcs.forEach(function(s){
+        var skips = vis.indexOf(row) - vis.indexOf(s.split(':')[0]) > 1;
+        addU(out, s + ',' + row + ':' + j + ',' + (skips ? 'd' : 'v'));
+      });
+    }
+  });
+  return out.join(';');
+}
+
+function isChecked(id){ var el = document.getElementById(id); return !!(el && el.checked); }
+function visibleRows(){
+  var on = varBoxes().filter(function(x){ return x.checked; }).map(function(x){ return x.value; });
+  return ROWS.filter(function(r){ return on.indexOf(r) >= 0; });
+}
+function range1(n){ var a = []; for(var k = 1; k <= n; k++) a.push(k); return a; }
+
+// The table. j = checkpoint and i = period, both 1-based as in the R version; arrays are 0-based.
+function panelHtml(cur, ref){
+  var m = M, n = m.n, np = n - 1, sr = isChecked('showref'), rc = rateComp, sc = survComp;
+  var J = range1(n), I = range1(np), elapsed = [0];
+  for(var k = 0; k < np; k++) elapsed.push(elapsed[k] + m.segLen[k]);
+  function ycol(j){ return 2 * j; }                       // grid start for year j
+  function gcol(i){ return 2 * i + 1; }                   // grid start for gap i (between years i and i+1)
+  function rtxt(v, toDisp, decimals, suffix){ return sr ? fRef(v, toDisp, decimals, suffix) : null; }
+
+  var header = '<div class="grow ghead"><div class="rlabel"></div>' + J.map(function(j){
+    return '<div class="ycol" style="grid-column:' + ycol(j) + '/span 2;"><div class="yr">' + fmtYear(m.cps[j - 1]) + '</div></div>';
+  }).join('') + '</div>';
+  // period labels: on the annual-probability row above each period's box, or their own row if it is hidden
+  var ivl = I.map(function(i){
+    return '<div class="ivlcell" style="grid-column:' + gcol(i) + '/span 2;"><div>&larr; ' + m.segLen[i - 1] +
+           ' years &rarr;</div><div class="ivlrng">' + fmtYear(m.segStart[i - 1]) + '&ndash;' + fmtYear(m.segEnd[i - 1]) + '</div></div>';
+  }).join('');
+  var intervals = '<div class="grow"><div class="rlabel"></div>' + ivl + '</div>';
+
+  // formula symbols, each written in whichever variable the rows above currently show
+  function sym(nm, k, col){ return mv(nm + '<sub>' + k + '</sub>', col); }
+  function asv(k){ return rc ? sym('as', k, COL_RATE) : '(1 &minus; ' + sym('ae', k, COL_RATE) + ')'; }
+  function csv(k){ return sc ? '(1 &minus; ' + sym('ce', k, COL_SURV) + ')' : sym('cs', k, COL_SURV); }
+  var SUM = bigop('&sum;', 'i=2027', 't');
+
+  // each row is built only when it is visible
+  var rows = {
+    rate: function(){                                   // editable, in the gaps between years
+      var cells = I.map(function(i){
+        var cv = rc ? 1 - cur.rates[i - 1] : cur.rates[i - 1], rv = rc ? 1 - ref.rates[i - 1] : ref.rates[i - 1];
+        return gcellEdit({col: gcol(i), cur: cv, ref: rv, kind: rc ? 'rate_c' : 'rate', vi: i, toDisp: 100, decimals: 4,
+          suffix: '%', good: rc ? 'more_good' : 'more_bad', color: COL_RATE, refTxt: rtxt(rv, 100, 4, '%'), node: 'rate:' + i,
+          top: "<span class='ratio'>1 in " + fInt(1 / cur.rates[i - 1]) + '</span>' +      // odds of extinction either way
+               (sr ? " <span class='ratio vref'>(1 in " + fInt(1 / ref.rates[i - 1]) + ')</span>' : '')});
+      }).join('');
+      return metricGrow((rc ? 'Annual survival probability' : 'Annual extinction probability') +
+          "<br><span class='ital'>if survived until then</span>", COL_RATE, ivl + cells, 'erow rrow', 'rate',
+          rc ? sym('as', 't', COL_RATE) + ' = 1 &minus; ' + sym('ae', 't', COL_RATE) : sym('ae', 't', COL_RATE),
+          rtoggle('rate_comp', rc, 'Show annual survival', 'Show annual extinction'));
+    },
+    surv: function(){                                   // editable (backtraces into the rates)
+      var cells = J.map(function(j){
+        if(j === 1) return gcellFixed(ycol(1), sc ? 0 : cur.surv[0], 100, 4, '%', COL_SURV, 2, 'surv:1');
+        var cv = sc ? 1 - cur.surv[j - 1] : cur.surv[j - 1], rv = sc ? 1 - ref.surv[j - 1] : ref.surv[j - 1];
+        return gcellEdit({col: ycol(j), cur: cv, ref: rv, kind: sc ? 'surv_c' : 'surv', vi: j - 1, toDisp: 100, decimals: 4,
+          suffix: '%', pad: 2, good: sc ? 'more_bad' : 'more_good', color: COL_SURV, refTxt: rtxt(rv, 100, 4, '%'), node: 'surv:' + j});
+      }).join('');
+      return metricGrow((sc ? 'Cumulative extinction probability' : 'Cumulative survival probability') +
+          "<br><span class='ital'>given past " + (rc ? 'survival' : 'extinction') + ' probabilities</span>', COL_SURV, cells,
+          'erow', 'surv',
+          (sc ? sym('ce', 't', COL_SURV) : sym('cs', 't', COL_SURV)) + ' = ' + (sc ? '1 &minus; ' : '') +
+            bigop('&prod;', 'i=2027', 't') + ' ' + asv('i'),
+          rtoggle('surv_comp', sc, 'Show cumulative extinction', 'Show cumulative survival'));
+    },
+    years: function(){
+      var cells = J.map(function(j){
+        if(j === 1) return gcellRo({col: ycol(1), cur: cur.cumYears[0], ref: cur.cumYears[0], toDisp: 1, decimals: 4, suffix: 'y',
+                                    delta: false, color: COL_SURV, node: 'years:1'});
+        return gcellRo({col: ycol(j), cur: cur.cumYears[j - 1], ref: ref.cumYears[j - 1], toDisp: 1, decimals: 4, suffix: 'y',
+          sub: 'of ' + fInt(elapsed[j - 1]) + 'y potential', color: COL_SURV, refTxt: rtxt(ref.cumYears[j - 1], 1, 4, 'y'),
+          node: 'years:' + j});
+      }).join('');
+      return metricGrow('Cumulative survived years of humanity', COL_SURV, cells, '', 'years',
+                        mv('Y<sub>t</sub>', COL_SURV) + ' = ' + SUM + ' ' + csv('i'));
+    },
+    gens: function(){
+      var cells = J.map(function(j){
+        if(j === 1) return gcellRo({col: ycol(1), cur: cur.gens[0], ref: cur.gens[0], toDisp: 1, decimals: 4, suffix: '',
+                                    delta: false, color: COL_SURV, node: 'gens:1'});
+        return gcellRo({col: ycol(j), cur: cur.gens[j - 1], ref: ref.gens[j - 1], toDisp: 1, decimals: 4, suffix: '',
+          sub: 'of ' + fmtF(elapsed[j - 1] / LIFE_EXP, 2) + ' potential', color: COL_SURV, refTxt: rtxt(ref.gens[j - 1], 1, 4, ''),
+          node: 'gens:' + j});
+      }).join('');
+      return metricGrow("Cumulative survived generations <span class='ital'>(75y)</span>", COL_SURV, cells, '', 'gens',
+                        mv('G<sub>t</sub>', COL_SURV) + ' = ' + SUM + ' ' + csv('i') + ' / 75');
+    },
+    pop: function(){                                    // editable checkpoints; growth rate in the gaps
+      var cells = J.map(function(j){
+        return gcellEdit({col: ycol(j), cur: cur.popPot[j - 1], ref: ref.popPot[j - 1], kind: 'pop', vi: j, toDisp: 1 / 1e6,
+          decimals: 0, suffix: 'm', pad: 5, good: 'more_good', color: COL_POP, node: 'pop:' + j});
+      }).join('');
+      var growth = I.map(function(i){
+        var g = cur.growth[i] * 100;
+        return '<div class="vgrowth" style="grid-column:' + gcol(i) + '/span 2;">' + (g >= 0 ? '+' : '') + fmtF(g, 3) + '%/yr</div>';
+      }).join('');
+      return metricGrow("Annual population potential<br><span class='ital'>if survived</span>", COL_POP, cells + growth,
+                        'erow', 'pop', mv('P<sub>t</sub>', COL_POP));
+    },
+    popexp: function(){
+      var cells = J.map(function(j){
+        if(j === 1) return gcellRo({col: ycol(1), cur: cur.popExp[0], ref: cur.popExp[0], toDisp: 1, decimals: 0, suffix: '',
+                                    delta: false, color: COL_POP, node: 'popexp:1'});
+        return gcellRo({col: ycol(j), cur: cur.popExp[j - 1], ref: ref.popExp[j - 1], toDisp: 1, decimals: 0, suffix: '',
+          sub: 'of ' + fInt(cur.popPot[j - 1]) + ' potential', color: COL_POP, node: 'popexp:' + j});
+      }).join('');
+      return metricGrow("Annual population<br><span class='ital'>given survival probability</span>", COL_POP, cells, '', 'popexp',
+                        mv('E<sub>t</sub>', COL_POP) + ' = ' + mv('P<sub>t</sub>', COL_POP) + ' &middot; ' + csv('t'));
+    },
+    ly: function(){
+      var cells = J.map(function(j){
+        if(j === 1) return gcellRo({col: ycol(1), cur: cur.cumLy[0], ref: cur.cumLy[0], toDisp: 1, decimals: 0, suffix: '',
+                                    delta: false, color: COL_POP, node: 'ly:1'});
+        return gcellRo({col: ycol(j), cur: cur.cumLy[j - 1], ref: ref.cumLy[j - 1], toDisp: 1, decimals: 0, suffix: '',
+          sub: 'of ' + fInt(cur.cumLyPot[j - 1]) + ' potential', color: COL_POP, node: 'ly:' + j});
+      }).join('');
+      return metricGrow('Cumulative lived human life-years', COL_POP, cells, '', 'ly',
+                        mv('H<sub>t</sub>', COL_POP) + ' = ' + SUM + ' ' + mv('E<sub>i</sub>', COL_POP));
+    },
+    lives: function(){
+      var cells = J.map(function(j){
+        if(j === 1) return gcellRo({col: ycol(1), cur: cur.lives[0], ref: cur.lives[0], toDisp: 1, decimals: 0, suffix: '',
+                                    delta: false, color: COL_POP, node: 'lives:1'});
+        return gcellRo({col: ycol(j), cur: cur.lives[j - 1], ref: ref.lives[j - 1], toDisp: 1, decimals: 0, suffix: '',
+          sub: fInt(cur.livesPot[j - 1] - cur.lives[j - 1]) + ' less than potential', color: COL_POP, node: 'lives:' + j});
+      }).join('');
+      return metricGrow("Cumulative lived human lives <span class='ital'>(75y)</span>", COL_POP, cells, '', 'lives',
+                        mv('N<sub>t</sub>', COL_POP) + ' = ' + SUM + ' ' + mv('E<sub>i</sub>', COL_POP) + ' / 75');
+    }
+  };
+
+  var vis = visibleRows();
+  // --halfcol: column pitch cap for this horizon (see the .grow CSS comment)
+  return '<div class="grid-scroll"><div class="grid-wrap" style="--ncols:' + (2 * n) + ';--halfcol:' +
+         (Math.round(1.05 * (46 + 7 * n) * 10) / 10) + 'px;" data-edges="' + arrowEdges(vis, n) + '">' +
+         header + (vis.indexOf('rate') < 0 ? intervals : '') +
+         vis.map(function(r){ return rows[r](); }).join('') +
+         (vis.length ? '' : '<div class="novars">No variables selected — pick some from the Variables menu.</div>') +
+         '</div></div>';
+}
+function summaryHtml(cur){
+  var n = M.n, total = 0;
+  M.segLen.forEach(function(v){ total += v; });
+  function hl(t, c){ return "<b style='color:" + c + ";'>" + t + '</b>'; }   // value in its row's colour
+  return '<div class="summary">With these rates, humanity survives to ' + hl(fmtYear(M.cps[n - 1]), '#e8eef4') +
+    ' with ' + hl(fPct(cur.surv[n - 1]), COL_SURV) + ' probability, is expected to live ' +
+    hl(fYears(cur.cumYears[n - 1]), COL_SURV) + ' of the next ' + fInt(total) + ' years, and to accrue ' +
+    hl(fInt(cur.lives[n - 1]), COL_POP) + ' human lives (' + hl(fInt(cur.cumLy[n - 1]), COL_POP) + ' life-years).</div>';
+}
+function footHtml(){
+  return '<div class="foot">Population potential is interpolated geometrically between the checkpoints ' +
+    pops.map(function(p){ return (p / 1e9).toFixed(1); }).join(' / ') +
+    '&nbsp;bn, so it stays internally consistent. Lives = cumulative life-years &divide; 75.</div>';
+}
+
+// ── state, baselines and history ──
+// rates / pops: the current state. The comparison baseline is either a frozen state ("Set baseline =
+// current", mode 'current') or the state before the most recent change (mode 'previous') — the same
+// rules app_xrisk's server applied.
+var hscale = DEF_EXP, M = modelFor(hscale);
+var rates = M.defRates.slice(), pops = M.defPops.slice();
+var LEN = M.segLen.slice();                      // period lengths (years), for the survival backtrace
+var rateComp = false, survComp = false;          // per-row complement views (the ⇄ buttons)
+function snap(){ return {rates: rates.slice(), pops: pops.slice()}; }
+var mode = 'previous', refStatic = snap(), histPrev = snap(), histLast = snap();
+function refState(){ return fitState(mode === 'previous' ? histPrev : refStatic, M); }
+var sel = {kind:'rate', i:0, place:0.00001, delta:false};  // first period, second-to-last decimal (0.001%); value/delta + which digit
+
+// undo / redo: snapshots of {rates, pops}
+var histStack = [snap()];
 var histIdx = 0, histSuppress = false;
 function histEq(a,b){ return a.rates.every(function(v,i){return v===b.rates[i];}) && a.pops.every(function(v,i){return v===b.pops[i];}); }
 function updateHistBtns(){
@@ -584,7 +626,7 @@ function updateHistBtns(){
 }
 function recordHistory(){
   if(histSuppress) return;
-  var cur = {rates: rates.slice(), pops: pops.slice()};
+  var cur = snap();
   if(histEq(cur, histStack[histIdx])) return;        // no actual change
   histStack = histStack.slice(0, histIdx + 1);         // drop any redo tail
   histStack.push(cur); histIdx = histStack.length - 1;
@@ -593,16 +635,64 @@ function recordHistory(){
 function restoreHist(){
   var s = histStack[histIdx];
   histSuppress = true; rates = s.rates.slice(); pops = s.pops.slice(); pushState(); histSuppress = false;
-  applyHighlight(); updateHistBtns();
+  updateHistBtns();
 }
 function undo(){ if(histIdx > 0){ histIdx--; restoreHist(); } }
 function redo(){ if(histIdx < histStack.length - 1){ histIdx++; restoreHist(); } }
 
-function pushState(){ if(window.Shiny) Shiny.setInputValue('state', {rates:rates, pops:pops}, {priority:'event'}); recordHistory(); }
-// Complementary display kinds: the "show annual survival" / "show extinction probability" checkboxes
-// re-render rows 1-2 with data-kind rate_c / surv_c, whose value is 1 - the underlying one. Editing them
-// writes back through the same rate / survival machinery. A selection survives the toggle by following
-// its cell to the other kind name.
+// every change to rates / pops ends here: shift the "previous" baseline, record undo, redraw
+function pushState(){ histPrev = histLast; histLast = snap(); recordHistory(); scheduleRender(); }
+
+// Redraw: rebuild the table, summary and footer from the state, then restore the selection highlight,
+// fit the columns, draw the arrows and keep the table's sideways scroll position. Several changes in
+// one frame (a wheel spin, a held key) cost one redraw.
+var renderQueued = false;
+function scheduleRender(){ if(!renderQueued){ renderQueued = true; requestAnimationFrame(render); } }
+function render(){
+  renderQueued = false;
+  var rs = refState(), cur = compute(rates, pops, M), ref = compute(rs.rates, rs.pops, M);
+  var sc0 = document.querySelector('.grid-scroll'), scrollX = sc0 ? sc0.scrollLeft : 0;
+  document.getElementById('panel').innerHTML = panelHtml(cur, ref);
+  document.getElementById('summary').innerHTML = summaryHtml(cur);
+  document.getElementById('foot').innerHTML = footHtml();
+  var br = document.getElementById('setref'), bp = document.getElementById('setprev');
+  if(br) br.classList.toggle('active', mode === 'current');
+  if(bp) bp.classList.toggle('active', mode === 'previous');
+  cellOf(sel);                                    // a ⇄ toggle renamed the selected cell's kind: follow it
+  applyHighlight();
+  watchArrows();
+  var sc1 = document.querySelector('.grid-scroll'); if(sc1) sc1.scrollLeft = scrollX;
+}
+
+// the buttons that reset or rebase the state
+function setBaselineCurrent(){ refStatic = snap(); mode = 'current'; scheduleRender(); }
+function setBaselinePrevious(){ mode = 'previous'; scheduleRender(); }
+function allSurvive(){                              // all x-risk → 0 (all survival 100%); deltas rebased to 0
+  rates = rates.map(function(){ return 0; }); refStatic = snap(); mode = 'current'; pushState();
+}
+function resetDefaults(){
+  rates = M.defRates.slice(); pops = M.defPops.slice();
+  refStatic = snap(); histPrev = snap(); histLast = snap(); mode = 'previous'; pushState();
+}
+// Horizon changed: fit the state to the new number of periods (edits to shared periods kept) and rebase
+// the baseline on it — a structural change, not an edit. The undo history restarts (its snapshots have
+// the old length) and the selection is clamped so it can't point past the last column.
+function setHorizon(e){
+  if(!isFinite(e) || e === hscale) return;
+  hscale = e; M = modelFor(e);
+  var s = fitState(snap(), M);
+  rates = s.rates; pops = s.pops; LEN = M.segLen.slice();
+  refStatic = snap(); histPrev = snap(); histLast = snap();
+  histStack = [snap()]; histIdx = 0;
+  var last = (sel.kind === 'pop' ? pops.length : rates.length) - 1;   // rate/rate_c/surv/surv_c all index periods
+  if(sel.i > last) sel.i = last;
+  updateHistBtns(); scheduleRender();
+}
+
+// ── editing (as in app_xrisk) ──
+// Complementary display kinds: the ⇄ buttons re-render rows 1-2 with data-kind rate_c / surv_c, whose
+// value is 1 - the underlying one. Editing them writes back through the same rate / survival machinery.
+// A selection survives the toggle by following its cell to the other kind name.
 var ALT_KIND = { rate:'rate_c', rate_c:'rate', surv:'surv_c', surv_c:'surv' };
 function cellOf(s){
   var c = document.querySelector('.xedit[data-kind="'+s.kind+'"][data-i="'+s.i+'"]');
@@ -650,7 +740,6 @@ function setSurv(i, T){
   }
   pushState();
 }
-var MINPLACE = { rate:1e-6, surv:1e-6, pop:1e6, rate_c:1e-6, surv_c:1e-6 };  // smallest editable digit per kind
 function valOf(kind, i, rArr, pArr){
   if(kind === 'surv')   return survOf(rArr, i);
   if(kind === 'surv_c') return 1 - survOf(rArr, i);      // cumulative extinction probability
@@ -658,7 +747,7 @@ function valOf(kind, i, rArr, pArr){
   return (kind === 'rate' ? rArr : pArr)[i];
 }
 function curVal(){  return valOf(sel.kind, sel.i, rates, pops); }
-function baseVal(){ return valOf(sel.kind, sel.i, baseRates, basePops); }
+function baseVal(){ var b = refState(); return valOf(sel.kind, sel.i, b.rates, b.pops); }
 function setValAbs(v){                            // write the actual value (backtrace for surv)
   if(sel.kind === 'surv'){ setSurv(sel.i, v); }
   else if(sel.kind === 'surv_c'){ setSurv(sel.i, 1 - v); }
@@ -746,9 +835,8 @@ document.addEventListener('wheel', function(e){
   while(wheelAcc >=  STEP && n < 8){ wheelAcc -= STEP; change(1);  n++; }
   if(n >= 8) wheelAcc = 0;   // guard against a pathological single event
 }, {passive:false});
-$(document).on('shiny:value', function(ev){ if(ev.name === 'panel') setTimeout(function(){ applyHighlight(); watchArrows(); }, 0); });
 
-// ── dependency arrows: SVG overlay on .grid-wrap, drawn from its data-edges ("from,to,type;...") ──
+// ── dependency arrows (as in app_xrisk): SVG overlay on .grid-wrap, drawn from its data-edges ──
 // type h: across a row (previous value → this one, at the value's line); v: from the row directly above;
 // d: skips visible rows, so it loops round the boxes' left side.
 // A value with an h arrow is its previous value *acted on* by the rows above (cs_2036 = cs_2026 · (1 − ae)^10),
@@ -868,8 +956,8 @@ function fitColumns(){
   });
   gw.style.setProperty('--halfmin', Math.ceil(w / 2 + 3) + 'px');
 }
-// Redraw whenever the table's box changes size (window resize, wrapping, formulas toggled, fonts
-// loading). The panel's re-render replaces .grid-wrap, so re-attach the observer each time.
+// Redraw the arrows whenever the table's box changes size (window resize, formulas toggled, fonts
+// loading). Each render replaces .grid-wrap, so the observer is re-attached every time.
 var arrowRO = window.ResizeObserver ? new ResizeObserver(function(){ requestAnimationFrame(drawArrows); }) : null;
 function watchArrows(){
   var gw = document.querySelector('.grid-wrap');
@@ -878,42 +966,29 @@ function watchArrows(){
   drawArrows();
 }
 window.addEventListener('resize', function(){ requestAnimationFrame(drawArrows); });
-$(document).on('change', '#showarrows', function(){ document.body.classList.toggle('noarrows', !this.checked); drawArrows(); });
-$(document).on('shiny:connected', function(){ pushState(); setTimeout(function(){ applyHighlight(); updateHistBtns(); }, 60); });
 if(document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ fitColumns(); drawArrows(); });
+
+// ── controls ──
 document.addEventListener('click', function(e){
-  if(e.target.closest('#undoBtn')){ undo(); }
-  else if(e.target.closest('#redoBtn')){ redo(); }
+  if(e.target.closest('#undoBtn')) undo();
+  else if(e.target.closest('#redoBtn')) redo();
+  else if(e.target.closest('#surv100')) allSurvive();
+  else if(e.target.closest('#reset')) resetDefaults();
+  else if(e.target.closest('#setref')) setBaselineCurrent();
+  else if(e.target.closest('#setprev')) setBaselinePrevious();
 });
 document.addEventListener('keydown', function(e){
   var z = (e.key === 'z' || e.key === 'Z'), y = (e.key === 'y' || e.key === 'Y');
   if((e.ctrlKey || e.metaKey) && z && !e.shiftKey){ e.preventDefault(); undo(); }
   else if((e.ctrlKey || e.metaKey) && (y || (z && e.shiftKey))){ e.preventDefault(); redo(); }
 });
-if(window.Shiny){
-  Shiny.addCustomMessageHandler('setState', function(v){
-    rates = v.rates.slice(); pops = v.pops.slice(); pushState(); applyHighlight();
-  });
-  Shiny.addCustomMessageHandler('baseline', function(v){
-    baseRates = v.rates.slice(); basePops = v.pops.slice();
-  });
-  // Horizon changed: the server sends the resized arrays (edits to shared periods preserved).
-  // The undo history restarts — its snapshots have the old length and can't be restored into
-  // the new structure — and the selection is clamped so it can't point past the last column.
-  Shiny.addCustomMessageHandler('setScale', function(v){
-    LEN = v.len.slice(); rates = v.rates.slice(); pops = v.pops.slice();
-    baseRates = rates.slice(); basePops = pops.slice();
-    histStack = [{rates: rates.slice(), pops: pops.slice()}]; histIdx = 0;
-    var last = (sel.kind === 'pop' ? pops.length : rates.length) - 1;   // rate/rate_c/surv/surv_c all index periods
-    if(sel.i > last) sel.i = last;
-    pushState(); applyHighlight(); updateHistBtns();
-  });
-}
-// "Show formulas": a body class, so it survives every panel re-render with no server round trip
+$(document).on('change', '#showarrows', function(){ document.body.classList.toggle('noarrows', !this.checked); drawArrows(); });
 $(document).on('change', '#showfx', function(){ document.body.classList.toggle('nofx', !this.checked); });
-// Per-row complement toggles (rendered inside the panel): forward to input$rate_comp / input$surv_comp
+$(document).on('change', '#showref', scheduleRender);
+// per-row complement toggles (rendered inside the table)
 $(document).on('click', '.rtog', function(){
-  if(window.Shiny) Shiny.setInputValue(this.getAttribute('data-input'), this.getAttribute('data-on') !== '1');
+  if(this.getAttribute('data-input') === 'rate_comp') rateComp = !rateComp; else survComp = !survComp;
+  scheduleRender();
 });
 // Variables dropdown: live "k / n" count on the button, All / None shortcuts, close on an outside click.
 function varBoxes(){ return Array.prototype.slice.call(document.querySelectorAll('#vars input[type=checkbox]')); }
@@ -921,14 +996,14 @@ function updateVarCount(){
   var b = varBoxes(), c = document.querySelector('.vdrop .vcount');
   if(c) c.textContent = b.filter(function(x){ return x.checked; }).length + ' / ' + b.length;
 }
-$(document).on('change', '#vars input[type=checkbox]', updateVarCount);
+$(document).on('change', '#vars input[type=checkbox]', function(){ updateVarCount(); scheduleRender(); });
 document.addEventListener('click', function(e){
   var a = e.target.closest('.vall a');
   if(a){
     e.preventDefault();
     var on = a.getAttribute('data-vars') === 'all';
     varBoxes().forEach(function(x){ x.checked = on; });
-    $('#vars input[type=checkbox]').first().trigger('change');   // one change event → Shiny reads the whole group
+    $('#vars input[type=checkbox]').first().trigger('change');   // one change event → one redraw
     return;
   }
   var d = document.querySelector('.vdrop[open]');
@@ -937,12 +1012,24 @@ document.addEventListener('click', function(e){
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape'){ var d = document.querySelector('.vdrop[open]'); if(d) d.removeAttribute('open'); }
 });
-// Horizon slider labels: it runs 2..5 (exponents); show the reader "100 y / 1 000 y / 10 000 y / 100 000 y".
-function fmtScale(n){ return String(Math.pow(10, n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' y'; }
+// Time scale: the slider holds the exponent (2..5). Read it from the slider itself on either of its
+// change signals; setHorizon ignores repeats.
+function readScale(){
+  var s = $('#hscale').data('ionRangeSlider');
+  return s ? +s.result.from : parseInt($('#hscale').val(), 10);
+}
+$(document).on('change', '#hscale', function(){ setHorizon(readScale()); });
+$(document).on('shiny:inputchanged', function(ev){ if(ev.name === 'hscale') setHorizon(+ev.value); });
+// slider labels: show the reader "100 y / 1 000 y / 10 000 y / 100 000 y" instead of the exponent
+function fmtScale(n){ return String(Math.pow(10, n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' y'; }
 $(document).on('shiny:connected', function(){
   var s = $('#hscale').data('ionRangeSlider');
   if(s) s.update({ prettify: fmtScale });
 });
+
+// first draw: the page's controls are already in place, so the table needs nothing from the server
+updateHistBtns();
+render();
 )"
 
 ui <- fluidPage(
@@ -973,7 +1060,6 @@ ui <- fluidPage(
     div(class = "controls",
       # Variables: which metric rows are rendered. A hidden row isn't built at all, so its cells
       # can't be clicked, arrowed into or wheel-edited.
-      # A <details> dropdown holding a checkbox per row; the count on the button is kept live by JS.
       tags$details(class = "vdrop",
         tags$summary(class = "btn", "Variables ",
           span(class = "vcount", sprintf("%d / %d", length(VAR_ON), length(VAR_ROWS))),
@@ -983,7 +1069,8 @@ ui <- fluidPage(
             tags$a(href = "#", `data-vars` = "all", "All"), " · ",
             tags$a(href = "#", `data-vars` = "none", "None")),
           checkboxGroupInput("vars", NULL, choices = VAR_ROWS, selected = VAR_ON))),
-      uiOutput("basebtns", inline = TRUE),
+      actionButton("setref",  "Set baseline = current", class = "btn"),
+      actionButton("setprev", "Set baseline = previous value", class = "btn active"),
       checkboxInput("showref",   "Show baseline values", FALSE, width = "auto"),
       # Horizon: 100 / 1 000 / 10 000 / 100 000 years. The slider holds the exponent (2..5); a JS prettify
       # hook shows the reader the year count instead. Default 1 000 keeps the first load light.
@@ -991,258 +1078,15 @@ ui <- fluidPage(
         span(class = "khint", "Time scale"),
         sliderInput("hscale", NULL, min = min(SCALE_EXP), max = max(SCALE_EXP), value = DEF_EXP,
                     step = 1, ticks = FALSE, width = "170px"))),
-    uiOutput("panel"),
-    uiOutput("summary"),
-    uiOutput("foot"),
+    # filled by the JavaScript on every change
+    div(id = "panel"),
+    div(id = "summary"),
+    div(id = "foot"),
     tags$script(HTML(js)))
 )
 
-# ── server ──────────────────────────────────────────────────────────────────
-server <- function(input, output, session) {
-
-  # The model for the chosen horizon. Everything downstream — state, baseline, history, the
-  # panel — is fitted to it with fit_state(), so a horizon change can never leave a stale
-  # 5-column state being rendered into a 3-column model (or vice versa).
-  M <- reactive(model_for(as.integer(input$hscale %||% DEF_EXP)))
-  def_state <- reactive(list(rates = M()$def_rates, pops = M()$def_pops))
-
-  state_r <- reactive({
-    s <- input$state
-    if (is.null(s)) def_state() else fit_state(s, M())
-  })
-
-  DEF0       <- list(rates = model_for(DEF_EXP)$def_rates, pops = model_for(DEF_EXP)$def_pops)
-  mode       <- reactiveVal("previous")          # "current" | "previous"
-  ref_static <- reactiveVal(DEF0)                 # frozen baseline (current mode)
-  hist       <- reactiveValues(prev = DEF0, last = DEF0)
-
-  # remember the state before the most recent change
-  observeEvent(input$state, {
-    hist$prev <- hist$last
-    hist$last <- state_r()
-  })
-
-  ref_state <- reactive(fit_state(if (mode() == "previous") hist$prev else ref_static(), M()))
-
-  # Horizon changed: resize the current state (keeping edits to the periods both horizons share),
-  # hand it to the client, and rebase deltas/history on it — a structural change, not an edit.
-  observeEvent(input$hscale, {
-    new_state <- fit_state(isolate(state_r()), M())
-    session$sendCustomMessage("setScale",
-      list(len = as.numeric(M()$seg_len), rates = as.numeric(new_state$rates), pops = as.numeric(new_state$pops)))
-    ref_static(new_state); hist$prev <- new_state; hist$last <- new_state
-  }, ignoreInit = TRUE)
-
-  observe({                                        # keep JS informed of the baseline (for delta editing)
-    b <- ref_state()
-    session$sendCustomMessage("baseline",
-      list(rates = as.numeric(b$rates), pops = as.numeric(b$pops)))
-  })
-
-  observeEvent(input$setref,  { ref_static(state_r()); mode("current") })
-  observeEvent(input$setprev, mode("previous"))
-  observeEvent(input$surv100, {                   # all survival → 100%, all x-risk → 0; rebase deltas to 0
-    new_state <- list(rates = as.numeric(rep(0, M()$n - 1)), pops = as.numeric(state_r()$pops))
-    session$sendCustomMessage("setState", new_state)
-    ref_static(new_state); mode("current")
-  })
-  observeEvent(input$reset, {
-    d <- def_state()
-    session$sendCustomMessage("setState", list(rates = as.numeric(d$rates), pops = as.numeric(d$pops)))
-    ref_static(d); hist$prev <- d; hist$last <- d
-    mode("previous")
-  })
-
-  output$basebtns <- renderUI({
-    m <- mode()
-    tagList(
-      actionButton("setref",  "Set baseline = current",
-                   class = if (m == "current")  "btn active" else "btn"),
-      actionButton("setprev", "Set baseline = previous value",
-                   class = if (m == "previous") "btn active" else "btn"))
-  })
-
-  output$panel <- renderUI({
-    m   <- M(); n <- m$n; np <- n - 1                 # checkpoints / periods for this horizon
-    st  <- state_r(); rf <- ref_state()
-    cur <- compute(st$rates, st$pops, m)
-    ref <- compute(rf$rates, rf$pops, m)
-    elapsed <- c(0, cumsum(m$seg_len))               # 0,10,100,(1000,(10000))
-    ycol <- function(j) 2 * j                         # grid start for year j
-    gcol <- function(i) 2 * i + 1                     # grid start for gap i (between year i & i+1)
-    J <- seq_len(n); I <- seq_len(np)                 # column / gap indices
-    # "Show baseline values": the baseline in parentheses beside the value, first three variables only
-    sr <- isTRUE(input$showref)
-    rtxt <- function(v, to_disp, decimals, suffix) if (sr) f_ref(v, to_disp, decimals, suffix) else NULL
-
-    # header: years centered over their columns
-    header <- do.call(tags$div, c(list(class = "grow ghead",
-      tags$div(class = "rlabel", "")),
-      lapply(J, function(j)
-        tags$div(class = "ycol", style = paste0("grid-column:", ycol(j), "/span 2;"),
-          div(class = "yr", fmt_year(m$cps[j]))))))
-
-    # period labels: "← N years →" over each gap, with the calendar year-range below it. They sit on the
-    # annual-probability row, above that period's box; if that row is hidden they get a row of their own.
-    ivl_cells <- lapply(I, function(i)
-      tags$div(class = "ivlcell", style = paste0("grid-column:", gcol(i), "/span 2;"),
-        div(HTML(paste0("&larr; ", m$seg_len[i], " years &rarr;"))),
-        div(class = "ivlrng", HTML(paste0(fmt_year(m$seg_start[i]), "&ndash;", fmt_year(m$seg_end[i]))))))
-    intervals <- do.call(tags$div, c(list(class = "grow", tags$div(class = "rlabel", "")), ivl_cells))
-
-    # Complementary views: row 1 as annual SURVIVAL (1 - e_t), row 2 as cumulative EXTINCTION (1 - s_t).
-    # Same editable cells; the JS maps the rate_c / surv_c kinds back onto the rates (see ALT_KIND).
-    rc <- isTRUE(input$rate_comp); sc <- isTRUE(input$surv_comp)
-
-    # 1 · annual extinction (or survival) probability — editable, sits in the gaps between years
-    rate_cells <- lapply(I, function(i) {
-      cv <- if (rc) 1 - cur$rates[i] else cur$rates[i]
-      rv <- if (rc) 1 - ref$rates[i] else ref$rates[i]
-      gcell_edit(gcol(i), cur = cv, ref = rv, kind = if (rc) "rate_c" else "rate", vi = i,
-        to_disp = 100, decimals = 4, suffix = "%", good = if (rc) "more_good" else "more_bad",
-        top   = paste0("<span class='ratio'>1 in ", f_int(1 / cur$rates[i]), "</span>",   # odds of extinction either way
-                       if (sr) paste0(" <span class='ratio vref'>(1 in ", f_int(1 / ref$rates[i]), ")</span>")),
-        color = COL_RATE, ref_txt = rtxt(rv, 100, 4, "%"))
-    })
-
-    # 2 · survival (or extinction) probability given past extinction — editable (backtraces to rates)
-    surv_cells <- lapply(J, function(j) {
-      if (j == 1)                                     # 2026 is fixed at 100% survival / 0% extinction
-        return(gcell_fixed(ycol(1), if (sc) 0 else cur$surv[1], 100, 4, "%", pad = 2, color = COL_SURV))
-      cv <- if (sc) 1 - cur$surv[j] else cur$surv[j]
-      rv <- if (sc) 1 - ref$surv[j] else ref$surv[j]
-      gcell_edit(ycol(j), cur = cv, ref = rv, kind = if (sc) "surv_c" else "surv", vi = j - 1,
-        to_disp = 100, decimals = 4, suffix = "%", pad = 2, good = if (sc) "more_bad" else "more_good",
-        color = COL_SURV, ref_txt = rtxt(rv, 100, 4, "%"))
-    })
-
-    # 3 · cumulative survived years of humanity
-    years_cells <- lapply(J, function(j)
-      if (j == 1) gcell_ro(ycol(j), cur$cum_years[j], cur$cum_years[j], 1, 4, "y", delta = FALSE, color = COL_SURV)
-      else gcell_ro(ycol(j), cur$cum_years[j], ref$cum_years[j], 1, 4, "y", "more_good",
-             sub = paste0("of ", f_int(elapsed[j]), "y potential"), color = COL_SURV,
-             ref_txt = rtxt(ref$cum_years[j], 1, 4, "y")))
-
-    # 3b · cumulative survived generations (sum of cumulative survival / 75)
-    gens_cells <- lapply(J, function(j)
-      if (j == 1) gcell_ro(ycol(j), cur$gens[j], cur$gens[j], 1, 4, "", delta = FALSE, color = COL_SURV)
-      else gcell_ro(ycol(j), cur$gens[j], ref$gens[j], 1, 4, "", "more_good",
-             sub = paste0("of ", formatC(elapsed[j] / LIFE_EXP, format = "f", digits = 2), " potential"), color = COL_SURV,
-             ref_txt = rtxt(ref$gens[j], 1, 4, "")))
-
-    # 4 · potential population if survived — editable checkpoints
-    pop_pot_cells <- lapply(J, function(j)
-      gcell_edit(ycol(j), cur = cur$pop_pot[j], ref = ref$pop_pot[j], kind = "pop", vi = j,
-        to_disp = 1 / 1e6, decimals = 0, suffix = "m", pad = 5, good = "more_good",
-        color = COL_POP))
-    # per-period growth rate sits in the gap between the two checkpoints it spans
-    growth_cells <- lapply(I, function(i) {
-      g <- cur$growth[i + 1] * 100
-      tags$div(class = "vgrowth", style = paste0("grid-column:", gcol(i), "/span 2;"),
-        HTML(paste0(if (g >= 0) "+" else "", formatC(g, digits = 3, format = "f"), "%/yr")))
-    })
-
-    # 5 · expected population with survival probabilities
-    pop_exp_cells <- lapply(J, function(j)
-      if (j == 1) gcell_ro(ycol(j), cur$pop_exp[j], cur$pop_exp[j], 1, 0, "", delta = FALSE, color = COL_POP)
-      else gcell_ro(ycol(j), cur$pop_exp[j], ref$pop_exp[j], 1, 0, "", "more_good",
-             sub = paste0("of ", f_int(cur$pop_pot[j]), " potential"), color = COL_POP))
-
-    # 6 · expected cumulative lived human life-years
-    ly_cells <- lapply(J, function(j)
-      if (j == 1) gcell_ro(ycol(j), cur$cum_ly[j], cur$cum_ly[j], 1, 0, "", delta = FALSE, color = COL_POP)
-      else gcell_ro(ycol(j), cur$cum_ly[j], ref$cum_ly[j], 1, 0, "", "more_good",
-             sub = paste0("of ", f_int(cur$cum_ly_pot[j]), " potential"), color = COL_POP))
-
-    # 7 · expected cumulative lived human lives (75y)
-    lives_cells <- lapply(J, function(j)
-      if (j == 1) gcell_ro(ycol(j), cur$lives[j], cur$lives[j], 1, 0, "", delta = FALSE, color = COL_POP)
-      else gcell_ro(ycol(j), cur$lives[j], ref$lives[j], 1, 0, "", "more_good",
-             sub = paste0(f_int(cur$lives_pot[j] - cur$lives[j]), " less than potential"), color = COL_POP))
-
-    # arrow endpoints: each value cell carries its node id ("row:j"; the rate row is indexed by period)
-    tag_nodes <- function(cells, row, idx)
-      Map(function(cl, k) tagAppendAttributes(cl, `data-node` = paste0(row, ":", k)), cells, idx)
-    rate_cells    <- tag_nodes(rate_cells,    "rate",   I)
-    surv_cells    <- tag_nodes(surv_cells,    "surv",   J)
-    years_cells   <- tag_nodes(years_cells,   "years",  J)
-    gens_cells    <- tag_nodes(gens_cells,    "gens",   J)
-    pop_pot_cells <- tag_nodes(pop_pot_cells, "pop",    J)
-    pop_exp_cells <- tag_nodes(pop_exp_cells, "popexp", J)
-    ly_cells      <- tag_nodes(ly_cells,      "ly",     J)
-    lives_cells   <- tag_nodes(lives_cells,   "lives",  J)
-
-    # Formula symbols: ae / as = annual extinction / survival, ce / cs = cumulative extinction / survival.
-    # Each formula is written in whichever variable the rows above currently show (rc / sc toggles), e.g.
-    # with row 1 switched to annual survival, row 2 reads cs_t = prod as_i rather than prod (1 - ae_i).
-    sym  <- function(nm, k, col) mv(paste0(nm, "<sub>", k, "</sub>"), col)
-    asv  <- function(k) if (rc) sym("as", k, COL_RATE)                        # annual survival, in shown terms
-                        else paste0("(1 &minus; ", sym("ae", k, COL_RATE), ")")
-    csv  <- function(k) if (sc) paste0("(1 &minus; ", sym("ce", k, COL_SURV), ")")  # cumulative survival, in shown terms
-                        else sym("cs", k, COL_SURV)
-    fx_rate <- if (rc) paste0(sym("as", "t", COL_RATE), " = 1 &minus; ", sym("ae", "t", COL_RATE))
-               else sym("ae", "t", COL_RATE)
-    fx_surv <- paste0(if (sc) sym("ce", "t", COL_SURV) else sym("cs", "t", COL_SURV), " = ",
-                      if (sc) "1 &minus; " else "", bigop("&prod;", "i=2027", "t"), " ", asv("i"))
-
-    rows <- list(
-      rate = metric_grow(if (rc) "Annual survival probability<br><span class='ital'>if survived until then</span>"
-                  else    "Annual extinction probability<br><span class='ital'>if survived until then</span>",
-                  COL_RATE, c(ivl_cells, rate_cells), cls = "erow rrow", row = "rate", toggle = rtoggle("rate_comp", rc, "Show annual survival", "Show annual extinction"),
-                  formula = fx_rate),
-      surv = metric_grow(if (sc) paste0("Cumulative extinction probability<br><span class='ital'>given past ", if (rc) "survival" else "extinction", " probabilities</span>")
-                  else    paste0("Cumulative survival probability<br><span class='ital'>given past ", if (rc) "survival" else "extinction", " probabilities</span>"),
-                  COL_SURV, surv_cells, cls = "erow", row = "surv", toggle = rtoggle("surv_comp", sc, "Show cumulative extinction", "Show cumulative survival"),
-                  formula = fx_surv),
-      years = metric_grow("Cumulative survived years of humanity",                                 COL_SURV, years_cells,   row = "years",
-                  formula = paste0(mv("L<sub>t</sub>", COL_SURV), " = ", bigop("&sum;", "i=2027", "t"),
-                                   " ", csv("i"))),
-      gens = metric_grow("Cumulative survived generations <span class='ital'>(75y)</span>",       COL_SURV, gens_cells,    row = "gens",
-                  formula = paste0(mv("G<sub>t</sub>", COL_SURV), " = ", bigop("&sum;", "i=2027", "t"), " ", csv("i"), " / 75")),
-      pop = metric_grow("Annual population potential<br><span class='ital'>if survived</span>",            COL_POP,  c(pop_pot_cells, growth_cells), cls = "erow", row = "pop",
-                  formula = mv("P<sub>t</sub>", COL_POP)),
-      popexp = metric_grow("Annual population<br><span class='ital'>given survival probability</span>",     COL_POP,  pop_exp_cells, row = "popexp",
-                  formula = paste0(mv("E<sub>t</sub>", COL_POP), " = ", mv("P<sub>t</sub>", COL_POP),
-                                   " &middot; ", csv("t"))),
-      ly = metric_grow("Cumulative lived human life-years",                            COL_POP,  ly_cells,      row = "ly",
-                  formula = paste0(mv("H<sub>t</sub>", COL_POP), " = ", bigop("&sum;", "i=2027", "t"),
-                                   " ", mv("E<sub>i</sub>", COL_POP))),
-      lives = metric_grow("Cumulative lived human lives <span class='ital'>(75y)</span>", COL_POP,  lives_cells,   row = "lives",
-                  formula = paste0(mv("N<sub>t</sub>", COL_POP), " = ", bigop("&sum;", "i=2027", "t"), " ", mv("E<sub>i</sub>", COL_POP), " / 75")))
-
-    # "Variables" dropdown: keep only the chosen rows (always in the fixed display order)
-    vis <- intersect(names(rows), input$vars %||% character(0))
-    # --halfcol: column pitch cap for this horizon (see the .grow CSS comment) — one number to tune.
-    # data-edges: the dependency arrows for the visible rows; the JS draws them as an SVG overlay.
-    div(class = "grid-scroll", do.call(div, c(list(class = "grid-wrap", style = paste0("--ncols:", 2 * n, ";--halfcol:", round(1.05 * (46 + 7 * n), 1), "px;"),
-      `data-edges` = arrow_edges(vis, n),
-      header, if (!"rate" %in% vis) intervals),
-      unname(rows[vis]),
-      list(if (!length(vis)) div(class = "novars", "No variables selected — pick some from the Variables menu.")))))
-  })
-
-  output$foot <- renderUI({
-    p   <- state_r()$pops
-    cps <- paste(formatC(p / 1e9, format = "f", digits = 1), collapse = " / ")
-    div(class = "foot", HTML(paste0(
-      "Population potential is interpolated geometrically between the checkpoints ",
-      cps, "&nbsp;bn, so it stays internally consistent. ",
-      "Lives = cumulative life-years &divide; 75.")))
-  })
-
-  output$summary <- renderUI({
-    st  <- state_r()
-    m   <- M(); n <- m$n
-    cur <- compute(st$rates, st$pops, m)
-    hl  <- function(txt, col) sprintf("<b style='color:%s;'>%s</b>", col, txt)   # value in its row's colour
-    div(class = "summary", HTML(paste0(
-      "With these rates, humanity survives to ", hl(fmt_year(max(m$cps)), "#e8eef4"),
-      " with ", hl(f_pct(cur$surv[n]), COL_SURV), " probability, is expected to live ",
-      hl(f_years(cur$cum_years[n]), COL_SURV), " of the next ",
-      f_int(sum(m$seg_len)), " years, and to accrue ", hl(f_int(cur$lives[n]), COL_POP),
-      " human lives (", hl(f_int(cur$cum_ly[n]), COL_POP), " life-years).")))
-  })
-}
+# Nothing to do per edit: the page computes and draws everything itself (see the header).
+server <- function(input, output, session) {}
 
 shinyApp(ui, server)
 ```

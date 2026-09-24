@@ -1,18 +1,3 @@
----
-title: "Extinction risk calculator"
-subtitle: ""
-date: last-modified
-inline: false
----
-
-A prototype that turns annual extinction probabilities into the expected longevity of humanity. Click any extinction probability, survival probability or potential-population digit and adjust it with the arrows, arrow keys, or by typing a number — the whole cascade recomputes live.
-
-It runs entirely in your browser, so the first load takes a few seconds while the R runtime downloads. [Open the app full-screen in a new tab &#8599;](xriskb-app.html){target="_blank"}
-
-<!-- XRISK-APP:START -->
-```{shinylive-r}
-#| standalone: true
-#| viewerHeight: "clamp(900px, 92vh, 1150px)"
 # ────────────────────────────────────────────────────────────────────────────
 # Extinction-risk visualiser, variant B: the same page as app_xrisk, but every edit is handled in the
 # browser. The cascade, the table, the summary, the baselines, undo/redo and the time-scale change all
@@ -1075,7 +1060,3 @@ ui <- fluidPage(
 server <- function(input, output, session) {}
 
 shinyApp(ui, server)
-```
-<!-- XRISK-APP:END -->
-
-This prototype is also discussed, alongside the curve-based one, in [Website for demonstrating existential risk](201.qmd).

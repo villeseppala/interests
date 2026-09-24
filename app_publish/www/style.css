@@ -17,22 +17,26 @@ body:has(#site-nav) #sidebar-resize-handle { height:calc(100vh - 46px); }
 #site-nav { display:flex; align-items:center; gap:22px; height:46px; padding:0 20px;
   background:#081626; border-bottom:1px solid rgba(255,255,255,0.12);
   font-family:Arial,Helvetica,sans-serif; position:relative; z-index:1000; box-sizing:border-box; }
-#site-nav a { color:#e8eef4; text-decoration:none; }
+/* #site-nav-slot: the graph page's header cluster covers this bar, so render.js gives the cluster a slot
+   that site-nav.js fills with its own copy of the "Draft/final projects" dropdown — styled the same. */
+#site-nav-slot { font-family:Arial,Helvetica,sans-serif; white-space:nowrap; }
+#site-nav a, #site-nav-slot a { color:#e8eef4; text-decoration:none; }
 #site-nav .nav-brand { font-weight:700; font-size:16px; letter-spacing:0.02em; }
-#site-nav .nav-dropdown { position:relative; }
-#site-nav .nav-dropdown > a { font-size:14px; opacity:0.92; }
-#site-nav .nav-caret { font-size:10px; margin-left:4px; opacity:0.7; }
-#site-nav .nav-menu { position:absolute; top:100%; left:0; min-width:260px; background:#081626;
+#site-nav .nav-dropdown, #site-nav-slot .nav-dropdown { position:relative; }
+#site-nav .nav-dropdown > a, #site-nav-slot .nav-dropdown > a { font-size:14px; opacity:0.92; }
+#site-nav .nav-caret, #site-nav-slot .nav-caret { font-size:10px; margin-left:4px; opacity:0.7; }
+#site-nav .nav-menu, #site-nav-slot .nav-menu { position:absolute; top:100%; left:0; min-width:260px; background:#081626;
   border:1px solid rgba(255,255,255,0.14); border-radius:6px; box-shadow:0 8px 24px rgba(0,0,0,0.35);
   padding:6px 0; display:none; max-height:70vh; overflow-y:auto; }
-#site-nav .nav-dropdown:hover .nav-menu, #site-nav .nav-menu:hover { display:block; }
-#site-nav .nav-menu a { display:block; padding:7px 16px; font-size:13.5px; white-space:nowrap; color:#e8eef4; }
-#site-nav .nav-menu a:hover { background:rgba(255,255,255,0.08); }
-#site-nav .nav-menu .nav-menu-empty { padding:7px 16px; font-size:13px; color:rgba(232,238,244,0.7); font-style:italic; }
+#site-nav .nav-dropdown:hover .nav-menu, #site-nav .nav-menu:hover,
+#site-nav-slot .nav-dropdown:hover .nav-menu, #site-nav-slot .nav-menu:hover { display:block; }
+#site-nav .nav-menu a, #site-nav-slot .nav-menu a { display:block; padding:7px 16px; font-size:13.5px; white-space:nowrap; color:#e8eef4; }
+#site-nav .nav-menu a:hover, #site-nav-slot .nav-menu a:hover { background:rgba(255,255,255,0.08); }
+#site-nav .nav-menu .nav-menu-empty, #site-nav-slot .nav-menu .nav-menu-empty { padding:7px 16px; font-size:13px; color:rgba(232,238,244,0.7); font-style:italic; }
 body.light-mode #site-nav { background:#e2eaf3; border-bottom-color:rgba(0,0,0,0.12); }
-body.light-mode #site-nav a { color:#0b2740; }
-body.light-mode #site-nav .nav-menu { background:#eef2f8; border-color:rgba(0,0,0,0.14); }
-body.light-mode #site-nav .nav-menu a:hover { background:rgba(0,0,0,0.06); }
+body.light-mode #site-nav a, body.light-mode #site-nav-slot a { color:#0b2740; }
+body.light-mode #site-nav .nav-menu, body.light-mode #site-nav-slot .nav-menu { background:#eef2f8; border-color:rgba(0,0,0,0.14); }
+body.light-mode #site-nav .nav-menu a:hover, body.light-mode #site-nav-slot .nav-menu a:hover { background:rgba(0,0,0,0.06); }
 
 /* ── Editable node titles + descriptions (author app inline UI) ── */
 body.author-editable .node-title-edit { cursor:text; }
@@ -421,10 +425,13 @@ body.inline-mode #inline-header-right {
 /* Right cluster starts at the description-size control (leftmost right-aligned item), so the font
    control and zoom sit together, next to each other, pushed to the right of the bar. */
 body.inline-mode #inline-header-right #inline-descfont { margin-left:auto; }
-/* Hidden for now on the graph page (desktop AND mobile — mobile is never .inline-mode):
-   the nav brand ("Interests") and the "Draft/final projects" dropdown. Article pages keep theirs. */
-body:has(#graph-area) #site-nav .nav-brand,
-body:has(#graph-area) #site-nav .nav-dropdown { display:none !important; }
+/* Graph page: the nav brand ("Interests") stays hidden (desktop AND mobile — mobile is never .inline-mode).
+   The "Draft/final projects" dropdown shows: in inline mode the header cluster covers the bar, so the
+   cluster's own copy (#site-nav-slot, next to the title/controls) is the one shown and the bar's is hidden;
+   otherwise the bar's own dropdown shows. Article pages keep their full bar. */
+body:has(#graph-area) #site-nav .nav-brand { display:none !important; }
+body.inline-mode:has(#graph-area) #site-nav .nav-dropdown { display:none !important; }
+body:not(.inline-mode) #site-nav-slot { display:none !important; }
 body.inline-mode #inline-header-right #inline-allbtns {
   position:static; transform:none; top:auto; left:auto; right:auto; height:auto; gap:2px; }
 body.inline-mode #inline-header-right #info-sidebar {

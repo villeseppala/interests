@@ -14,9 +14,18 @@
     });
   }
 
+  // The "Draft/final projects" dropdown, once built. On the graph page render.js puts a #site-nav-slot
+  // into its header cluster (which covers this bar there) and the dropdown is drawn into it too. Either
+  // script may run first: render() fills the slot if it already exists, and render.js calls
+  // window.siteNavFillSlot() right after adding it.
+  var dropdownHtml = '';
+  function fillSlot() {
+    var slot = document.getElementById('site-nav-slot');
+    if (slot && dropdownHtml) slot.innerHTML = dropdownHtml;
+  }
+  window.siteNavFillSlot = fillSlot;
+
   function render(articles) {
-    var el = document.getElementById('site-nav');
-    if (!el) return;
     var items;
     if (articles && articles.length) {
       items = articles.map(function (a) {
@@ -25,12 +34,15 @@
     } else {
       items = '<span class="nav-menu-empty">No articles yet</span>';
     }
-    el.innerHTML =
-      '<a class="nav-brand" href="' + linkBase + 'index.html">Interests</a>' +
+    dropdownHtml =
       '<div class="nav-dropdown">' +
         '<a href="' + linkBase + 'articles.html">Draft/final projects<span class="nav-caret">&#9660;</span></a>' +
         '<div class="nav-menu">' + items + '</div>' +
       '</div>';
+    fillSlot();
+    var el = document.getElementById('site-nav');
+    if (!el) return;
+    el.innerHTML = '<a class="nav-brand" href="' + linkBase + 'index.html">Interests</a>' + dropdownHtml;
   }
 
   function start() {

@@ -1,3 +1,7 @@
+---
+listed: false   # linked from article 206; not shown in the article list
+---
+
 Alla on portfolio animaatioita, videoita ja kuvia, joita olen tuottanut omalla ajallani:
 
 ### Animaatiot

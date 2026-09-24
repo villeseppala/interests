@@ -5096,6 +5096,12 @@ function ensureInlineSidebarBtn() {
   else if (hdr.parentNode !== host) host.appendChild(hdr);
   var sb = document.getElementById('info-sidebar');
   if (sb && sb.parentNode !== hdr) hdr.appendChild(sb);   // controls — left
+  // "Draft/final projects" dropdown, next to the controls. This cluster covers the site nav bar, so it
+  // carries its own copy, drawn into this slot by site-nav.js (now, or once its article list arrives).
+  var navSlot = document.getElementById('site-nav-slot');
+  if (!navSlot) { navSlot = document.createElement('div'); navSlot.id = 'site-nav-slot'; }
+  hdr.appendChild(navSlot);
+  if (window.siteNavFillSlot) window.siteNavFillSlot();
   hdr.appendChild(fc);                                    // description font size — pushed right
   hdr.appendChild(zc);                                    // zoom — right of the font control
   hdr.appendChild(wrap);                                  // Open/Collapse toolbar — right

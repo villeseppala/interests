@@ -1,0 +1,49 @@
+app_xriskb (JavaScript) vs app_xrisk (R)  —   2026-09-24 13:34:20 
+
+Model: compute() at the checkpoints (tolerance: relative 1e-10)
+  horizon 10^3, rates 5e-04 / 5e-04 / 1e-04                          ok
+  horizon 10^5, rates 5e-04 / 5e-04 / 1e-04 / 5e-05 / 1e-05          ok
+  horizon 10^2, rates 0.01 / 0.002                                   ok
+  horizon 10^4, rates 0 / 0.001 / 3e-04 / 2e-05                      ok
+
+Formatting (identical strings)
+  f_int(0)                                                           ok
+  f_int(999)                                                         ok
+  f_int(1000)                                                        ok
+  f_int(1234567)                                                     ok
+  f_int(8300000000)                                                  ok
+  f_int(7604252997099)                                               ok
+  f_int(1000000000000000)                                            ok
+  fmt_year(2026)                                                     ok
+  fmt_year(12026)                                                    ok
+  fmt_year(102026)                                                   ok
+  f_ref(5e-04, 100, 4, '%')                                          ok
+  f_ref(916.2, 1, 4, 'y')                                            ok
+  f_ref(12.21573, 1, 4, '')                                          ok
+
+Value cells (identical HTML)
+  gcell_edit: rate, lowered, with baseline                           ok
+  gcell_edit: rate_c (annual survival)                               ok
+  gcell_edit: surv, padded                                           ok
+  gcell_edit: surv at 100%                                           ok
+  gcell_edit: pop, raised                                            ok
+  gcell_edit: pop, 5+ digits                                         ok
+  gcell_ro: years, with baseline                                     ok
+  gcell_ro: population, no change                                    ok
+  gcell_ro: life-years, lowered                                      ok
+  gcell_ro: first checkpoint                                         ok
+  gcell_fixed: 2026 survival                                         ok
+
+Arrow edges (identical strings)
+  arrow_edges(rate,surv,years,gens,pop,popexp,ly,lives, n = 4)       ok
+  arrow_edges(rate,surv,years,gens,pop,popexp,ly,lives, n = 6)       ok
+  arrow_edges(rate,surv,years,pop,popexp,lives, n = 4)               ok
+  arrow_edges(rate,surv,years,pop,popexp,lives, n = 6)               ok
+  arrow_edges(rate,years,popexp,lives, n = 4)                        ok
+  arrow_edges(rate,years,popexp,lives, n = 6)                        ok
+  arrow_edges(pop,popexp,lives, n = 4)                               ok
+  arrow_edges(pop,popexp,lives, n = 6)                               ok
+  arrow_edges(surv,gens,ly, n = 4)                                   ok
+  arrow_edges(surv,gens,ly, n = 6)                                   ok
+
+38 of 38 checks passed

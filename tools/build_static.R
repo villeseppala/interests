@@ -128,15 +128,19 @@ inject_shinylive <- function(qmd_path, app_path, marker, height = "clamp(900px, 
 # a tall screen (lower the ceiling). The hazard app is the taller of the two.
 APP_H       <- "clamp(900px, 92vh, 1150px)"
 APP_H_TALL  <- "clamp(1000px, 92vh, 1250px)"
+# The x-risk calculator shown on the site is the browser-side variant (app_xriskb: every edit is handled in
+# JavaScript, so it stays instant under webR). The R-rendered original (app_xrisk) is kept only as the
+# unlisted, unlinked full-screen page xrisk-app.html, for comparison.
 xrisk_qmd <- file.path(ARTICLES_DIR, "201.qmd")
-inject_shinylive(xrisk_qmd, file.path("app_xrisk",  "app.R"), "XRISK-APP",  APP_H)
+inject_shinylive(xrisk_qmd, file.path("app_xriskb", "app.R"), "XRISK-APP",  APP_H)
 inject_shinylive(xrisk_qmd, file.path("app_hazard", "app.R"), "HAZARD-APP", APP_H)
-# Same two apps also get a standalone page each, so they can be linked to directly.
-inject_shinylive(file.path(ARTICLES_DIR, "xrisk.qmd"),  file.path("app_xrisk",  "app.R"), "XRISK-APP",  APP_H)
+# Same two apps also get a standalone page each (listed articles), so they can be linked to directly.
+inject_shinylive(file.path(ARTICLES_DIR, "xrisk.qmd"),  file.path("app_xriskb", "app.R"), "XRISK-APP",  APP_H)
 inject_shinylive(file.path(ARTICLES_DIR, "hazard.qmd"), file.path("app_hazard", "app.R"), "HAZARD-APP", APP_H_TALL)
 # Bare full-window app pages (app-page: true, no nav/article chrome - see articles/app-page.css). Linked from the
 # articles as "open full-screen"; the app is the whole viewport, so its height is simply 100vh.
-inject_shinylive(file.path(ARTICLES_DIR, "xrisk-app.qmd"),  file.path("app_xrisk",  "app.R"), "XRISK-APP",  "100vh")
+inject_shinylive(file.path(ARTICLES_DIR, "xriskb-app.qmd"), file.path("app_xriskb", "app.R"), "XRISK-APP",  "100vh")
+inject_shinylive(file.path(ARTICLES_DIR, "xrisk-app.qmd"),  file.path("app_xrisk",  "app.R"), "XRISK-APP",  "100vh")   # original; unlinked
 inject_shinylive(file.path(ARTICLES_DIR, "hazard-app.qmd"), file.path("app_hazard", "app.R"), "HAZARD-APP", "100vh")
 
 # Render the .qmd sources to site/articles/<id>.html via Quarto (part of this one build).
@@ -346,6 +350,7 @@ if (file.exists(idx_path)) {
   html  <- paste(readLines(idx_path, warn = FALSE), collapse = "\n")
   html  <- gsub('(href="style\\.css)(\\?v=[0-9]+)?"',      sprintf('\\1?v=%d"', stamp), html)
   html  <- gsub('(src="render\\.js)(\\?v=[0-9]+)?"',       sprintf('\\1?v=%d"', stamp), html)
+  html  <- gsub('(src="site-nav\\.js)(\\?v=[0-9]+)?"',     sprintf('\\1?v=%d"', stamp), html)   # render.js relies on its siteNavFillSlot()
   html  <- gsub("(fetch\\('payload\\.json)(\\?v=[0-9]+)?'", sprintf("\\1?v=%d'", stamp), html)
   writeLines(html, idx_path)
   cat(sprintf("  index.html    cache-busted (v=%d)\n", stamp))

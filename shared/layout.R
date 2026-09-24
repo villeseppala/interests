@@ -23,7 +23,7 @@ ABOUT_HEADER_GAP <- 64L
 # Pull the YAML `title:` and the first body paragraph (preview) from a .qmd source.
 parse_qmd_meta <- function(path) {
   lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
-  title <- ""; preview <- ""; inline <- FALSE; app_page <- FALSE; lang <- "en"
+  title <- ""; preview <- ""; inline <- FALSE; app_page <- FALSE; listed <- TRUE; lang <- "en"
   fences <- which(grepl("^---\\s*$", lines))   # YAML front matter = first two `---` lines
   body_start <- 1L
   if (length(fences) >= 2) {
@@ -39,6 +39,13 @@ parse_qmd_meta <- function(path) {
     # `app-page: true` marks a bare full-window app page: rendered by Quarto, but not an article (no manifest/nav entry).
     am <- grep("^app-page\\s*:", yaml_lines, value = TRUE)
     if (length(am)) app_page <- tolower(trimws(sub("^app-page\\s*:\\s*", "", am[1]))) %in% c("true", "yes", "on", "1")
+    # `listed: false` keeps a normal page (full site chrome, reachable by its URL, e.g. linked from another
+    # article) out of the article list / nav dropdown.
+    ls_ <- grep("^listed\\s*:", yaml_lines, value = TRUE)
+    if (length(ls_)) {
+      lsv <- tolower(trimws(sub("\\s+#.*$", "", sub("^listed\\s*:\\s*", "", ls_[1]))))   # a trailing # comment is allowed
+      listed <- !(gsub("[\"']", "", lsv) %in% c("false", "no", "off", "0"))
+    }
     # `lang: fi` (Quarto's own document-language key) tells the site an article is written in Finnish; the
     # node's "Read more" then says so when the page is viewed in the other language. Default: English.
     lm <- grep("^lang\\s*:", yaml_lines, value = TRUE)
@@ -59,7 +66,7 @@ parse_qmd_meta <- function(path) {
     preview <- t; break
   }
   if (nchar(preview) > 220) preview <- paste0(substr(preview, 1, 217), "...")
-  list(title = title, preview = preview, inline = inline, app_page = app_page, lang = lang,
+  list(title = title, preview = preview, inline = inline, app_page = app_page, listed = listed, lang = lang,
        body = paste(body, collapse = "\n"))   # full body markdown (for the inline quick-read)
 }
 
@@ -75,7 +82,7 @@ scan_articles <- function(articles_dir) {
       meta <- parse_qmd_meta(qf)
       if (isTRUE(meta$app_page)) next            # bare app pages are not articles
       ids <- c(ids, id)
-      manifest[[length(manifest) + 1]] <- list(
+      if (!isFALSE(meta$listed)) manifest[[length(manifest) + 1]] <- list(   # `listed: false`: no list/nav entry
         id      = id,
         title   = if (nzchar(meta$title)) meta$title else paste("Article", id),
         preview = meta$preview,
