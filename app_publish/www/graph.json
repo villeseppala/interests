@@ -4,7 +4,7 @@
       "id": 106,
       "group": "Theme",
       "title": "Russia/Ukraine",
-      "edgeColor": "#5BA434",
+      "edgeColor": "#43A839",
       "title_fi": "Venäjä/Ukraina",
       "lightEdgeColor": "#B9EF95"
     },
@@ -12,7 +12,7 @@
       "id": 101,
       "group": "Theme",
       "title": "Existential risks and longtermism",
-      "edgeColor": "#34A475",
+      "edgeColor": "#39A887",
       "title_fi": "Eksistentiaaliset riskit ja longtermismi",
       "lightEdgeColor": "#78D585"
     },
@@ -20,7 +20,7 @@
       "id": 104,
       "group": "Theme",
       "title": "Climate Change",
-      "edgeColor": "#A48534",
+      "edgeColor": "#A83962",
       "title_fi": "Ilmastonmuutos",
       "lightEdgeColor": "#81CFB7"
     },
@@ -28,7 +28,7 @@
       "id": 105,
       "group": "Theme",
       "title": "Electricity markets",
-      "edgeColor": "#8FA434",
+      "edgeColor": "#A83C39",
       "title_fi": "Sähkömarkkinat",
       "lightEdgeColor": "#7EBDD1"
     },
@@ -36,7 +36,7 @@
       "id": 103,
       "group": "Theme",
       "title": "European Union",
-      "edgeColor": "#A45134",
+      "edgeColor": "#3972A8",
       "title_fi": "Euroopan Unioni",
       "lightEdgeColor": "#DB888C"
     },
@@ -44,9 +44,10 @@
       "id": 102,
       "group": "Theme",
       "title": "Global harmony",
-      "edgeColor": "#A4344B",
+      "edgeColor": "#399DA8",
       "title_fi": "Globaali harmonia",
-      "lightEdgeColor": "#E2B88E"
+      "lightEdgeColor": "#E2B88E",
+      "hidden": true
     },
     {
       "id": 202,
@@ -125,7 +126,7 @@
       "group": "Skill",
       "title": "Artificial intelligence",
       "subs": [],
-      "edgeColor": "#B29A3B",
+      "edgeColor": "#3A849B",
       "title_fi": "Tekoäly",
       "lightEdgeColor": "#ACD977"
     },
@@ -134,7 +135,7 @@
       "group": "Skill",
       "title": "Data visualization and graphic design",
       "subs": [],
-      "edgeColor": "#42B23B",
+      "edgeColor": "#9B3A3A",
       "title_fi": "Datavisualisointi ja graafinen suunnittelu",
       "lightEdgeColor": "#88FD98"
     },
@@ -143,7 +144,7 @@
       "group": "Skill",
       "title": "Dashboards and websites",
       "subs": [],
-      "edgeColor": "#3BB278",
+      "edgeColor": "#3F9B3A",
       "title_fi": "Dashboardit ja nettisivut",
       "lightEdgeColor": "#7ADDCB"
     },
@@ -152,7 +153,7 @@
       "group": "Skill",
       "title": "Videos and streaming",
       "subs": [],
-      "edgeColor": "#3BA9B2",
+      "edgeColor": "#3A9B5E",
       "title_fi": "Videot ja striimaus",
       "lightEdgeColor": "#84BCF4"
     },
@@ -160,7 +161,7 @@
       "id": 305,
       "group": "Skill",
       "title": "Social media",
-      "edgeColor": "#86B23B",
+      "edgeColor": "#9B3A63",
       "title_fi": "Sosiaalinen media",
       "subs": [],
       "lightEdgeColor": "#FA988E"
@@ -210,7 +211,7 @@
       "group": "Theme",
       "title": "Finnish economy",
       "title_fi": "Suomen talous",
-      "edgeColor": "#34A441",
+      "edgeColor": "#39A85B",
       "lightEdgeColor": "#DDE27D"
     },
     {
@@ -233,7 +234,7 @@
       "id": 303.5,
       "group": "Skill",
       "title": "Economics",
-      "edgeColor": "#B2563B",
+      "edgeColor": "#3A9B88",
       "lightEdgeColor": "#DFC879",
       "title_fi": "Taloustiede",
       "subs": []
@@ -270,84 +271,84 @@
     {
       "from": 101,
       "to": 201,
-      "color": "#34A475",
+      "color": "#39A887",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 202,
-      "color": "#34A475",
+      "color": "#39A887",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 204,
-      "color": "#34A475",
+      "color": "#39A887",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 204.1,
-      "color": "#A4344B",
+      "color": "#399DA8",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 204,
-      "color": "#A4344B",
+      "color": "#399DA8",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 204.1,
-      "color": "#A45134",
+      "color": "#3972A8",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 207,
-      "color": "#A45134",
+      "color": "#3972A8",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206,
-      "color": "#A48534",
+      "color": "#A83962",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 207,
-      "color": "#A48534",
+      "color": "#A83962",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 208,
-      "color": "#A48534",
+      "color": "#A83962",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 207,
-      "color": "#8FA434",
+      "color": "#A83C39",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 208,
-      "color": "#8FA434",
+      "color": "#A83C39",
       "dashes": false,
       "hidden": false
     },
@@ -396,21 +397,21 @@
     {
       "from": 102,
       "to": 205.5,
-      "color": "#A4344B",
+      "color": "#399DA8",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 205.5,
-      "color": "#A48534",
+      "color": "#A83962",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 204,
-      "color": "#A48534",
+      "color": "#A83962",
       "dashes": false,
       "hidden": false
     },
@@ -431,21 +432,21 @@
     {
       "from": 102,
       "to": 204.3,
-      "color": "#A4344B",
+      "color": "#399DA8",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206.5,
-      "color": "#A48534",
+      "color": "#A83962",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 206.5,
-      "color": "#8FA434",
+      "color": "#A83C39",
       "dashes": false,
       "hidden": false
     },
@@ -487,28 +488,28 @@
     {
       "from": 104,
       "to": 204.1,
-      "color": "#A48534",
+      "color": "#A83962",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 201,
-      "color": "#A4344B",
+      "color": "#399DA8",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 106.1,
       "to": 209.6,
-      "color": "#34A441",
+      "color": "#39A85B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 106,
       "to": 209.55,
-      "color": "#5BA434",
+      "color": "#43A839",
       "dashes": false,
       "hidden": false
     },
@@ -564,7 +565,21 @@
     {
       "from": 106,
       "to": 209.56,
-      "color": "#5BA434",
+      "color": "#43A839",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 101,
+      "to": 204.3,
+      "color": "#39A887",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 101,
+      "to": 205.5,
+      "color": "#39A887",
       "dashes": false,
       "hidden": false
     }
@@ -672,8 +687,9 @@
     "frame_line_w": 0,
     "frame_corner_r": 10,
     "frame_fill_pct": 68,
+    "frame_fill_opacity": 0,
     "headers_on_stack": true,
-    "col_bg": "#342f2d",
+    "col_bg": "#523c33",
     "col_sidebar_bg": "#373e48",
     "col_node_bg": "#292f38",
     "col_column_bg": "#42576c",
@@ -688,7 +704,7 @@
     "light_col_project": "#f20202",
     "light_col_skill": "#f20202",
     "light_edge_color": "#4f4f4f",
-    "mob_font_mult": 3,
+    "mob_font_mult": 2.5,
     "mob_h_theme_mult": 1,
     "mob_h_proj_mult": 1,
     "mob_h_skill_mult": 1,
@@ -734,6 +750,70 @@
     "fi_vote_text": "Mihin teemoihin, projekteihin tai taitoihin minun kannattaisi mielestäsi keskittyä? Mihin olisin sopiva tai mikä olisi hyödyllistä? \nVoit äänestää linkin takaa: https://forms.gle/XR1jRv25ng2Ky5SE6\nOtan äänet huomioon. Lomakkeella myös avoin kenttä, jolla voi viestiä minulle mihin vaan liittyen.",
     "fi_funding_title": "Rahoitus- ja työmahdollisuudet",
     "fi_funding_intro": "Tällä hetkellä en ole työelämässä ja työstän näitä kiinnostuksenkohteita omalla ajallani, mutta olen hyvin kiinnostunut myös tekemään töitä niiden parissa.\nOta yhteyttä, mikäli sinulla on vinkkejä potentiaalisista rahoitus - tai työvaihtoehdoista, jotka voisivat sopia minulle, vaikka ne eivät suoraan liittyisikään kiinnostuksiini. \n\nCV:ni on täällä: https://villeseppala.wordpress.com/cv/\n\nTässä on jonkinlainen löyhä preferenssijärjestys sille, miten haluaisin tulla rahoitetuksi:",
+    "ec_hsv": {
+      "ec_h_theme": [
+        15,
+        105
+      ],
+      "ec_s_theme": [
+        62,
+        70
+      ],
+      "ec_v_theme": [
+        60,
+        66
+      ],
+      "ec_hue_dist_theme": 25,
+      "ec_max_s_dist": 5,
+      "ec_max_v_dist": 5,
+      "ec_node_dist": 0,
+      "inv_ec_h_theme": true,
+      "ec_h_theme_2on": true,
+      "ec_h_theme_2": [
+        215,
+        330
+      ],
+      "ec_s_theme_2on": false,
+      "ec_s_theme_2": [
+        55,
+        90
+      ],
+      "ec_v_theme_2on": false,
+      "ec_v_theme_2": [
+        70,
+        100
+      ]
+    },
+    "lec_hsv": {
+      "lec_h_theme": [
+        215,
+        345
+      ],
+      "lec_s_theme": [
+        38,
+        48
+      ],
+      "lec_v_theme": [
+        78,
+        94
+      ],
+      "inv_lec_h_theme": true,
+      "lec_h_theme_2on": false,
+      "lec_h_theme_2": [
+        0,
+        360
+      ],
+      "lec_s_theme_2on": false,
+      "lec_s_theme_2": [
+        10,
+        50
+      ],
+      "lec_v_theme_2on": false,
+      "lec_v_theme_2": [
+        15,
+        45
+      ]
+    },
     "tall_w_node": 340,
     "tall_w_project": 540,
     "tall_h_theme": 92,
@@ -745,8 +825,8 @@
     "tall_font_project": 21,
     "tall_font_ptype": 21,
     "tall_font_subs": 15,
-    "tall_center_cols": false,
-    "tall_headers_on_stack": false,
+    "tall_center_cols": true,
+    "tall_headers_on_stack": true,
     "tall_ptype_pct": 19,
     "tall_fill_nodew": 31,
     "tall_fill_projw": 27,
