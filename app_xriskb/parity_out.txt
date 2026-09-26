@@ -1,4 +1,4 @@
-app_xriskb (JavaScript) vs app_xrisk (R)  —   2026-09-24 13:34:20 
+app_xriskb (JavaScript) vs app_xrisk (R)  —   2026-09-24 16:21:44 
 
 Model: compute() at the checkpoints (tolerance: relative 1e-10)
   horizon 10^3, rates 5e-04 / 5e-04 / 1e-04                          ok

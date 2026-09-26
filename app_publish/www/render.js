@@ -442,10 +442,9 @@ var headerTitleMax = 1.5;    // author: cap the column-title font at this multip
 var FIT_TOP_PX = 16, FIT_BOTTOM_PX = 34, FIT_V_PX = FIT_TOP_PX + FIT_BOTTOM_PX;
 var frameLineW = 2;          // author: column-frame outline thickness in px (0 = off)
 var frameCornerR = 14;       // author: column-frame corner radius in px
-var frameFillPct = 50;       // author: column-frame fill on/off (0 = off, any value above = on)
-// The column background is drawn solid in its own colour (colColumnBg) — no transparency — so the
-// picked colour is what you actually see. frameFillPct now only switches the fill on or off.
-function frameFillAlpha() { return frameFillPct > 0 ? 1 : 0; }
+var frameFillPct = 50;       // legacy author setting (0 = off, else on) — superseded by frameFillOpacity
+var frameFillOpacity = 100;  // author: column background opacity in % (0 = off, 100 = solid colColumnBg)
+function frameFillAlpha() { return Math.max(0, Math.min(1, frameFillOpacity / 100)); }
 var headersOnStack = false;  // author toggle: place Theme/Skill headers just above their (centred) node
                              // stack, at the Project column's header→stack gap, instead of the graph-area top
 var fontPtype = 12;
@@ -3287,7 +3286,7 @@ function positionHeaders(data) {
   var frameSvg = document.getElementById('col-frames');            // outlines (z 11)
   var fillSvg = document.getElementById('col-frame-fills');        // node-region background fill (z 4, behind nodes)
   var fillSvgHi = document.getElementById('col-frame-fills-hi');   // title-strip fill (z 11, above the mask)
-  if (inlineMode && cy && (frameLineW > 0 || frameFillPct > 0)) {
+  if (inlineMode && cy && (frameLineW > 0 || frameFillAlpha() > 0)) {
     var fext = {};   // column -> { bottom, x1, x2 } (current rendered node extents; About excluded)
     cy.nodes().forEach(function (n) {
       var g = n.data('group');
@@ -3298,7 +3297,7 @@ function positionHeaders(data) {
       e.bottom = Math.max(e.bottom, bot);
       e.x1 = Math.min(e.x1, x - w / 2); e.x2 = Math.max(e.x2, x + w / 2);
     });
-    if (frameFillPct > 0) {
+    if (frameFillAlpha() > 0) {
       if (!fillSvg) {
         fillSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         fillSvg.id = 'col-frame-fills';
@@ -3328,16 +3327,27 @@ function positionHeaders(data) {
       frameSvg.setAttribute('width', area.clientWidth); frameSvg.setAttribute('height', area.clientHeight);
       while (frameSvg.firstChild) frameSvg.removeChild(frameSvg.firstChild);
     } else if (frameSvg) { frameSvg.remove(); frameSvg = null; }
-    var fPad = 8;      // side padding (screen px) so the frame sits just outside the nodes
-    var fBotPad = 18;  // extra bottom clearance so the frame doesn't sit on the last node box
-    var fGapM = 8;     // gap margin: the top edge stops this many px before the title area
+    // Frame padding. Fixed screen px looked right on desktop, but once the map is zoomed out to fit a
+    // narrow screen it ate the side margins and made neighbouring frames overlap. So it scales with the
+    // map zoom (never above the desktop size), and the side padding is then capped at half the smallest
+    // gap between adjacent columns (keeping FRAME_AIR px of air between frames) and at the room left
+    // outside the outermost columns, so frames never touch each other or run off the view.
+    var FRAME_AIR = 3, fz = Math.min(1, zoom);
+    var fPad = 8 * fz;       // side padding (screen px) so the frame sits just outside the nodes
+    var fBotPad = 18 * fz;   // extra bottom clearance so the frame doesn't sit on the last node box
+    var fGapM = 8 * fz;      // gap margin: the top edge stops this many px before the title area
+    var fSpan = Object.keys(fext).map(function (c) { return { x1: fext[c].x1 * zoom + pan.x, x2: fext[c].x2 * zoom + pan.x }; })
+      .sort(function (a, b) { return a.x1 - b.x1; });
+    for (var fi = 1; fi < fSpan.length; fi++) fPad = Math.min(fPad, (fSpan[fi].x1 - fSpan[fi - 1].x2 - FRAME_AIR) / 2);
+    if (fSpan.length) fPad = Math.min(fPad, fSpan[0].x1 - 1, area.clientWidth - fSpan[fSpan.length - 1].x2 - 1);
+    fPad = Math.max(1, fPad);
     Object.keys(fext).forEach(function (c) {
       var e = fext[c], box = frameHdrBox[c]; if (!box) return;
       var color = c === 'Theme' ? colTheme : (c === 'Project' ? colProject : colSkill);
       var left = e.x1 * zoom + pan.x - fPad, right = e.x2 * zoom + pan.x + fPad;
       var top = box.midY, bottom = e.bottom * zoom + pan.y + fBotPad;
       if (bottom - top < 4 || right - left < 4) return;
-      var r = Math.min(frameCornerR, (right - left) / 2, (bottom - top) / 2);
+      var r = Math.min(frameCornerR * fz, (right - left) / 2, (bottom - top) / 2);   // radius shrinks with the map too
       // Background fill in two pieces so it reaches behind the title without tinting the nodes:
       //  • node-region piece (z 4, behind nodes) — a rounded rect whose top half is hidden by the mask;
       //  • title-strip piece (z 11, above the mask) — from the title top down to the mask bottom, where
@@ -3347,7 +3357,7 @@ function positionHeaders(data) {
       // top, so the fill still covers the whole header instead of only its lower half.
       var hdrBelowMask = maskBottomPx != null && (box.top - 4) >= maskBottomPx;
       var fillTop = hdrBelowMask ? box.top - 4 : top;
-      var rf = Math.min(frameCornerR, (right - left) / 2, (bottom - fillTop) / 2);
+      var rf = Math.min(frameCornerR * fz, (right - left) / 2, (bottom - fillTop) / 2);
       if (fillSvg) {
         var fr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         fr.setAttribute('x', left); fr.setAttribute('y', fillTop);
@@ -3525,6 +3535,7 @@ function applyDataGlobals(data) {
   frameLineW = (data.frameLineW != null) ? data.frameLineW : 2;
   frameCornerR = (data.frameCornerR != null) ? data.frameCornerR : 14;
   frameFillPct = (data.frameFillPct != null) ? data.frameFillPct : 50;
+  frameFillOpacity = (data.frameFillOpacity != null) ? data.frameFillOpacity : (frameFillPct > 0 ? 100 : 0);
   headersOnStack = !!data.headersOnStack;
   if (typeof renderGraphQr === 'function') renderGraphQr();
   var ph = document.getElementById('page-title');

@@ -47,6 +47,7 @@ cd <- build_dual_cyto_data(g,
   frame_line_w     = ly$frame_line_w     %||% 2,
   frame_corner_r   = ly$frame_corner_r   %||% 14,
   frame_fill_pct   = ly$frame_fill_pct   %||% 50,
+  frame_fill_opacity = frame_fill_opacity_of(ly),
   headers_on_stack = isTRUE(aw$headers_on_stack),
   col_bg           = ly$col_bg           %||% "#0b3552",
   col_sidebar_bg   = ly$col_sidebar_bg   %||% "#081626",
@@ -124,24 +125,68 @@ inject_shinylive <- function(qmd_path, app_path, marker, height = "clamp(900px, 
   writeLines(c(qmd[seq_len(s - 1)], cell, tail), qmd_path)
   cat(sprintf("  synced %s -> %s (%s)\n", app_path, qmd_path, marker))
 }
-# Tune these two numbers if an app still scrolls internally (raise the floor) or shows dead space on
-# a tall screen (lower the ceiling). The hazard app is the taller of the two.
-APP_H       <- "clamp(900px, 92vh, 1150px)"
-APP_H_TALL  <- "clamp(1000px, 92vh, 1250px)"
-# The x-risk calculator shown on the site is the browser-side variant (app_xriskb: every edit is handled in
-# JavaScript, so it stays instant under webR). The R-rendered original (app_xrisk) is kept only as the
-# unlisted, unlinked full-screen page xrisk-app.html, for comparison.
-xrisk_qmd <- file.path(ARTICLES_DIR, "201.qmd")
-inject_shinylive(xrisk_qmd, file.path("app_xriskb", "app.R"), "XRISK-APP",  APP_H)
-inject_shinylive(xrisk_qmd, file.path("app_hazard", "app.R"), "HAZARD-APP", APP_H)
-# Same two apps also get a standalone page each (listed articles), so they can be linked to directly.
-inject_shinylive(file.path(ARTICLES_DIR, "xrisk.qmd"),  file.path("app_xriskb", "app.R"), "XRISK-APP",  APP_H)
-inject_shinylive(file.path(ARTICLES_DIR, "hazard.qmd"), file.path("app_hazard", "app.R"), "HAZARD-APP", APP_H_TALL)
-# Bare full-window app pages (app-page: true, no nav/article chrome - see articles/app-page.css). Linked from the
-# articles as "open full-screen"; the app is the whole viewport, so its height is simply 100vh.
-inject_shinylive(file.path(ARTICLES_DIR, "xriskb-app.qmd"), file.path("app_xriskb", "app.R"), "XRISK-APP",  "100vh")
-inject_shinylive(file.path(ARTICLES_DIR, "xrisk-app.qmd"),  file.path("app_xrisk",  "app.R"), "XRISK-APP",  "100vh")   # original; unlinked
-inject_shinylive(file.path(ARTICLES_DIR, "hazard-app.qmd"), file.path("app_hazard", "app.R"), "HAZARD-APP", "100vh")
+
+# ── Apps that are plain web pages (no R runtime): shown in an iframe ─────────
+# The x-risk calculator (app_xriskb/xriskb.html) and the threshold curve editor (app_hazard/hazard.html)
+# are single self-contained pages: everything runs in JavaScript, so they open instantly, with no R
+# runtime to download. (Each folder's app.R is the Shiny version it came from, kept for reference and
+# not used here.) The build copies them to site/articles/apps/ (APP_PAGES, after Quarto below) and writes
+# the iframe that shows them between the article's markers. Never hand-edit those cells either.
+# The frame takes the app's own height: the page posts its height whenever it changes and the listener
+# written with the frame applies it, so the app never scrolls inside the frame; the article does.
+# `min_width` (px) keeps an app that has no narrow-screen layout at that width on a small screen: the
+# frame's wrapper then scrolls sideways, so only the app pans, not the article (the hazard app, 800px,
+# as its shinylive embed was). On a bare full-window page (full = TRUE) the frame starts a window tall
+# and loads at once instead of when scrolled near.
+APP_PAGES <- c("apps/xriskb.html" = file.path("app_xriskb", "xriskb.html"),    # published path -> source
+               "apps/hazard.html" = file.path("app_hazard", "hazard.html"))
+inject_frame <- function(qmd_path, src, marker, title, full = FALSE, min_width = NULL) {
+  if (!file.exists(qmd_path)) return(invisible())
+  qmd <- readLines(qmd_path, warn = FALSE)
+  s   <- grep(sprintf("<!-- %s:START -->", marker), qmd, fixed = TRUE)
+  e   <- grep(sprintf("<!-- %s:END -->",   marker), qmd, fixed = TRUE)
+  if (length(s) != 1 || length(e) != 1 || e <= s) {
+    cat(sprintf("  (%s markers not found in %s; skipped)\n", marker, qmd_path)); return(invisible())
+  }
+  style <- paste0("display:block;width:100%;border:0;height:", if (full) "100vh" else "1100px", ";",
+                  if (!is.null(min_width)) sprintf("min-width:%dpx;", as.integer(min_width)) else "")
+  frame <- c(
+    '<div class="app-frame-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">',
+    sprintf('<iframe class="app-frame" src="%s" title="%s"%s style="%s"></iframe>',
+            src, title, if (full) "" else ' loading="lazy"', style),
+    "</div>",
+    "<script>",
+    "/* Fit each app frame to its page: the app posts {appHeight} whenever its height changes. */",
+    "if (!window.appFrameFit) {",
+    "  window.appFrameFit = true;",
+    "  window.addEventListener('message', function (e) {",
+    "    if (!e.data || typeof e.data.appHeight !== 'number') return;",
+    "    document.querySelectorAll('iframe.app-frame').forEach(function (f) {",
+    "      if (f.contentWindow === e.source) f.style.height = Math.ceil(e.data.appHeight) + 'px';",
+    "    });",
+    "  });",
+    "}",
+    "</script>")
+  cell <- c(sprintf("<!-- %s:START -->", marker), "```{=html}", frame, "```", sprintf("<!-- %s:END -->", marker))
+  tail <- if (e < length(qmd)) qmd[(e + 1):length(qmd)] else character(0)
+  writeLines(c(qmd[seq_len(s - 1)], cell, tail), qmd_path)
+  cat(sprintf("  framed %s -> %s (%s)\n", src, qmd_path, marker))
+}
+# Each app is in article 201 and on its own listed article (xrisk.qmd / hazard.qmd), and has a bare
+# full-window page (app-page: true, no nav/article chrome - see articles/app-page.css) that the articles
+# link to as "open full-screen".
+XRISK  <- "apps/xriskb.html"; XRISK_TITLE  <- "Extinction risk calculator"
+HAZARD <- "apps/hazard.html"; HAZARD_TITLE <- "Threshold curve editor"
+inject_frame(file.path(ARTICLES_DIR, "201.qmd"),        XRISK,  "XRISK-APP",  XRISK_TITLE)
+inject_frame(file.path(ARTICLES_DIR, "xrisk.qmd"),      XRISK,  "XRISK-APP",  XRISK_TITLE)
+inject_frame(file.path(ARTICLES_DIR, "xriskb-app.qmd"), XRISK,  "XRISK-APP",  XRISK_TITLE, full = TRUE)
+inject_frame(file.path(ARTICLES_DIR, "201.qmd"),        HAZARD, "HAZARD-APP", HAZARD_TITLE, min_width = 800)
+inject_frame(file.path(ARTICLES_DIR, "hazard.qmd"),     HAZARD, "HAZARD-APP", HAZARD_TITLE, min_width = 800)
+inject_frame(file.path(ARTICLES_DIR, "hazard-app.qmd"), HAZARD, "HAZARD-APP", HAZARD_TITLE, full = TRUE, min_width = 800)
+
+# The only app still running R in the browser (shinylive): the R-rendered original x-risk app, app_xrisk,
+# kept as the unlisted, unlinked full-window page xrisk-app.html for comparison.
+inject_shinylive(file.path(ARTICLES_DIR, "xrisk-app.qmd"), file.path("app_xrisk", "app.R"), "XRISK-APP", "100vh")
 
 # Render the .qmd sources to site/articles/<id>.html via Quarto (part of this one build).
 if (dir.exists(ARTICLES_DIR) && length(list.files(ARTICLES_DIR, pattern = "\\.qmd$"))) {
@@ -153,6 +198,14 @@ if (dir.exists(ARTICLES_DIR) && length(list.files(ARTICLES_DIR, pattern = "\\.qm
   } else {
     cat("Note: 'quarto' not found on PATH — skipping article HTML render (manifest still built).\n")
   }
+}
+
+# The plain-page apps go next to the articles that frame them. Their iframe src gets a ?v= stamp at the
+# end of the build, so the browser never keeps serving an old copy after a rebuild.
+for (nm in names(APP_PAGES)) {
+  dir.create(dirname(file.path(OUT_DIR, "articles", nm)), showWarnings = FALSE, recursive = TRUE)
+  if (file.copy(APP_PAGES[[nm]], file.path(OUT_DIR, "articles", nm), overwrite = TRUE))
+    cat(sprintf("  app page %s -> %s/articles/%s\n", APP_PAGES[[nm]], OUT_DIR, nm))
 }
 
 # ── Share one shinylive/webR runtime between every app page ──────────────────
@@ -344,9 +397,9 @@ file.copy(file.path("app_publish", "www", "style.css"), file.path(OUT_DIR, "styl
 # Cache-bust the asset references in index.html so a rebuild is always picked up by the browser
 # (otherwise a stale cached render.js/style.css/payload.json keeps the old behaviour, e.g. inline UI
 # not applying after a rebuild). Stamps ?v=<build time>, re-stamping any existing ?v= on each build.
+stamp    <- as.integer(Sys.time())
 idx_path <- file.path(OUT_DIR, "index.html")
 if (file.exists(idx_path)) {
-  stamp <- as.integer(Sys.time())
   html  <- paste(readLines(idx_path, warn = FALSE), collapse = "\n")
   html  <- gsub('(href="style\\.css)(\\?v=[0-9]+)?"',      sprintf('\\1?v=%d"', stamp), html)
   html  <- gsub('(src="render\\.js)(\\?v=[0-9]+)?"',       sprintf('\\1?v=%d"', stamp), html)
@@ -354,6 +407,17 @@ if (file.exists(idx_path)) {
   html  <- gsub("(fetch\\('payload\\.json)(\\?v=[0-9]+)?'", sprintf("\\1?v=%d'", stamp), html)
   writeLines(html, idx_path)
   cat(sprintf("  index.html    cache-busted (v=%d)\n", stamp))
+}
+# ...and the app pages framed in the articles (inject_frame writes a bare src="<page>")
+for (hp in list.files(file.path(OUT_DIR, "articles"), pattern = "\\.html$", full.names = TRUE)) {
+  html  <- readLines(hp, warn = FALSE, encoding = "UTF-8")
+  html2 <- html
+  for (nm in names(APP_PAGES))
+    html2 <- gsub(sprintf('(src="%s)(\\?v=[0-9]+)?"', nm), sprintf('\\1?v=%d"', stamp), html2)
+  if (!identical(html, html2)) {
+    writeLines(html2, hp, useBytes = TRUE)
+    cat(sprintf("  %s: app frame cache-busted\n", basename(hp)))
+  }
 }
 
 cat(sprintf("Static site built in %s/\n", OUT_DIR))

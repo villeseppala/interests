@@ -1,8 +1,12 @@
 # ────────────────────────────────────────────────────────────────────────────
-# Parity check: app_xriskb's JavaScript (model, number formatting, cell HTML, arrow list) against
+# Parity check: app_xriskb's JavaScript (xriskb.html: model, number formatting, cell HTML, arrow list) against
 # app_xrisk's R on the same inputs. The JavaScript runs in V8, so no browser is involved.
 #   - model: compute() at the checkpoints must agree to rounding error
 #   - formatting, cell HTML and the arrow list must be identical strings
+# The baseline display differs by design since 2026-09-25: xriskb shows the baseline on its own editable
+# line under the delta, app_xrisk beside the value. So cells are compared without the baseline shown.
+# Padding zeros too (2026-09-26): xriskb draws them fainter (FAINT), app_xrisk in the arrows' grey (ZERO).
+# So the JavaScript is run with FAINT = ZERO.
 #
 # Needs the V8 package (install.packages("V8")). Run from the project root:
 #   source("app_xriskb/check_parity.R")
@@ -15,14 +19,15 @@ library(shiny)
 app <- new.env()
 sys.source("app_xrisk/app.R", envir = app)      # the R reference; the app is not launched
 
-# The JavaScript up to its "state" section is pure (model, formatting, cells, arrows): load that into V8.
-src <- readLines("app_xriskb/app.R", encoding = "UTF-8")
-s   <- grep('^js <- r"\\($', src)
-e   <- which(src == ')"'); e <- e[e > s][1]
+# The page's script up to its "state" section is pure (model, formatting, cells, arrows): load that into V8.
+src <- readLines("app_xriskb/xriskb.html", encoding = "UTF-8")
+s   <- which(src == "<script>")[1]
+e   <- which(src == "</script>"); e <- e[e > s][1]
 js  <- src[(s + 1):(e - 1)]
 cut <- grep("^// ── state, baselines and history", js)
 ctx <- V8::v8()
 ctx$eval(paste(js[seq_len(cut - 1)], collapse = "\n"))
+ctx$eval("FAINT = ZERO;")                          # padding zeros in app_xrisk's grey (see the header)
 
 # R values → JavaScript literals, numbers at full precision
 js_val <- function(x) {
@@ -82,16 +87,12 @@ for (x in c(0, 999, 1000, 1234567, 8.3e9, 7604252997099.4, 1e15 + 0.3))
   same_str(sprintf("f_int(%s)", format(x, scientific = FALSE)), app$f_int(x), js_str(sprintf("fInt(%s)", js_val(x))))
 for (y in c(2026, 12026, 102026))
   same_str(sprintf("fmt_year(%d)", y), app$fmt_year(y), js_str(sprintf("fmtYear(%d)", y)))
-for (a in list(list(0.0005, 100, 4, "%"), list(916.2, 1, 4, "y"), list(12.21573, 1, 4, "")))
-  same_str(sprintf("f_ref(%s, %s, %s, '%s')", a[[1]], a[[2]], a[[3]], a[[4]]), do.call(app$f_ref, a),
-           js_str(sprintf("fRef(%s, %s, %s, %s)", js_val(a[[1]]), js_val(a[[2]]), js_val(a[[3]]), js_val(a[[4]]))))
 
 # ── 3 · value cells ──
 cat("\nValue cells (identical HTML)\n")
-ref_rate <- app$f_ref(0.0005, 100, 4, "%"); ref_years <- app$f_ref(916.2, 1, 4, "y")
 edit_cases <- list(
-  "rate, lowered, with baseline"  = list(col = 3, cur = 0.00049, ref = 0.0005, kind = "rate", vi = 1, to_disp = 100, decimals = 4,
-                                         suffix = "%", good = "more_bad", color = app$COL_RATE, ref_txt = ref_rate,
+  "rate, lowered"                 = list(col = 3, cur = 0.00049, ref = 0.0005, kind = "rate", vi = 1, to_disp = 100, decimals = 4,
+                                         suffix = "%", good = "more_bad", color = app$COL_RATE,
                                          top = "<span class='ratio'>1 in 2 041</span>"),
   "rate_c (annual survival)"      = list(col = 5, cur = 0.99951, ref = 0.9995, kind = "rate_c", vi = 2, to_disp = 100, decimals = 4,
                                          suffix = "%", good = "more_good", color = app$COL_RATE),
@@ -103,15 +104,15 @@ edit_cases <- list(
                                          suffix = "m", pad = 5, good = "more_good", color = app$COL_POP),
   "pop, 5+ digits"                = list(col = 6, cur = 12345e6, ref = 8.3e9, kind = "pop", vi = 3, to_disp = 1 / 1e6, decimals = 0,
                                          suffix = "m", pad = 5, good = "more_good", color = app$COL_POP))
-js_names <- c(to_disp = "toDisp", ref_txt = "refTxt")
+js_names <- c(to_disp = "toDisp")
 to_js <- function(l) { n <- names(l); hit <- n %in% names(js_names); n[hit] <- js_names[n[hit]]; names(l) <- n; l }
 for (nm in names(edit_cases)) {
   a <- edit_cases[[nm]]
   same_str(paste("gcell_edit:", nm), do.call(app$gcell_edit, a), js_str(sprintf("gcellEdit(%s)", js_obj(to_js(a)))))
 }
 ro_cases <- list(
-  "years, with baseline"   = list(col = 6, cur = 916.1751234, ref = 916.2, to_disp = 1, decimals = 4, suffix = "y", kind = "more_good",
-                                  sub = "of 1 000y potential", color = app$COL_SURV, ref_txt = ref_years),
+  "years"                  = list(col = 6, cur = 916.1751234, ref = 916.2, to_disp = 1, decimals = 4, suffix = "y", kind = "more_good",
+                                  sub = "of 1 000y potential", color = app$COL_SURV),
   "population, no change"  = list(col = 4, cur = 8258593251.3, ref = 8258593251.3, to_disp = 1, decimals = 0, suffix = "",
                                   kind = "more_good", sub = "of 8 300 000 000 potential", color = app$COL_POP),
   "life-years, lowered"    = list(col = 8, cur = 7604252997099.4, ref = 7604260602009.1, to_disp = 1, decimals = 0, suffix = "",

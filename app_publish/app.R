@@ -210,6 +210,7 @@ server <- function(input, output, session) {
                              frame_line_w = ly$frame_line_w %||% 2,
                              frame_corner_r = ly$frame_corner_r %||% 14,
                              frame_fill_pct = ly$frame_fill_pct %||% 50,
+                             frame_fill_opacity = frame_fill_opacity_of(ly),
                              headers_on_stack = isTRUE(aw$headers_on_stack),
                              tall_over = av$tall,
                              col_bg = ly$col_bg %||% "#0b3552",

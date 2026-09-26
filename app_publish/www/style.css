@@ -439,7 +439,11 @@ body.inline-mode #inline-header-right #info-sidebar {
   height:auto !important; max-width:none !important; box-shadow:none !important; border-radius:0 !important; }
 body.inline-mode #inline-header-right #info-sidebar #page-title {
   flex-direction:row; align-items:center; gap:10px; flex-wrap:wrap; row-gap:4px;
-  padding:0; background:transparent; border-radius:0; }
+  padding:0; background:transparent !important; border-radius:0; }
+/* The header bar is ONE colour (the nav bar's): applyColors() paints #page-title with the graph
+   background and #info-sidebar with the sidebar colour as inline styles, which would show as a
+   differently coloured block behind the title/flags inside the bar — hence the !important. */
+body.inline-mode #inline-header-right #info-sidebar { background:transparent !important; }
 body.inline-mode #inline-header-right #info-sidebar #page-title-text { font-size:13px; white-space:nowrap; }
 body.inline-mode #inline-header-right .inline-allbtn { font-size:10.5px; padding:2px 6px; }
 body.inline-mode #inline-header-right .inline-btnlbl { font-size:10px; min-width:42px; }

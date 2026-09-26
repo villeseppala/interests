@@ -97,6 +97,16 @@ scan_articles <- function(articles_dir) {
   list(manifest = manifest, ids = ids, inline = inline_body, langs = langs)
 }
 
+# ── Column background opacity ────────────────────────────────────────────────
+# frame_fill_opacity: 0-100 %, 0 = no column background, 100 = solid (the look before this setting).
+# Layouts saved before it existed only have the old frame_fill_pct, which had become a plain on/off
+# switch (0 = off, anything else = solid) — so fall back to 0 or 100 from that and nothing changes.
+frame_fill_opacity_of <- function(ly) {
+  v <- ly$frame_fill_opacity
+  if (!is.null(v) && length(v) && !is.na(v)) return(max(0, min(100, as.numeric(v))))
+  if ((ly$frame_fill_pct %||% 50) > 0) 100 else 0
+}
+
 # ── Mobile layout defaults ───────────────────────────────────────────────────
 
 MOBILE_DEFAULTS <- list(
@@ -433,7 +443,7 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                             watermark_text = "", watermark_size = 10,
                             qr_enabled = FALSE, qr_url = "", qr_size = 110,
                             center_cols = FALSE, header_fill_pct = 90, headers_on_stack = FALSE,
-                            header_title_max = 1.5, frame_line_w = 2, frame_corner_r = 14, frame_fill_pct = 50,
+                            header_title_max = 1.5, frame_line_w = 2, frame_corner_r = 14, frame_fill_pct = 50, frame_fill_opacity = NULL,
                             col_bg = "#0b3552", col_sidebar_bg = "#081626", col_node_bg = "#081626",
                             col_column_bg = "#000000",
                             col_theme = "#3be37a", col_project = "#ffad33", col_skill = "#78e6e7",
@@ -631,6 +641,7 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
        centerCols=isTRUE(center_cols), headerFillPct=(header_fill_pct %||% 90), headersOnStack=isTRUE(headers_on_stack),
        headerTitleMax=(header_title_max %||% 1.5),
        frameLineW=(frame_line_w %||% 2), frameCornerR=(frame_corner_r %||% 14), frameFillPct=(frame_fill_pct %||% 50),
+       frameFillOpacity=frame_fill_opacity_of(list(frame_fill_opacity = frame_fill_opacity, frame_fill_pct = frame_fill_pct)),
        colBg=col_bg, colSidebarBg=col_sidebar_bg, colNodeBg=col_node_bg, colColumnBg=col_column_bg,
        colTheme=col_theme, colProject=col_project, colSkill=col_skill,
        lightColBg=light_col_bg, lightColSidebarBg=light_col_sidebar_bg, lightColNodeBg=light_col_node_bg,
@@ -650,7 +661,7 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                                  watermark_text = "", watermark_size = 10,
                                  qr_enabled = FALSE, qr_url = "", qr_size = 110,
                                  center_cols = FALSE, header_fill_pct = 90, headers_on_stack = FALSE,
-                                 header_title_max = 1.5, frame_line_w = 2, frame_corner_r = 14, frame_fill_pct = 50,
+                                 header_title_max = 1.5, frame_line_w = 2, frame_corner_r = 14, frame_fill_pct = 50, frame_fill_opacity = NULL,
                                  col_bg = "#0b3552", col_sidebar_bg = "#081626", col_node_bg = "#081626",
                                  col_column_bg = "#000000",
                                  col_theme = "#3be37a", col_project = "#ffad33", col_skill = "#78e6e7",
@@ -687,7 +698,7 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                              qr_enabled=qr_enabled, qr_url=qr_url, qr_size=qr_size,
                              center_cols=center_cols, header_fill_pct=header_fill_pct, headers_on_stack=headers_on_stack,
                              header_title_max=header_title_max, frame_line_w=frame_line_w, frame_corner_r=frame_corner_r,
-                             frame_fill_pct=frame_fill_pct,
+                             frame_fill_pct=frame_fill_pct, frame_fill_opacity=frame_fill_opacity,
                              col_bg=col_bg, col_sidebar_bg=col_sidebar_bg, col_node_bg=col_node_bg,
                              col_column_bg=col_column_bg,
                              col_theme=col_theme, col_project=col_project, col_skill=col_skill,

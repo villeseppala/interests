@@ -1,90 +1,134 @@
-# ============================================================================
-# KEPT FOR REFERENCE, NOT USED BY THE SITE. The site now shows hazard.html (this folder): the same page
-# without Shiny, so it needs no R runtime in the browser. This Shiny version is frozen as it was when the
-# page moved out (2026-09-24); later changes go to hazard.html only. Still runnable:
-# shiny::runApp("app_hazard").
-# ----------------------------------------------------------------------------
-# Shiny — hazard/survival threshold controls (value-space, bidirectional).
-# ----------------------------------------------------------------------------
-# Curve interpolated in VALUE space (cubic Hermite on value vs fx), mapped
-# through the y-axis for drawing, so it bends where it crosses a decade band.
-#
-# Two control sets, one authoritative at a time ("driver"):
-#   * Hazard set (red): anchors value+slope, per-segment controls -> hazard(fx),
-#     survival derived by S=prod(1-h)^dy.
-#   * Survival set (blue): same handles on the survival curve -> survival(fx),
-#     hazard derived by h = 1 - (S_i/S_{i-1})^(1/dy).
-# Grabbing a handle makes its set the driver; the other set is greyed and just
-# tracks the derived curve.  Default hazard peaks around year 20.
-#
-# Run:  shiny::runApp("hazard_thresholds.R")
-# ============================================================================
+<!DOCTYPE html>
+<!--
+  Threshold curve editor (app_hazard): one self-contained page. The curves, handles, year dials and
+  controls all run in the script below: no R, no Shiny, nothing to load but this file.
+  Try it by opening the file in a browser (double-click it, or drag it into a window).
+  On the site, tools/build_static.R copies it to site/articles/apps/hazard.html and shows it in an iframe
+  in article 201, in hazard.html and on the full-window page hazard-app.html.
+  app_hazard/app.R is the Shiny version this page came from, kept for reference.
 
-required <- c("shiny")   # the SVG overlay draws every curve now, so ggplot2 is no longer needed
-missing  <- required[!vapply(required, requireNamespace, logical(1), quietly = TRUE)]
-if (length(missing)) install.packages(missing)
+  Curve interpolated in VALUE space (cubic Hermite on value vs fx), mapped through the y-axis for
+  drawing, so it bends where it crosses a decade band. The hazard set (red) drives: anchors (value +
+  slope) and optional per-segment controls give hazard(fx); survival is derived by S = prod(1-h)^dy.
+  Population (pink) is an independent input curve. Default hazard peaks around year 20.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threshold curve editor</title>
+<style>
+/* ── base: the parts of Shiny's Bootstrap 3 the page relied on, so it looks as it did under Shiny ── */
+*, *::before, *::after{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+body{margin:0;font-size:14px;line-height:1.42857143;}
+.page{padding:0 15px;}                              /* Shiny's container-fluid gutter */
+h3{font-size:24px;line-height:1.1;margin:20px 0 10px;}
+button,input{font:inherit;color:inherit;margin:0;}
+label{display:inline-block;max-width:100%;margin-bottom:5px;}
+.checkbox label{display:inline-flex;align-items:center;min-height:20px;margin:0;cursor:pointer;}
+.checkbox input{margin:0 7px 0 0;cursor:pointer;}
 
-library(shiny)
-
-## ---- constants + shared helpers -------------------------------------------
-SPANX <- c(10, 90, 900, 9000); M <- 100; Wpx <- 1240; Hpx <- 698   # 4 periods to 12026, width matches x-risk app
-YEARS   <- c(2026, 2036, 2126, 3026, 12026)                        # checkpoint calendar years (same as x-risk)
-year_lbl <- function(y) if (y >= 10000) format(y, big.mark = " ", scientific = FALSE) else as.character(y)
-
-haz_to_fy <- function(h) {
-  h <- pmin(1e-1, pmax(1e-5, h)); d <- floor(log10(h)); seg <- pmin(3, pmax(0, d + 5))
-  lo <- 10^(seg-5); hi <- 10^(seg-4); (seg + pmin(1, pmax(0, (h-lo)/(hi-lo)))) / 4
-}
-fit_linexp <- function(mx) max(-5, min(-1, floor(log10(mx)) + 1))
-herm <- function(px, x0, y0, m0, x1, y1, m1) {
-  h <- x1 - x0; u <- (px-x0)/h
-  y0*(2*u^3-3*u^2+1) + m0*h*(u^3-2*u^2+u) + y1*(-2*u^3+3*u^2) + m1*h*(u^3-u^2)
-}
-default_atheta <- function(anchors) {
-  fy <- haz_to_fy(anchors); px <- (0:4)/4*Wpx; py <- (1-fy)*Hpx; th <- numeric(5)
-  for (i in 1:5) { lo <- max(1,i-1); hi <- min(5,i+1); th[i] <- atan2(py[hi]-py[lo], px[hi]-px[lo]) }
-  th
-}
-sample_set <- function(anchors, thetaL, thetaR, fxc, cval, useCtrl, dYdv, clampV, log_time = FALSE, spanx = SPANX) {
-  tfrac <- function(u) if (log_time) (10^u - 1) / 9 else u   # log: single decade of time per span
-  rows <- list()
-  for (s in 1:4) {
-    fxL <- (s-1)/4; fxR <- s/4; hL <- anchors[s]; hR <- anchors[s+1]
-    mL <- tan(thetaR[s])*Wpx/dYdv(hL); mR <- tan(thetaL[s+1])*Wpx/dYdv(hR); mC <- (hR-hL)/(fxR-fxL)
-    fxC <- fxc[s]; hC <- cval[s]; ms <- if (s==1) 0:M else 1:M; fx <- fxL + (ms/M)*(fxR-fxL)
-    u <- ms/M; dy <- spanx[s] * (tfrac(u) - tfrac(u - 1/M))   # years covered by each sample
-    v <- if (useCtrl) ifelse(fx<=fxC, herm(fx,fxL,hL,mL,fxC,hC,mC), herm(fx,fxC,hC,mC,fxR,hR,mR))
-         else herm(fx,fxL,hL,mL,fxR,hR,mR)
-    rows[[s]] <- data.frame(fx = fx, val = clampV(v), dy = dy)
-  }
-  do.call(rbind, rows)
-}
-haz_dYdv <- function(h, lm, linearY) {
-  if (linearY) return(-Hpx/lm)
-  h <- pmin(1e-1, pmax(1e-5, h)); seg <- pmin(3, pmax(0, floor(log10(h))+5))
-  lo <- 10^(seg-5); hi <- 10^(seg-4); -(Hpx/4)/(hi-lo)
-}
-compute_both <- function(hz, sv, driver, useCtrl, linearY, log_time = FALSE, spanx = SPANX) {
-  if (driver == "hazard") {
-    lm <- if (linearY) 10^fit_linexp(max(hz$anchors)) else 1
-    hs <- sample_set(hz$anchors, hz$thetaL, hz$thetaR, hz$fxc, hz$cval, useCtrl,
-                     function(h) haz_dYdv(h, lm, linearY), function(v) pmin(1e-1, pmax(1e-5, v)), log_time, spanx)
-    surv <- cumprod((1 - hs$val)^hs$dy)
-  } else {
-    ss <- sample_set(sv$anchors, sv$thetaL, sv$thetaR, sv$fxc, sv$cval, useCtrl,
-                     function(v) -Hpx, function(v) pmin(1, pmax(0, v)), log_time, spanx)
-    ss$val <- cummin(pmax(1e-6, ss$val))                  # survival is non-increasing
-    prev <- c(1, head(ss$val, -1)); r <- pmin(1, pmax(1e-9, ss$val/prev))
-    hs <- data.frame(fx = ss$fx, val = pmin(1e-1, pmax(1e-5, 1 - r^(1/ss$dy))), dy = ss$dy)
-    surv <- ss$val
-    lm <- if (linearY) 10^fit_linexp(max(hs$val)) else 1
-  }
-  fy_of <- function(v) if (linearY) pmin(1, pmax(0, v/lm)) else haz_to_fy(v)
-  data.frame(fx = hs$fx, fy = fy_of(hs$val), hz = hs$val, surv = surv)
-}
-
-## ---- JS overlay -----------------------------------------------------------
-overlay_js <- HTML(r"---(
+/* ── the app (as app_hazard/app.R) ── */
+body,.page{background:#0b3552; color:#e8eef4; font-family:Arial,Helvetica,sans-serif;}
+h3{color:#e8eef4; font-weight:700;}
+a{color:#78e6e7;}
+label,.control-label,.checkbox label{color:#e8eef4; font-weight:400;}
+#overlay{position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; touch-action:none; overflow:visible;}
+#overlay text{user-select:none;}
+#popout .pcell{line-height:1.55; max-width:210px;}
+#popout .pcell b{color:#f18fbe;}
+#popout .was{color:#9a6580; font-style:italic;}
+.cmprow{margin:4px 0 8px;}
+.cmpbtn{background:#12405f;color:#e8eef4;border:1px solid #2a6a8f;border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer;margin-right:8px;}
+.cmpbtn:hover{background:#175981;}
+.cmpbtn:disabled{opacity:0.4;cursor:default;background:#12405f;}
+.cmpbtn.active{background:#1f77a8;border-color:#8fd6f2;color:#fff;box-shadow:0 0 0 1px #8fd6f2 inset;}
+.legendrow{display:flex;align-items:center;gap:2px 22px;flex-wrap:wrap;margin:4px 0 10px;font-size:13.5px;}
+.legendrow .checkbox{margin:0;}
+.ctrlbar{display:flex;flex-wrap:wrap;align-items:center;gap:4px 26px;margin:6px 0 12px;}
+.ctrlbar .checkbox{margin:0;}
+.ctrlbar .fontctl .control-label{margin:0 0 1px;font-weight:400;}
+.wheel svg text{user-select:none;}
+.wheel svg:active{cursor:grabbing;}
+.startyr .syrbig{font-size:15px;font-weight:bold;color:#cdd9e3;margin-top:42px;}
+.startyr .syrsub{font-size:10px;color:#8fa3b3;margin-top:2px;}
+.wheel .yrin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:58px;
+  background:transparent;border:none;color:#ffd9e4;font-weight:bold;font-size:13px;
+  text-align:center;font-family:inherit;padding:1px 0;outline:none;}
+.wheel .yrin:focus{background:rgba(0,0,0,0.45);border-radius:4px;}
+/* font-size slider: a native range input drawn like the Shiny slider it replaces: the value in a bubble over
+   the handle, the end values in the top corners (each hidden while the bubble covers it — drawFontSlider),
+   the track filled up to the handle (--fill, set by drawFontSlider; Firefox fills it natively) */
+.rslider{position:relative;width:220px;height:40px;}
+.rslider .rs-lbl{position:absolute;top:0;padding:1px 3px;border-radius:3px;font-size:10px;line-height:1.333;
+  color:#0b3552;background:#4fb8d6;white-space:nowrap;pointer-events:none;}
+.rslider .rs-min{left:0;}
+.rslider .rs-max{right:0;}
+.rslider .rs-val{font-size:11px;transform:translateX(-50%);}
+.rslider input{position:absolute;left:0;top:17px;width:100%;height:22px;margin:0;background:transparent;
+  -webkit-appearance:none;appearance:none;cursor:pointer;}
+.rslider input:focus{outline:none;}
+.rslider input:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px rgba(79,184,214,.4);}
+.rslider input:focus-visible::-moz-range-thumb{box-shadow:0 0 0 3px rgba(79,184,214,.4);}
+.rslider input::-webkit-slider-runnable-track{height:8px;border:1px solid #12405f;border-radius:8px;
+  background:linear-gradient(#4fb8d6, #4fb8d6) 0 0 / var(--fill, 50%) 100% no-repeat, #12405f;}
+.rslider input::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-7px;border-radius:50%;
+  background:#e8eef4;border:1px solid #ababab;box-shadow:1px 1px 3px rgba(255,255,255,.3);}
+.rslider input::-moz-range-track{height:8px;border:1px solid #12405f;border-radius:8px;background:#12405f;}
+.rslider input::-moz-range-progress{height:8px;border-radius:8px 0 0 8px;background:#4fb8d6;}
+.rslider input::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#e8eef4;border:1px solid #ababab;
+  box-sizing:border-box;box-shadow:1px 1px 3px rgba(255,255,255,.3);}
+</style>
+</head>
+<body>
+<div class="page">
+  <h3>Extinction probability threshold controls</h3>
+  <div class="ctrlbar">
+    <div class="checkbox"><label><input id="no_ctrl" type="checkbox" checked autocomplete="off"><span>No control point</span></label></div>
+    <div class="checkbox"><label><input id="split_slope" type="checkbox" checked autocomplete="off"><span>Split slopes</span></label></div>
+    <div class="checkbox"><label><input id="linear_y" type="checkbox" checked autocomplete="off"><span>Linear y scale (10x ceiling)</span></label></div>
+    <div class="checkbox"><label><input id="linear_x" type="checkbox" checked autocomplete="off"><span>Linear x-scale</span></label></div>
+    <div class="checkbox"><label><input id="lines_only" type="checkbox" autocomplete="off"><span>Lines only</span></label></div>
+    <div class="checkbox"><label><input id="log_time" type="checkbox" autocomplete="off"><span>Logarithmic time within each period</span></label></div>
+    <div class="fontctl">
+      <label class="control-label" for="font">Font size (px)</label>
+      <div class="rslider">
+        <span class="rs-lbl rs-min"></span><span class="rs-lbl rs-max"></span><span class="rs-lbl rs-val"></span>
+        <input id="font" type="range" min="8" max="28" step="1" value="15" autocomplete="off">
+      </div>
+    </div>
+  </div>
+  <div class="legendrow">
+    <div class="checkbox"><label><input id="vis_haz" type="checkbox" checked autocomplete="off"><b style='color:#e8836f'>Extinction probability</b></label></div>
+    <div class="checkbox"><label><input id="vis_surv" type="checkbox" checked autocomplete="off"><b style='color:#4fb8d6'>Survival probability</b></label></div>
+    <div class="checkbox"><label><input id="vis_pop" type="checkbox" checked autocomplete="off"><b style='color:#e46ba6'>Population (potential / expected)</b></label></div>
+    <div class="checkbox"><label><input id="vis_cumyr" type="checkbox" autocomplete="off"><b style='color:#6fcf97'>Cumulative survived years</b></label></div>
+    <div class="checkbox"><label><input id="vis_cumly" type="checkbox" autocomplete="off"><b style='color:#e8b04f'>Cumulative life-years</b></label></div>
+    <div class="checkbox"><label><input id="vis_cumlives" type="checkbox" autocomplete="off"><b style='color:#b98fe0'>Cumulative lives (&divide;75)</b></label></div>
+  </div>
+  <div class="cmprow">
+    <button id="baseCur" type="button" class="cmpbtn">Baseline = current</button>
+    <button id="basePrev" type="button" class="cmpbtn">Baseline = previous</button>
+    <button id="reset" type="button" class="cmpbtn">Reset</button>
+    <span style="display:inline-block;width:18px;"></span>
+    <button id="remYr" type="button" class="cmpbtn">Remove last year</button>
+    <button id="addYr" type="button" class="cmpbtn">Add new year</button>
+  </div>
+  <!-- #chartcol carries the axis gutters as padding (widths set by layoutLanes() in the script); the rows inside
+       share its content box, so the wheels, plot and population cells stay aligned with the plot edges.
+       1240 x 698 is the plot size in user units (W0 / H0 in the script); the width matches the x-risk app. -->
+  <div id="chartcol" style="padding:0 60px; max-width:1240px; box-sizing:content-box;">
+    <div id="wheelrow" style="position:relative; width:100%; max-width:1240px; height:126px; margin-bottom:2px;"></div>
+    <div id="plotwrap" style="position:relative; width:100%; max-width:1240px; aspect-ratio:1240/698; margin-top:55px;">
+      <div style="position:absolute; inset:0; background:#0b3552;"></div>   <!-- dark panel; every curve and area is drawn by the SVG overlay -->
+      <svg id="overlay" style="width:100%;height:100%;"></svg>   <!-- overflow:visible lets the axis labels (gutters) and the year labels sit outside -->
+    </div>
+    <div id="popout" style="position:relative; margin:12px 0; width:100%; max-width:1240px; min-height:140px; font-size:12px; color:#e46ba6;"></div>
+  </div>
+  <div id="live" style="margin:8px 0; font-family:monospace; color:#cdd9e3;"></div>
+</div>
+<script>
 (function(){
   const NS="http://www.w3.org/2000/svg";
   const HAZ="#e8836f", SUR="#4fb8d6", HBAR="#c96f5c", SBAR="#3f9ab5";
@@ -125,6 +169,9 @@ overlay_js <- HTML(r"---(
   let focusSet="hazard";
   let visHaz=true, visSurv=true, visPop=true, visCumYr=false, visCumLy=false, visCumLives=false;
   let minorGrid=[];
+  const MINOR_GAP=40;   // closest spacing of the minor time gridlines (user units, of the plot's 1240)
+  function niceYears(x){ if(!(x>1)) return 1;   // smallest of 1, 2, 5 x 10^k years that is >= x
+    const p=Math.pow(10,Math.floor(Math.log10(x))), m=x/p; return (m<=1?1:m<=2?2:m<=5?5:10)*p; }
   function tFrac(u){ return logTime ? (Math.pow(10,u)-1)/9 : u; }   // log: single decade of time per span
   let linExp=-1, linMax=0.1;
   // Scale transitions (linear hazard scale + population scale): the plot spans 0..TOPF x the scale max, i.e. 11
@@ -134,7 +181,7 @@ overlay_js <- HTML(r"---(
   const TOPF=1.1, ZONE_FILL="rgba(255,0,0,0.2)";
   let W,H, hazSet={anchors:[],ctrls:[]}, survSet={anchors:[],ctrls:[]}, popSet={anchors:[],ctrls:[]}, hazS=[], survS=[], popS=[];
   let surTicks=[];   // survival axis labels (right gutter)
-  let yTicks=[], popTicks=[], cumYrTicks=[], cumLyTicks=[], cumLvTicks=[], infoTx=[], bandsG, bandSig="", svg, label, hazArea, hazLine, surLine, popLine, expLine, segSep=[], connLines=[], ptLabels=[], readySent=false, drag=null;
+  let yTicks=[], popTicks=[], cumYrTicks=[], cumLyTicks=[], cumLvTicks=[], infoTx=[], bandsG, bandSig="", svg, label, hazArea, hazLine, surLine, popLine, expLine, segSep=[], connLines=[], ptLabels=[], drag=null;
   let baseHazLine, baseSurLine, basePopLine, baseExpLine, cumYrLine, cumLyLine, cumLvLine;
   let baseCumYrLine, baseCumLyLine, baseCumLvLine;
   let baseMode="previous", baseSnap=null, prevSnap=null;   // comparison: "none" | "current" | "previous"
@@ -326,9 +373,20 @@ overlay_js <- HTML(r"---(
     popLine.setAttribute("points", popS.map(p=>sX(p.fx)+","+sYp(p.val)).join(" ")); popLine.setAttribute("opacity", visPop?1:0);
     expLine.setAttribute("points", popS.map((p,k)=>sX(p.fx)+","+sYp(p.val*survS[k].val)).join(" ")); expLine.setAttribute("opacity", visPop?1:0);   // expected = potential x survival
     popTicks.forEach(t=>t.el.textContent=fmtBig(t.fr*popMax));
-    const gu = logTime ? [2,3,4,5,6,7,8,9].map(v=>Math.log10(v)) : [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9];
-    minorGrid.forEach((ln,idx)=>{ const s=Math.floor(idx/9), j=idx%9;
-      if(s<ns()&&j<gu.length){ const fxL=cpFx(s),gx=sX(fxL+gu[j]*(cpFx(s+1)-fxL)); ln.setAttribute("x1",gx); ln.setAttribute("x2",gx); ln.setAttribute("opacity",1); } else ln.setAttribute("opacity",0); });
+    // Minor time gridlines mark years since the period's start checkpoint (2026 + 5, + 10, ...), so they move with
+    // a checkpoint when it is dragged. The step is 1, 2 or 5 x 10^k years: per period the smallest that keeps
+    // neighbouring lines MINOR_GAP apart where they are densest (the period's end, under log time). Under linear
+    // x every period has the same px per year, so the step is the same across the whole axis.
+    const minorX=[];
+    for(let s=0;s<ns();s++){ const y0=yearVals[s], y1=yearVals[s+1], span=y1-y0, fxL=cpFx(s), segw=cpFx(s+1)-fxL;
+      if(span<=0||segw<=0) continue;
+      const dens=segw*W/span*(logTime?9/(10*Math.LN10):1);        // user units per year where the lines are closest
+      const step=niceYears(MINOR_GAP/dens);
+      for(let y=y0+step; y<y1; y+=step){
+        const t=(y-y0)/span, u=logTime?Math.log10(1+9*t):t;         // year -> position within the period (tFrac inverted)
+        minorX.push(sX(fxL+u*segw)); } }
+    while(minorGrid.length<minorX.length){ const ln=mk("line",{y1:0,y2:H,stroke:"rgba(255,255,255,0.08)"}); svg.insertBefore(ln,segSep[0]); minorGrid.push(ln); }   // behind everything but the bands
+    minorGrid.forEach((ln,k)=>{ if(k<minorX.length){ ln.setAttribute("x1",minorX[k]); ln.setAttribute("x2",minorX[k]); ln.setAttribute("opacity",1); } else ln.setAttribute("opacity",0); });
     segSep.forEach((ln,idx)=>{ const s=idx+1; if(s<ns()){ const gx=sX(cpFx(s)); ln.setAttribute("x1",gx); ln.setAttribute("x2",gx); ln.setAttribute("opacity",1); } else ln.setAttribute("opacity",0); });
     // a copy of each year value sits above its real-time x (stacked when clustered), with a white line
     // from its evenly-spaced knob down to that label — shown in every x-scale mode.
@@ -510,26 +568,24 @@ overlay_js <- HTML(r"---(
     yearVals.push(ny);
     [hazSet,survSet,popSet].forEach(S=>{ S.anchors[n].val=S.anchors[n-1].val; S.anchors[n].thetaL=0; S.anchors[n].thetaR=0;
       S.ctrls[n-1].fxc=0.5; S.ctrls[n-1].val=S.anchors[n-1].val; });
-    recomputeSpanx(); buildWheels(); redraw(); prevSnap=snap(); updateYearBtns(); commit(); }
+    recomputeSpanx(); buildWheels(); redraw(); prevSnap=snap(); updateYearBtns(); }
   function removeYear(){ if(yearVals.length<=2) return; yearVals.pop();   // 2nd-to-last becomes the last checkpoint
-    recomputeSpanx(); buildWheels(); redraw(); prevSnap=snap(); updateYearBtns(); commit(); }
+    recomputeSpanx(); buildWheels(); redraw(); prevSnap=snap(); updateYearBtns(); }
   function attachWheel(w){
     w.svg.onpointerdown=e=>{ e.preventDefault(); w.svg.setPointerCapture(e.pointerId); w.drag=true; wheelMove(w,e); };
     w.svg.onpointermove=e=>{ if(w.drag) wheelMove(w,e); };
-    const up=e=>{ if(!w.drag) return; w.drag=false; sendYears(); };
+    const up=()=>{ w.drag=false; };
     w.svg.onpointerup=up; w.svg.onpointercancel=up; }
   function wheelMove(w,e){ const r=w.svg.getBoundingClientRect();
     const mx=(e.clientX-r.left)*(WH/r.width)-WCX, my=(e.clientY-r.top)*(WH/r.height)-WCY;
     let a=Math.atan2(mx,-my); a=Math.max(WA0,Math.min(WA0+WSW,a));   // clamp onto the 270° arc
     setYear(w.i,(a-WA0)/WSW); }
-  function sendYears(){ if(window.Shiny) Shiny.setInputValue("years", yearVals.slice(), {priority:"event"}); }
 
   function build(d){
     W=d.W; H=d.H; recomputeSpanx();
     svg=document.getElementById("overlay"); svg.setAttribute("viewBox","0 0 "+W+" "+H); svg.innerHTML="";
     bandsG=mk("g",{}); svg.appendChild(bandsG); bandSig="";
-    minorGrid=[];                                    // minor time gridlines (positioned per log/linear in redraw)
-    for(let s=0;s<4;s++) for(let k=0;k<9;k++){ const ln=mk("line",{y1:0,y2:H,stroke:"rgba(255,255,255,0.08)"}); svg.appendChild(ln); minorGrid.push(ln); }
+    minorGrid=[];                                    // minor time gridlines, years since each period start (created and positioned in redraw)
     segSep=[]; for(let s=1;s<=4;s++){ const ln=mk("line",{y1:0,y2:H,stroke:"rgba(255,255,255,0.18)",opacity:0}); svg.appendChild(ln); segSep.push(ln); }   // period separators (positioned in redraw)
     hazArea=mk("polygon",{fill:"rgba(232,131,111,0.15)",stroke:"none",points:""}); svg.appendChild(hazArea);   // shaded region under hazard (replaces the ggplot area)
     // axis labels sit OUTSIDE the plot (overflow:visible) so they never collide with the first/last checkpoint
@@ -601,14 +657,9 @@ overlay_js <- HTML(r"---(
       if(useCtrl) set.ctrls.forEach((k,s)=>{ if(s>=ns()) return; const fxL=cpFx(s),cx=sX(fxL+k.fxc*(cpFx(s+1)-fxL)),cy=desc.yOf(k.val),dx=mx-cx,dy=my-cy,d=dx*dx+dy*dy; if(d<bd){bd=d;best={set:name,type:"m",i:s};} }); };
     consider(hazSet,HDESC,"hazard"); consider(popSet,PDESC,"pop"); return best; }   // survival output-only
 
-  function commit(){ Shiny.setInputValue("curve_set", {driver:driver,
-    haz:{anchors:hazSet.anchors.map(a=>a.val),thetaL:hazSet.anchors.map(a=>a.thetaL),thetaR:hazSet.anchors.map(a=>a.thetaR),fxc:hazSet.ctrls.map(k=>k.fxc),cval:hazSet.ctrls.map(k=>k.val)},
-    surv:{anchors:survSet.anchors.map(a=>a.val),thetaL:survSet.anchors.map(a=>a.thetaL),thetaR:survSet.anchors.map(a=>a.thetaR),fxc:survSet.ctrls.map(k=>k.fxc),cval:survSet.ctrls.map(k=>k.val)},
-    t:Date.now()}, {priority:"event"}); }
-
   function attach(){
     svg.onpointerdown = e => { const m=mouse(e), p=pick(m.x,m.y); if(!p) return;
-      e.preventDefault(); prevSnap=snap(); drag=p; focusSet=p.set; drag.x0=m.x; drag.f0=p.i>0?fracFromYear(p.i,yearVals[p.i]):0; drag.yrMoved=false;
+      e.preventDefault(); prevSnap=snap(); drag=p; focusSet=p.set; drag.x0=m.x; drag.f0=p.i>0?fracFromYear(p.i,yearVals[p.i]):0;
       svg.setPointerCapture(e.pointerId); redraw(); };   // snapshot pre-drag; driver stays "hazard"
     svg.onpointermove = e => {
       if(!drag) return; const m=mouse(e), set=setByName(drag.set), desc=descByName(drag.set), i=drag.i;
@@ -618,7 +669,7 @@ overlay_js <- HTML(r"---(
           // px per full dial sweep: under linear-x an interior anchor follows the pointer exactly (its year range spans
           // its neighbours' x); otherwise (equal periods, or the last anchor pinned to the right edge) one column = one sweep
           const pxf=(linearX&&i<np()-1)?Math.max(1,(cpFx(i+1)-cpFx(i-1))*W):W/ns();
-          if(setYearFrac(i, drag.f0+eff/pxf)) drag.yrMoved=true; }
+          setYearFrac(i, drag.f0+eff/pxf); }
         set.anchors[i].val=desc.clampV(desc.invY(m.y)); redraw();   // may sit in the top zone (above the scale max) until release
         document.getElementById("live").textContent=drag.set+" "+yearVals[i]+": "+desc.ratioLbl(set.anchors[i].val);
       } else if(drag.type==="rR"){ const a=foldClamp(Math.atan2(m.y-cy,m.x-cx)); set.anchors[i].thetaR=a; if(!split) set.anchors[i].thetaL=a; redraw();
@@ -633,162 +684,71 @@ overlay_js <- HTML(r"---(
       // release: apply the transition zones of the set that was dragged (top zone -> decade up, all-in-bottom-zone -> shrink)
       let msg=""; if(drag.set==="hazard"&&linearY){ const o=linMax; fitLinExp(); if(linMax!==o){ rescaleLevers(hazSet, o/linMax); msg="hazard scale -> "+pctLbl(linMax); } }
       else if(drag.set==="pop"){ const o=popMax; fitPop(); if(popMax!==o){ rescaleLevers(popSet, o/popMax); msg="population scale -> "+fmtBig(popMax); } }
-      label.textContent=""; commit();
-      if(drag.yrMoved) sendYears();
+      label.textContent="";
       document.getElementById("live").textContent=msg; drag=null; redraw(); };
     svg.onpointerup=end; svg.onpointercancel=end;
   }
 
-  function sendReady(){ if(readySent) return; readySent=true; Shiny.setInputValue("client_ready", Date.now()); }
-  document.addEventListener("shiny:connected", sendReady);
-  setTimeout(sendReady, 500);
-  Shiny.addCustomMessageHandler("init_points", build);
-  Shiny.addCustomMessageHandler("set_curve", function(d){ driver=d.driver; focusSet="hazard"; loadSet(hazSet,d.haz); loadSet(survSet,d.surv); loadSet(popSet,POP_DEFAULT); popMax=1e10;
-    yearVals=YRS0.slice(); recomputeSpanx(); buildWheels(); updateYearBtns();   // reset restores default years + all 5 points
-    if(linearY) fitLinExp(); redraw(); prevSnap=snap(); });
-  Shiny.addCustomMessageHandler("set_params", function(p){ showPoints=p.points; useCtrl=p.useCtrl; linearY=p.linearY; logTime=p.logTime; const w=split; split=p.split;
-    const lx=linearX; linearX=!!p.linearX;
-    visHaz=p.visHaz; visSurv=p.visSurv; visPop=p.visPop; visCumYr=p.visCumYr; visCumLy=p.visCumLy; visCumLives=p.visCumLives;
-    if(p.font) setFont(p.font);
+  // ---- defaults, the page's controls and start-up (under Shiny the server sent these as messages) ----
+  const W0=1240, H0=698;   // plot size in user units (the page's #chartcol / #plotwrap sizes match)
+  // Default hazard: rises early then declines over the long tail (5 checkpoints, 4 segments; 2036 = 0.07%).
+  // Each lever starts along the line through its neighbouring anchors, as drawn on the decade scale.
+  function defaultTheta(anchors){ const py=anchors.map(h=>(1-hazToFyDec(h))*H0);
+    return anchors.map((_,i)=>{ const lo=Math.max(0,i-1), hi=Math.min(4,i+1); return Math.atan2(py[hi]-py[lo], (hi-lo)/4*W0); }); }
+  const HZ_ANCHORS=[1e-4,7e-4,3e-4,8e-5,3e-5];
+  const HZ0={ anchors:HZ_ANCHORS, thetaL:defaultTheta(HZ_ANCHORS), thetaR:defaultTheta(HZ_ANCHORS),
+              fxc:[0.5,0.5,0.5,0.5], cval:[(1e-4+7e-4)/2,(7e-4+3e-4)/2,(3e-4+8e-5)/2,(8e-5+3e-5)/2] };   // fxc = within-segment fraction
+  const SV0={ anchors:[0.98,0.92,0.75,0.50,0.30], thetaL:[0,0,0,0,0], thetaR:[0,0,0,0,0],
+              fxc:[0.5,0.5,0.5,0.5], cval:[0.95,0.83,0.62,0.40] };
+
+  // Reset: default curves, default years (YRS0), population scale back to 10 B.
+  function resetAll(){ driver="hazard"; focusSet="hazard"; loadSet(hazSet,HZ0); loadSet(survSet,SV0); loadSet(popSet,POP_DEFAULT); popMax=1e10;
+    yearVals=YRS0.slice(); recomputeSpanx(); buildWheels(); updateYearBtns();
+    if(linearY) fitLinExp(); redraw(); prevSnap=snap(); }
+  // Read every checkbox and the font slider into the drawing state, then redraw.
+  const isOn=id=>{ const el=document.getElementById(id); return !!(el&&el.checked); };
+  function applyParams(){ showPoints=!isOn("lines_only"); useCtrl=!isOn("no_ctrl"); linearY=isOn("linear_y"); logTime=isOn("log_time");
+    const w=split; split=isOn("split_slope");
+    const lx=linearX; linearX=isOn("linear_x");
+    visHaz=isOn("vis_haz"); visSurv=isOn("vis_surv"); visPop=isOn("vis_pop"); visCumYr=isOn("vis_cumyr"); visCumLy=isOn("vis_cumly"); visCumLives=isOn("vis_cumlives");
+    setFont(+document.getElementById("font").value);
     if(!split&&w){ [hazSet,survSet].forEach(S=>S.anchors.forEach(a=>{ const avg=(a.thetaL+a.thetaR)/2; a.thetaL=avg; a.thetaR=avg; })); }
-    if(svg){ if(linearY) fitLinExp(); redraw(); if(linearX!==lx){ drawAllWheels(); prevSnap=snap(); redraw(); } commit(); } });
+    if(svg){ if(linearY) fitLinExp(); redraw(); if(linearX!==lx){ drawAllWheels(); prevSnap=snap(); redraw(); } } }
+  document.addEventListener("change", e=>{ const t=e.target;
+    if(!t.matches(".ctrlbar input[type=checkbox], .legendrow input[type=checkbox]")) return;
+    // cumulative life-years and cumulative lives share one normalised curve: one at a time
+    if(t.checked&&t.id==="vis_cumly") document.getElementById("vis_cumlives").checked=false;
+    if(t.checked&&t.id==="vis_cumlives") document.getElementById("vis_cumly").checked=false;
+    applyParams(); });
+  document.getElementById("reset").onclick=resetAll;
+
+  // font-size slider: value bubble over the handle, the end values at the corners (see the .rslider CSS)
+  function drawFontSlider(){ const box=document.querySelector(".rslider"); if(!box) return;
+    const inp=box.querySelector("input"), val=box.querySelector(".rs-val"), bw0=box.clientWidth, TH=22;   // TH: handle width
+    const lo=+inp.min, hi=+inp.max, cx=TH/2+(+inp.value-lo)/(hi-lo)*(bw0-TH);                         // handle centre
+    inp.style.setProperty("--fill", cx+"px");
+    box.querySelector(".rs-min").textContent=lo; box.querySelector(".rs-max").textContent=hi; val.textContent=inp.value;
+    const bw=val.offsetWidth; val.style.left=Math.min(Math.max(cx,bw/2),bw0-bw/2)+"px";               // bubble stays inside the slider
+    const vr=val.getBoundingClientRect();
+    box.querySelectorAll(".rs-min, .rs-max").forEach(l=>{ const r=l.getBoundingClientRect();
+      l.style.visibility=(r.right+3>vr.left&&r.left-3<vr.right)?"hidden":""; }); }
+  document.getElementById("font").addEventListener("input", ()=>{ drawFontSlider(); applyParams(); });
+
+  build({haz:HZ0, surv:SV0, W:W0, H:H0});
+  applyParams();
+  drawFontSlider();
+
+  // Shown in an article's iframe: report the page's height whenever it changes, so the article can size the
+  // frame to fit and the app never scrolls inside it. The article's side is written by tools/build_static.R
+  // (inject_frame).
+  if(window.parent!==window){ let postedH=0;
+    const page=document.querySelector(".page");
+    const postHeight=()=>{ const h=Math.ceil(page.getBoundingClientRect().height);
+      if(h!==postedH){ postedH=h; window.parent.postMessage({appHeight:h}, "*"); } };
+    if(window.ResizeObserver) new ResizeObserver(postHeight).observe(page);
+    window.addEventListener("load", postHeight);
+    postHeight(); }
 })();
-)---")
-
-## ---- UI -------------------------------------------------------------------
-# a row of the 5 checkpoint years, positioned at the graph's x fractions (0,1/4,…,1)
-year_row <- function(ids = FALSE) do.call(tags$div, c(list(class = "yearrow"),
-  lapply(0:4, function(i) {
-    pos <- if (i == 0) "left:0;text-align:left;"
-           else if (i == 4) "right:0;text-align:right;"
-           else sprintf("left:%s%%;transform:translateX(-50%%);text-align:center;", format(i / 4 * 100))
-    tags$span(class = "ylbl", id = if (ids) paste0("byr", i) else NULL,
-              style = paste0("position:absolute;", pos), year_lbl(YEARS[i + 1]))
-  })))
-
-ui <- fluidPage(
-  tags$head(tags$style(HTML(
-    "body,.container-fluid{background:#0b3552; color:#e8eef4; font-family:Arial,Helvetica,sans-serif;}
-     h3{color:#e8eef4; font-weight:700;}
-     a{color:#78e6e7;}
-     label,.control-label,.checkbox label{color:#e8eef4; font-weight:400;}
-     .btn,.btn-default{background:#12405f; color:#e8eef4; border:1px solid #2a6a8f;}
-     .btn:hover,.btn-default:hover{background:#175981; color:#fff;}
-     .irs--shiny .irs-line{background:#12405f; border-color:#12405f;}
-     .irs--shiny .irs-bar{background:#4fb8d6; border-color:#4fb8d6;}
-     .irs--shiny .irs-min,.irs--shiny .irs-max,.irs--shiny .irs-from,.irs--shiny .irs-to,.irs--shiny .irs-single{color:#0b3552; background:#4fb8d6;}
-     .irs--shiny .irs-grid-text{color:#9fb0bf;}
-     .irs--shiny .irs-handle>i:first-child{background:#e8eef4;}
-     #plot img{display:block; width:100%; height:100%;} #plot{line-height:0; position:absolute; inset:0; width:100%; height:100%;}
-     #overlay{position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; touch-action:none; overflow:visible;}
-     #overlay text{user-select:none;}
-     #popout .pcell{line-height:1.55; max-width:210px;}
-     #popout .pcell b{color:#f18fbe;}
-     #popout .was{color:#9a6580; font-style:italic;}
-     .cmprow{margin:4px 0 8px;}
-     .cmpbtn{background:#12405f;color:#e8eef4;border:1px solid #2a6a8f;border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer;margin-right:8px;}
-     .cmpbtn:hover{background:#175981;}
-     .cmpbtn:disabled{opacity:0.4;cursor:default;background:#12405f;}
-     .cmpbtn.active{background:#1f77a8;border-color:#8fd6f2;color:#fff;box-shadow:0 0 0 1px #8fd6f2 inset;}
-     .legendrow{display:flex;align-items:center;gap:2px 22px;flex-wrap:wrap;margin:4px 0 10px;font-size:13.5px;}
-     .legendrow .checkbox,.legendrow>.shiny-input-container{margin:0;width:auto !important;}
-     .ctrlbar{display:flex;flex-wrap:wrap;align-items:center;gap:4px 26px;margin:6px 0 12px;}
-     .ctrlbar>.shiny-input-container,.ctrlbar .checkbox{margin:0;width:auto !important;}
-     .ctrlbar .fontctl .control-label{margin:0 0 1px;font-weight:400;}
-     .ctrlbar .fontctl .form-group{margin:0;}
-     .ctrlbar .fontctl .irs{margin:0;}
-     .yearrow{position:relative;width:100%;max-width:1240px;height:26px;font-size:20px;font-weight:700;color:#cdd9e3;}
-     .ylbl{position:absolute;white-space:nowrap;}
-     .wheel svg text{user-select:none;}
-     .wheel svg:active{cursor:grabbing;}
-     .startyr .syrbig{font-size:15px;font-weight:bold;color:#cdd9e3;margin-top:42px;}
-     .startyr .syrsub{font-size:10px;color:#8fa3b3;margin-top:2px;}
-     .wheel .yrin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:58px;
-       background:transparent;border:none;color:#ffd9e4;font-weight:bold;font-size:13px;
-       text-align:center;font-family:inherit;padding:1px 0;outline:none;}
-     .wheel .yrin:focus{background:rgba(0,0,0,0.45);border-radius:4px;}"))),
-  tags$h3("Extinction probability threshold controls"),
-  div(class = "ctrlbar",
-    checkboxInput("no_ctrl", "No control point", TRUE),
-    checkboxInput("split_slope", "Split slopes", TRUE),
-    checkboxInput("linear_y", "Linear y scale (10x ceiling)", TRUE),
-    checkboxInput("linear_x", "Linear x-scale", TRUE),
-    checkboxInput("lines_only", "Lines only", FALSE),
-    checkboxInput("log_time", "Logarithmic time within each period", FALSE),
-    div(class = "fontctl",
-        sliderInput("font", "Font size (px)", min = 8, max = 28, value = 15, step = 1, width = "220px"))),
-  div(class = "legendrow",
-      checkboxInput("vis_haz",      HTML("<b style='color:#e8836f'>Extinction probability</b>"),          TRUE),
-      checkboxInput("vis_surv",     HTML("<b style='color:#4fb8d6'>Survival probability</b>"),            TRUE),
-      checkboxInput("vis_pop",      HTML("<b style='color:#e46ba6'>Population (potential / expected)</b>"), TRUE),
-      checkboxInput("vis_cumyr",    HTML("<b style='color:#6fcf97'>Cumulative survived years</b>"),        FALSE),
-      checkboxInput("vis_cumly",    HTML("<b style='color:#e8b04f'>Cumulative life-years</b>"),            FALSE),
-      checkboxInput("vis_cumlives", HTML("<b style='color:#b98fe0'>Cumulative lives (&divide;75)</b>"),    FALSE)),
-  div(class = "cmprow",
-      tags$button(id = "baseCur",  class = "cmpbtn", "Baseline = current"),
-      tags$button(id = "basePrev", class = "cmpbtn", "Baseline = previous"),
-      actionButton("reset", "Reset", class = "cmpbtn"),
-      tags$span(style = "display:inline-block;width:18px;"),
-      tags$button(id = "remYr", class = "cmpbtn", "Remove last year"),
-      tags$button(id = "addYr", class = "cmpbtn", "Add new year")),
-  # #chartcol carries the axis gutters as padding (widths set by layoutLanes() in the overlay JS); the rows inside
-  # share its content box, so the wheels, plot and population cells stay aligned with the plot edges.
-  div(id = "chartcol", style = sprintf("padding:0 60px; max-width:%dpx; box-sizing:content-box;", Wpx),
-  div(id = "wheelrow", style = sprintf("position:relative; width:100%%; max-width:%dpx; height:126px; margin-bottom:2px;", Wpx)),
-  div(id = "plotwrap", style = sprintf("position:relative; width:100%%; max-width:%dpx; aspect-ratio:%d/%d; margin-top:55px;", Wpx, Wpx, Hpx),
-      div(style = "position:absolute; inset:0; background:#0b3552;"),   # dark panel; all curves/area drawn by the SVG overlay
-      HTML('<svg id="overlay" style="width:100%;height:100%;"></svg>')),   # overflow:visible lets the axis labels (gutters) and linear-x year labels sit outside
-  div(id = "popout", style = sprintf("position:relative; margin:12px 0; width:100%%; max-width:%dpx; min-height:140px; font-size:12px; color:#e46ba6;", Wpx))),
-  div(id = "live", style = "margin:8px 0; font-family:monospace; color:#cdd9e3;"),
-  tags$script(overlay_js)
-)
-
-## ---- server ---------------------------------------------------------------
-server <- function(input, output, session) {
-
-  # default hazard: rises early then declines over the long tail (5 checkpoints, 4 segments)
-  hz_anchors <- c(1e-4, 7e-4, 3e-4, 8e-5, 3e-5)          # 2036 = 0.07%
-  hz0 <- list(anchors = hz_anchors, thetaL = default_atheta(hz_anchors), thetaR = default_atheta(hz_anchors),
-              fxc = rep(0.5, 4), cval = c((1e-4+7e-4)/2, (7e-4+3e-4)/2, (3e-4+8e-5)/2, (8e-5+3e-5)/2))   # fxc = within-segment fraction
-  sv0 <- list(anchors = c(0.98, 0.92, 0.75, 0.50, 0.30), thetaL = rep(0, 5), thetaR = rep(0, 5),
-              fxc = rep(0.5, 4), cval = c(0.95, 0.83, 0.62, 0.40))
-
-  rv <- reactiveValues(driver = "hazard", haz = hz0, surv = sv0)
-
-  send_init   <- function() session$sendCustomMessage("init_points",
-                    list(haz = rv$haz, surv = rv$surv, W = Wpx, H = Hpx))
-  send_params <- function() session$sendCustomMessage("set_params",
-                    list(points = !isTRUE(input$lines_only), useCtrl = !isTRUE(input$no_ctrl),
-                         split = isTRUE(input$split_slope), linearY = isTRUE(input$linear_y),
-                         logTime = isTRUE(input$log_time), linearX = isTRUE(input$linear_x), font = input$font,
-                         visHaz = isTRUE(input$vis_haz), visSurv = isTRUE(input$vis_surv),
-                         visPop = isTRUE(input$vis_pop), visCumYr = isTRUE(input$vis_cumyr),
-                         visCumLy = isTRUE(input$vis_cumly), visCumLives = isTRUE(input$vis_cumlives)))
-
-  observeEvent(input$client_ready, { send_init(); send_params() })
-  observeEvent(list(input$lines_only, input$no_ctrl, input$split_slope, input$linear_y, input$linear_x, input$log_time, input$font,
-                    input$vis_haz, input$vis_surv, input$vis_pop, input$vis_cumyr, input$vis_cumly, input$vis_cumlives),
-               send_params())
-
-  # cumulative life-years and cumulative lives are mutually exclusive
-  observeEvent(input$vis_cumly,    if (isTRUE(input$vis_cumly))    updateCheckboxInput(session, "vis_cumlives", value = FALSE))
-  observeEvent(input$vis_cumlives, if (isTRUE(input$vis_cumlives)) updateCheckboxInput(session, "vis_cumly",    value = FALSE))
-
-  parse_set <- function(x) list(anchors = as.numeric(unlist(x$anchors)),
-    thetaL = as.numeric(unlist(x$thetaL)), thetaR = as.numeric(unlist(x$thetaR)),
-    fxc = as.numeric(unlist(x$fxc)), cval = as.numeric(unlist(x$cval)))
-
-  observeEvent(input$curve_set, {
-    cs <- input$curve_set; rv$driver <- cs$driver
-    rv$haz <- parse_set(cs$haz); rv$surv <- parse_set(cs$surv)
-  })
-
-  observeEvent(input$reset, {
-    rv$driver <- "hazard"; rv$haz <- hz0; rv$surv <- sv0
-    session$sendCustomMessage("set_curve", list(driver = "hazard", haz = hz0, surv = sv0))
-  })
-  # The SVG overlay now draws every curve, the shaded hazard area, and the bands, so no
-  # server-side plot is needed — the panel behind the overlay is a plain dark div.
-}
-
-shinyApp(ui, server)
+</script>
+</body>
+</html>

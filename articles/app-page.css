@@ -1,4 +1,5 @@
-/* Bare app pages (xrisk-app.qmd / hazard-app.qmd): nothing but the shinylive app, filling the window.
+/* Bare app pages (xriskb-app.qmd, xrisk-app.qmd, hazard-app.qmd): nothing but the app, filling the window
+ * (an iframe written by inject_frame in tools/build_static.R, or for xrisk-app the shinylive app).
  * Layered after article.css. The shared nav/footer includes still render (they come from _quarto.yml
  * and cannot be switched off per document), so they are hidden here instead. */
 html, body { margin: 0; padding: 0; background: #0b3552; }

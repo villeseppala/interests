@@ -1,39 +1,34 @@
-# ────────────────────────────────────────────────────────────────────────────
-# KEPT FOR REFERENCE, NOT USED BY THE SITE. The site now shows xriskb.html (this folder): the same page
-# without Shiny, so it needs no R runtime in the browser. This Shiny version is frozen as it was when the
-# page moved out (2026-09-24); later changes go to xriskb.html only. Still runnable, as below.
-#
-# Extinction-risk visualiser, variant B: the same page as app_xrisk, but every edit is handled in the
-# browser. The cascade, the table, the summary, the baselines, undo/redo and the time-scale change all
-# run in JavaScript (below); R only serves the page once and the server does nothing per edit.
-# That makes edits instant in the shinylive (webR) embed, where app_xrisk re-renders the table through
-# webR on every keystroke. app_xrisk stays the reference: this file mirrors its model (the year-by-year
-# cascade) and its markup, so the two can be compared number for number.
-#
-# Run:  shiny::runApp("app_xriskb")
-# ────────────────────────────────────────────────────────────────────────────
+<!DOCTYPE html>
+<!--
+  Extinction-risk calculator (app_xriskb): one self-contained page. The model, the table, the arrows and
+  the controls all run in the script below: no R, no Shiny, nothing to load but this file.
+  Try it by opening the file in a browser (double-click it, or drag it into a window).
+  On the site, tools/build_static.R copies it to site/articles/apps/xriskb.html and shows it in an iframe in
+  article 201, in xrisk.html and on the full-window page xriskb-app.html.
+  app_xrisk/app.R (the R-rendered original) stays the reference: this page mirrors its model and its
+  markup, and app_xriskb/check_parity.R compares the two number for number.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extinction risk calculator</title>
+<style>
+/* ── base: the parts of Shiny's Bootstrap 3 the page relied on, so it looks as it did under Shiny ── */
+*, *::before, *::after{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+body{font-size:14px;line-height:1.42857143;}
+.page{padding:0 15px;}                              /* Shiny's container-fluid gutter */
+h1{line-height:1.1;}
+sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline;}   /* don't stretch the formula lines */
+sup{top:-.5em;} sub{bottom:-.25em;}
+button,input{font:inherit;color:inherit;margin:0;}
+.btn{display:inline-block;font-weight:400;line-height:1.42857143;text-align:center;white-space:nowrap;
+  vertical-align:middle;cursor:pointer;user-select:none;}
+.checkbox label{display:inline-flex;align-items:center;min-height:20px;margin:0;}
+.checkbox input{margin:0 5px 0 0;cursor:pointer;}
 
-library(shiny)
-
-# ── settings the page needs when it is built (the model itself lives in the JavaScript) ──
-SCALE_EXP <- 2:5                                 # time-scale slider: 10^2 .. 10^5 years
-DEF_EXP   <- 3                                   # default horizon 1 000 years — keep equal to DEF_EXP in the JS
-
-# metric rows, in display order: data-row id -> label in the "Variables" dropdown
-VAR_ROWS <- c("Annual extinction probability"   = "rate",
-              "Cumulative survival probability" = "surv",
-              "Cumulative survived years"       = "years",
-              "Cumulative survived generations" = "gens",
-              "Annual population potential"     = "pop",
-              "Annual population"               = "popexp",
-              "Cumulative life-years"           = "ly",
-              "Cumulative lives"                = "lives")
-# rows shown on first load (the rest start unticked in the Variables menu)
-VAR_ON <- setdiff(VAR_ROWS, c("gens", "ly"))
-
-# ── UI ──────────────────────────────────────────────────────────────────────
-# styles: copied verbatim from app_xrisk/app.R
-css <- r"(
+/* ── the app (as app_xrisk/app.R) ── */
 body{background:#0b3552;color:#e8eef4;font-family:Arial,Helvetica,sans-serif;margin:0;}
 .wrap{max-width:1240px;margin:0 auto;padding:18px 11px 70px;}
 h1{font-size:21px;font-weight:700;margin:0 0 4px;}
@@ -45,7 +40,11 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
   padding:6px 13px;font-size:13px;cursor:pointer;}
 .controls .btn:hover{background:#175981;}
 .controls .btn:disabled{opacity:0.35;cursor:default;background:#12405f;box-shadow:none;}
-.controls .btn.active{background:#1f77a8;border-color:#8fd6f2;color:#fff;box-shadow:0 0 0 1px #8fd6f2 inset;}
+/* the Comparison section: an outline with its title in the border, round its own row of options */
+.controls.cmpbox{border:1px solid #2a6a8f;border-radius:8px;padding:6px 12px 10px;min-width:0;}
+.controls + .controls.cmpbox{margin-top:12px;}
+.cmpbox > legend{padding:0 6px;margin:0;font-size:12.5px;font-weight:700;color:#9fb0bf;letter-spacing:.02em;}
+.cmpbox:not(.on) .cmpopt{display:none;}   /* "Show comparison" unticked: only that box stays */
 .khint{font-size:12.5px;color:#9fb0bf;}
 .lead2{margin:-8px 0 4px;line-height:1.7;}   /* editing hint, directly under the lead paragraph */
 .kbd{display:inline-block;background:#0a2438;border:1px solid #2a6a8f;border-radius:4px;
@@ -63,6 +62,11 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
 svg.arrows{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:2;}
 svg.arrows path.e{fill:none;stroke:#7fb0cc;stroke-width:1.3;opacity:.75;}
 svg.arrows marker path{fill:#7fb0cc;opacity:.9;}
+/* arrows leaving a box where a change starts (an input that differs from the baseline): the delta's green / red (arrowTones) */
+svg.arrows path.e.good{stroke:#7fd18f;opacity:.9;}
+svg.arrows path.e.bad{stroke:#ee4d4d;opacity:.9;}
+svg.arrows #ah-good path{fill:#7fd18f;}
+svg.arrows #ah-bad path{fill:#ee4d4d;}
 /* two half-columns per checkpoint (values sit on the years, rates in the gaps between them);
    --ncols is set on .grid-wrap per render from the number of checkpoints */
 /* Cap the column pitch so a short horizon doesn't spread three checkpoints across the whole width.
@@ -75,7 +79,7 @@ svg.arrows marker path{fill:#7fb0cc;opacity:.9;}
 /* Columns never squeeze a box: boxes keep their content on one line (baseline included), fitColumns()
    measures the widest box after each render and sets --halfmin, and every row's grid uses it as its
    half-column minimum, so rows stay aligned. When the minimums don't fit, .grid-scroll scrolls sideways
-   (only the table; the page never does) and the row labels stay pinned on the left. */
+   (only the table, row labels included; the page never does). */
 .grid-wrap{--halfcol:74px;--labw:258px;}
 @media (max-width:760px){ .grid-wrap{--labw:180px;} }   /* small screens: narrower labels, more room for values */
 .grid-scroll{overflow-x:auto;overflow-y:hidden;}
@@ -83,29 +87,47 @@ svg.arrows marker path{fill:#7fb0cc;opacity:.9;}
   max-width:calc(var(--labw) + var(--ncols,8) * max(var(--halfcol), var(--halfmin,0px)));
   min-width:calc(var(--labw) + var(--ncols,8) * var(--halfmin,0px));
   border-bottom:1px solid rgba(255,255,255,.05);}
-/* horizon slider: compact, dark-themed, four stops (100 / 1 000 / 10 000 / 100 000 years) */
+/* horizon slider: compact, dark-themed, five stops (100 / 1 000 / 10 000 / 100 000 / 1 000 000 years) */
 .scalectl{display:flex;align-items:center;gap:10px;}
-.scalectl .form-group{margin:0;}
-.scalectl .irs{font-family:inherit;}
-.scalectl .irs--shiny .irs-line{background:#12405f;border-color:#2a6a8f;}
-.scalectl .irs--shiny .irs-bar{background:#1f77a8;border-color:#1f77a8;}
-.scalectl .irs--shiny .irs-handle{background:#8fd6f2;border-color:#8fd6f2;}
-.scalectl .irs--shiny .irs-single{background:#1f77a8;color:#fff;font-size:11px;}
-.scalectl .irs--shiny .irs-min,.scalectl .irs--shiny .irs-max{color:#9fb0bf;background:transparent;font-size:10px;}
+/* a native range input drawn like the Shiny slider it replaces: the value in a bubble over the handle, the
+   end values in the top corners (each hidden while the bubble covers it — drawScale), the track filled up
+   to the handle (--fill, set by drawScale; Firefox fills it natively) */
+.hslider{position:relative;width:170px;height:40px;}
+.hslider .hs-lbl{position:absolute;top:0;padding:1px 3px;border-radius:3px;font-size:10px;line-height:1.333;
+  color:#9fb0bf;white-space:nowrap;pointer-events:none;}
+.hslider .hs-min{left:0;}
+.hslider .hs-max{right:0;}
+.hslider .hs-val{font-size:11px;color:#fff;background:#1f77a8;transform:translateX(-50%);}
+.hslider input{position:absolute;left:0;top:17px;width:100%;height:22px;margin:0;background:transparent;
+  -webkit-appearance:none;appearance:none;cursor:pointer;}
+.hslider input:focus{outline:none;}
+.hslider input:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px rgba(143,214,242,.35);}
+.hslider input:focus-visible::-moz-range-thumb{box-shadow:0 0 0 3px rgba(143,214,242,.35);}
+.hslider input::-webkit-slider-runnable-track{height:8px;border:1px solid #2a6a8f;border-radius:8px;
+  background:linear-gradient(#1f77a8, #1f77a8) 0 0 / var(--fill, 50%) 100% no-repeat, #12405f;}
+.hslider input::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-7px;border-radius:50%;
+  background:#8fd6f2;border:1px solid #8fd6f2;box-shadow:1px 1px 3px rgba(255,255,255,.3);}
+.hslider input::-moz-range-track{height:8px;border:1px solid #2a6a8f;border-radius:8px;background:#12405f;}
+.hslider input::-moz-range-progress{height:8px;border-radius:8px 0 0 8px;background:#1f77a8;}
+.hslider input::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#8fd6f2;border:1px solid #8fd6f2;
+  box-sizing:border-box;box-shadow:1px 1px 3px rgba(255,255,255,.3);}
 .grow.ghead{border-bottom:1px solid rgba(255,255,255,.18);}
 .grow.erow{background:rgba(255,255,255,.05);border-radius:7px;margin:3px 0;}
 .rlabel{grid-column:1;grid-row:1;display:flex;align-items:flex-start;gap:5px;font-size:12.5px;line-height:1.35;font-weight:600;
   align-self:stretch;padding:9px 8px 9px 0;border-right:1px solid rgba(255,255,255,.10);}
-/* pinned while the table scrolls sideways: opaque (page colour, or the tinted-row colour) so values and
-   arrows pass underneath */
-.rlabel{position:sticky;left:0;z-index:3;background:#0b3552;}
-.grow.erow .rlabel{background:#173f5b;border-radius:7px 0 0 7px;}
 .rlblwrap{flex:1;min-width:0;text-align:right;}
 .rformula{font-size:14.4px;color:#cbb68e;margin-top:4px;padding-left:0;font-weight:400;
   line-height:1.6;font-family:Cambria,Georgia,"Times New Roman",serif;font-style:italic;}
 .rtog{display:inline-block;margin:6px 0 0;padding:3px 9px;font:inherit;font-size:11.5px;font-weight:400;
   color:#cdd9e3;background:#12405f;border:1px solid #2a6a8f;border-radius:5px;cursor:pointer;user-select:none;}
 .rtog:hover{background:#175981;color:#fff;}
+/* "Exclude from comparison": the population row's, under its formula, and each x-risk box's, on top of it */
+.xchk{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:400;font-style:normal;color:#9fb0bf;
+  cursor:pointer;user-select:none;white-space:nowrap;line-height:1.3;}
+.xchk input{margin:0;cursor:pointer;}
+.xchk:hover{color:#cdd9e3;}
+.xchk.xchk-row{display:flex;justify-content:flex-end;margin-top:7px;}
+.vcell > .xchk{margin-bottom:4px;}
 .rtog.on{border-color:#8fd6f2;}
 body.nofx .rformula{display:none;}          /* "Show formulas" unticked */
 .rformula sub{font-size:10.2px;font-style:normal;}
@@ -132,17 +154,48 @@ body.nofx .rformula{display:none;}          /* "Show formulas" unticked */
 .vdelta{font-size:13px;margin-top:1px;font-weight:600;font-variant-numeric:tabular-nums;text-align:right;line-height:1.15;}
 .vdelta .d0{color:#8a97a3;}
 .vsub{font-size:11px;color:#8496a4;margin-top:3px;font-style:italic;line-height:1.35;}
-/* baseline value ("Show baseline values"): same colour as the value (inherited), regular weight, a little
-   smaller; .ghost is the delta row's invisible copy that keeps its digits under the value's */
-.dch.vref{font-weight:400;font-size:12px;padding-left:4px;white-space:nowrap;}
-.ratio.vref{font-weight:400;font-size:12px;}
-.dch.vref.ghost{visibility:hidden;}
+/* baseline value (the comparison scenario: "Show comparison scenario", on by default): its own line under the delta, digits under the
+   value's digits; the value's colour and weight, a little faded. Editable (arrows, keys, wheel) where the value
+   is. The rate box's odds ("1 in …") then move from above the value to beside it, the baseline's beside the
+   baseline, in the box's side column (.vside, below).
+   With the baseline shown, each line is labelled in a column at the box's left: A: value, A−B: delta, B: baseline.
+   The column is as wide as the widest label ("A−B:", 2.36em in Arial bold) and right-justified, so the colons line up. */
+.vbase{font-size:13px;line-height:1.2;margin-top:3px;font-variant-numeric:tabular-nums;text-align:right;}
+.vbase .dch{opacity:.8;}
+.ratio.vref{opacity:.8;}
+/* side column: a second grid column beside the value / delta / baseline rows (sideCol), holding the delta switch
+   and the rate's odds, so neither shifts the digits off their shared right edge */
+.vstack.vside{display:inline-grid;grid-template-columns:auto auto;column-gap:6px;align-items:center;}
+.vx{white-space:nowrap;text-align:left;line-height:1.2;}
+.vx.vx-d{margin-top:1px;}   /* level with the delta row, which has the same top margin */
+.vx.vx-b{margin-top:3px;}   /* ...and with the baseline row */
+.vlab{flex:none;box-sizing:content-box;width:2.6em;text-align:right;align-self:center;margin-right:auto;padding-right:5px;
+  font-size:11px;font-weight:600;color:#9fb0bf;white-space:nowrap;}
+/* the delta as a percentage of the baseline: its label is the fraction (A−B over B) */
+.vlab .frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;font-size:10px;line-height:1.05;}
+.vlab .frac > span:first-child{border-bottom:1px solid currentColor;padding:0 1px 1px;}
+.vlab .frac > span + span{padding-top:1px;}
+.dch.nrel{color:#8a97a3;}         /* no relative change: the baseline is 0 */
+/* delta switch, beside each delta: the difference (Δ; percentage points for percentages) or the change as a
+   percentage of the baseline (%). The lit half is the one shown; a click flips every delta in the row. */
+.dtog{display:inline-flex;vertical-align:middle;margin:0;padding:0;border:1px solid #2a6a8f;border-radius:4px;
+  overflow:hidden;background:#0a2438;cursor:pointer;font:inherit;font-size:9.5px;font-weight:600;line-height:1;}
+.dtog span{padding:2px 3px;color:#7d8fa0;}
+.dtog span.on{background:#1f77a8;color:#fff;}
+.dtog:hover span:not(.on){color:#ffd27f;}
 .controls .checkbox{margin:0;} .controls .checkbox label{color:#cdd9e3;font-size:13px;font-weight:400;cursor:pointer;}
 .controls .checkbox input{margin-right:5px;}
 .vgrowth{grid-row:1;align-self:start;justify-self:center;margin-top:22px;text-align:center;font-size:12px;color:#8496a4;
   font-style:italic;white-space:nowrap;padding:0 3px;pointer-events:none;}
 
 .ratio{color:#e8836f;font-size:13px;font-weight:600;font-style:normal;}
+/* the odds' X is click-to-type: a darker field-like patch (same box as the text field that replaces it while
+   typing, so nothing shifts), outlined on hover */
+.odds{cursor:text;}
+.oddsx{display:inline-block;background:#0a2438;border:1px solid transparent;border-radius:3px;padding:0 3px;line-height:1.2;}
+.odds:hover .oddsx{border-color:rgba(143,214,242,.55);}
+.oddsin{font:inherit;color:inherit;background:#0a2438;border:1px solid #8fd6f2;border-radius:3px;padding:0 3px;margin:0;
+  font-variant-numeric:tabular-nums;outline:none;}
 .rng{font-size:12px;font-style:italic;color:#8496a4;}
 .vtop{line-height:1.1;margin-bottom:1px;white-space:nowrap;}
 .ital{font-style:italic;font-weight:400;opacity:.85;}
@@ -170,7 +223,6 @@ body.nofx .rformula{display:none;}          /* "Show formulas" unticked */
 .vdrop[open] .vcount{color:#dff3fb;}
 .vmenu{position:absolute;z-index:20;top:calc(100% + 4px);left:0;min-width:250px;background:#0a2438;
   border:1px solid #2a6a8f;border-radius:6px;padding:8px 12px 4px;box-shadow:0 6px 18px rgba(0,0,0,.45);}
-.vmenu .form-group{margin:0;}
 .vmenu .checkbox{margin:0 0 5px;}
 .vmenu .checkbox label{color:#cdd9e3;font-size:13px;font-weight:400;cursor:pointer;white-space:nowrap;}
 .vmenu .checkbox input{margin-right:6px;}
@@ -182,21 +234,90 @@ body.nofx .rformula{display:none;}          /* "Show formulas" unticked */
   border-top:1px solid rgba(255,255,255,.10);padding-top:12px;}
 .summary b{color:#ffd27f;}
 .foot{margin-top:22px;font-size:11.5px;color:#7d8fa0;line-height:1.5;}
-)"
-
-js <- r"(
+</style>
+</head>
+<body>
+<div class="page"><div class="wrap">
+  <h1>Expected longevity of humanity under extinction risk</h1>
+  <p class="lead">Each period's annual extinction probability cascades into survival probability, population, and cumulative
+    human life lived. Changes are measured against a comparison scenario.</p>
+  <p class="khint lead2">Edit any <b>extinction probability</b>, <b>survival probability</b>, or
+    <b>population potential</b> digit &mdash; click its
+    <span class='kbd'>&#9650;</span>/<span class='kbd'>&#9660;</span>, or select and use
+    <span class='kbd'>&larr;</span><span class='kbd'>&rarr;</span><span class='kbd'>&uarr;</span><span class='kbd'>&darr;</span>
+    or the mouse wheel, or type <span class='kbd'>0</span>&ndash;<span class='kbd'>9</span> to set the digit.
+    Survival edits backtrace into the earlier extinction rates.</p>
+  <div class="controls">
+    <button id="undoBtn" type="button" class="btn" title="Undo (Ctrl+Z)" disabled>&#8630;&nbsp;Undo</button>
+    <button id="redoBtn" type="button" class="btn" title="Redo (Ctrl+Y)" disabled>Redo&nbsp;&#8631;</button>
+    <button id="surv100" type="button" class="btn">100% survival</button>
+    <button id="reset" type="button" class="btn">Reset to defaults</button>
+    <div class="checkbox"><label><input id="showfx" type="checkbox" checked autocomplete="off"><span>Show formulas</span></label></div>
+    <div class="checkbox"><label><input id="showarrows" type="checkbox" checked autocomplete="off"><span>Show arrows</span></label></div>
+  </div>
+  <!-- second row: which variables are shown, and the time scale -->
+  <div class="controls">
+    <!-- Variables: which metric rows are rendered (values = the rows' ids, as ROWS in the script). A hidden
+         row isn't built at all, so its cells can't be clicked, arrowed into or wheel-edited. -->
+    <details class="vdrop">
+      <summary class="btn">Variables <span class="vcount"></span> &#9662;</summary>
+      <div class="vmenu">
+        <div class="vall"><a href="#" data-vars="all">All</a> · <a href="#" data-vars="none">None</a></div>
+        <div id="vars">
+          <div class="checkbox"><label><input type="checkbox" value="rate" checked autocomplete="off"><span>Annual extinction probability</span></label></div>
+          <div class="checkbox"><label><input type="checkbox" value="surv" checked autocomplete="off"><span>Cumulative survival probability</span></label></div>
+          <div class="checkbox"><label><input type="checkbox" value="years" checked autocomplete="off"><span>Cumulative survived years</span></label></div>
+          <div class="checkbox"><label><input type="checkbox" value="gens" autocomplete="off"><span>Cumulative survived generations</span></label></div>
+          <div class="checkbox"><label><input type="checkbox" value="pop" checked autocomplete="off"><span>Annual population potential</span></label></div>
+          <div class="checkbox"><label><input type="checkbox" value="popexp" checked autocomplete="off"><span>Annual population</span></label></div>
+          <div class="checkbox"><label><input type="checkbox" value="ly" autocomplete="off"><span>Cumulative life-years</span></label></div>
+          <div class="checkbox"><label><input type="checkbox" value="lives" checked autocomplete="off"><span>Cumulative lives</span></label></div>
+        </div>
+      </div>
+    </details>
+    <!-- Horizon: 100 / 1 000 / 10 000 / 100 000 / 1 000 000 years. The slider holds the exponent (2..6) and shows the
+         reader the year count; its range and default are set by the script (SCALE_MIN / SCALE_MAX / DEF_EXP). -->
+    <div class="scalectl">
+      <span class="khint">Time scale</span>
+      <div class="hslider">
+        <span class="hs-lbl hs-min"></span><span class="hs-lbl hs-max"></span><span class="hs-lbl hs-val"></span>
+        <input id="hscale" type="range" step="1" autocomplete="off" aria-label="Time scale">
+      </div>
+    </div>
+  </div>
+  <!-- Comparison: what the values are compared against, and what of it the table shows (the "B" scenario;
+       "comparison" is called the baseline in the script). Unticking "Show comparison" hides the rest (.cmpopt). -->
+  <fieldset class="controls cmpbox on">
+    <legend>Comparison</legend>
+    <div class="checkbox"><label><input id="showcmp" type="checkbox" checked autocomplete="off"><span>Show comparison</span></label></div>
+    <button id="setref" type="button" class="btn cmpopt" title="Freeze the current values as the comparison">Set comparison = current</button>
+    <div class="checkbox cmpopt"><label><input id="cmpprev" type="checkbox" autocomplete="off"><span>Comparison = previous value</span></label></div>
+    <div class="checkbox cmpopt"><label><input id="showchg" type="checkbox" checked autocomplete="off"><span>Show change</span></label></div>
+    <div class="checkbox cmpopt"><label><input id="showref" type="checkbox" checked autocomplete="off"><span>Show comparison scenario</span></label></div>
+  </fieldset>
+  <!-- filled by the script on every change -->
+  <div id="panel"></div>
+  <div id="summary"></div>
+  <div id="foot"></div>
+</div></div>
+<script>
 // ════════════════════════════════════════════════════════════════════════════
-// The whole per-edit loop runs here — model → table HTML → arrows — with no R involved.
+// The whole page runs here — model → table HTML → arrows, and every control.
 // Sections: model · formatting · cells and rows · state, baselines and history · editing (as in
-// app_xrisk) · arrows and column fitting (as in app_xrisk) · controls.
+// app_xrisk) · arrows and column fitting (as in app_xrisk) · controls · start-up.
+// Everything above "state, baselines and history" is pure (no page access): check_parity.R runs it in V8.
 // ════════════════════════════════════════════════════════════════════════════
 
 // ── model (mirrors app_xrisk's R: START, ALL_RATES, POP0, LIFE_EXP, model_for, fit_state, compute) ──
 var START = 2026, LIFE_EXP = 75, POP0 = 8.3e9;
-var DEF_EXP = 3;                                  // default horizon 10^3 years; the slider's R default must match
-var ALL_RATES = [0.0005, 0.0005, 0.0001, 0.00005, 0.00001];   // per period: 0.05%, 0.05%, 0.01%, 0.005%, 0.001% a year
+var PCT_DEC = 5;                                  // decimals of the percentages (probabilities, summary; growth rates one fewer)
+var SCALE_MIN = 2, SCALE_MAX = 6, DEF_EXP = 3;    // time-scale slider: 10^2 .. 10^6 years, starting at 10^3
+// per period: 0.05%, 0.05%, 0.01%, 0.005%, 0.001%, 0.001% a year (the last, 102 027-1 002 026, only at the
+// 10^6 horizon: the long-run 0.001% carried on; app_xrisk stops at 10^5 and has the first five)
+var ALL_RATES = [0.0005, 0.0005, 0.0001, 0.00005, 0.00001, 0.00001];
 var COL_RATE = '#e8836f', COL_SURV = '#4fb8d6', COL_POP = '#e46ba6';
 var GOOD = '#7fd18f', BAD = '#ee4d4d', ZERO = '#8a97a3';
+var FAINT = 'rgba(138,151,163,.32)';   // padding zeros (see buildSlots); app_xrisk greys them as ZERO
 var ROWS = ['rate', 'surv', 'years', 'gens', 'pop', 'popexp', 'ly', 'lives'];   // display order
 
 // Checkpoints are START plus every power of ten up to the horizon (2026, 2036, 2126, 3026, ...); the
@@ -261,18 +382,16 @@ function fmtF(x, d, big){
   return (neg ? '-' : '') + s;
 }
 function fInt(x){ return fmtF(Math.round(x), 0, true); }
-function fPct(x){ return fmtF(x * 100, 4) + '%'; }
+function fPct(x){ return fmtF(x * 100, PCT_DEC) + '%'; }
 function fYears(x){ return fmtF(x, 4, true) + 'y'; }
 function fmtYear(y){ return y >= 10000 ? group3(String(y)) : String(y); }   // thin separator only for 5+ digits
-// baseline text for the ref slot: same display scale / decimals as the value it sits beside
-function fRef(v, toDisp, decimals, suffix){ return '(' + fmtF(v * toDisp, decimals, true) + suffix + ')'; }
 function sty(col){ return col == null ? '' : ' style="color:' + col + ';"'; }
 // formatC(x, format = "e", digits = 6): R writes at least two exponent digits (1.000000e-05)
 function expR(x){ return x.toExponential(6).replace(/e([+-])(\d)$/, function(m, s, d){ return 'e' + s + '0' + d; }); }
 
-// ── cells and rows: the same markup app_xrisk's R builds ──
-// Digit slots for a number (value or its delta), as HTML text. See build_slots in app_xrisk for the
-// layout rules. o: pad, editable (default true), digitColor(is0, lead), signChar, signColor, refTxt, refGhost.
+// ── cells and rows: app_xrisk's markup (the R builds the same, except for the baseline: see gcellEdit) ──
+// Digit slots for a number (value, delta or baseline), as HTML text. See build_slots in app_xrisk for the
+// layout rules. o: pad, editable (default true), digitColor(is0, lead), signChar, signColor, suffixGhost.
 function buildSlots(nat, toDisp, decimals, suffix, o){
   o = o || {};
   var editable = o.editable !== false, pad = o.pad, digitColor = o.digitColor, k;
@@ -294,6 +413,8 @@ function buildSlots(nat, toDisp, decimals, suffix, o){
     lead[k] = false;
     if(isdig[k]){ if(!seen && chars[k] === '0') lead[k] = true; else seen = true; }
   }
+  var ones = -1;                                                // the ones digit: leading zeros left of it are padding
+  for(k = 0; k < dot; k++) if(isdig[k]) ones = k;
   var sepCol = digitColor ? digitColor(false, false) : null;
   var up = editable ? '<span class="ar up">&#9650;</span>' : '';
   var dn = editable ? '<span class="ar dn">&#9660;</span>' : '';
@@ -307,6 +428,7 @@ function buildSlots(nat, toDisp, decimals, suffix, o){
     var ch = chars[k], slot;
     if(isdig[k]){
       var col = digitColor ? digitColor(ch === '0', lead[k]) : ((pad != null && lead[k]) ? ZERO : null);
+      if(lead[k] && k < ones) col = FAINT;                      // padding, only there to line the digits up: faint
       slot = '<span class="dig" data-delta="' + expR(place[k]) + '">' + up +
              '<b class="dch"' + sty(col) + '>' + ch + '</b>' + dn + '</span>';
     } else slot = sepSlot(ch === ' ' ? '&nbsp;' : ch);
@@ -315,11 +437,8 @@ function buildSlots(nat, toDisp, decimals, suffix, o){
   }
   groups.push(g);
   if(o.signChar != null) groups[0] = sepSlot(o.signChar, 'dch sgn', o.signColor == null ? null : o.signColor) + groups[0];
-  if(suffix) groups[groups.length - 1] += sepSlot(suffix, 'dch suf');
-  var out = groups.map(function(x){ return '<span class="dgroup">' + x + '</span>'; }).join('');
-  if(o.refTxt != null)
-    out += '<span class="dgroup">' + sepSlot(o.refTxt, o.refGhost ? 'dch vref ghost' : 'dch vref', null) + '</span>';
-  return out;
+  if(suffix) groups[groups.length - 1] += sepSlot(suffix, 'dch suf', o.suffixGhost ? 'transparent' : undefined);   // ghost: holds its place
+  return groups.map(function(x){ return '<span class="dgroup">' + x + '</span>'; }).join('');
 }
 // a value cell on the grid (spans 2 half-columns); node = the arrow endpoint id ("row:j")
 function vcellHtml(col, inner, cls, attrs){
@@ -339,35 +458,97 @@ function gcellFixed(col, v, toDisp, decimals, suffix, color, pad, node){
   return vcellHtml(col, '<div class="vstack"><div class="arsp"></div><div class="vmain digits"' + sty(color) + '>' +
     buildSlots(v, toDisp, decimals, suffix, {pad: pad, editable: false}) + '</div></div>', 'vcell', nodeAttr(node));
 }
-// editable value cell (per-digit spinner) with its delta row.
-// o: col, cur, ref, kind, vi, toDisp, decimals, suffix, good, sub, color, pad, top, refTxt, node
+// a row's label when the baseline is shown (A: value, A−B: delta, B: baseline); nothing otherwise
+function vlab(on, txt){ return on ? '<span class="vlab">' + txt + '</span>' : ''; }
+// the delta switch of a table row (o.row), Δ | %; pct: the row's values are percentages, so the difference is
+// in percentage points (said in its tooltip)
+function dtogHtml(row, rel, pct){
+  return '<button type="button" class="dtog" data-row="' + row + '" title="' +
+    (rel ? 'Change as a percentage of the comparison. Click for the difference' + (pct ? ' in percentage points' : '')
+         : 'Difference' + (pct ? ' in percentage points' : '') + '. Click for the change as a percentage of the comparison') + '">' +
+    '<span' + (rel ? '' : ' class="on"') + '>&Delta;</span><span' + (rel ? ' class="on"' : '') + '>%</span></button>';
+}
+// Decimals that give x (>= 0) n digits in all, the integer part's included ("0.0123" is 5). Fewer when its
+// integer part is longer, down to none: an integer part longer than n still shows whole.
+function fitDecimals(x, n){
+  var dec = Math.max(0, n - fmtF(Math.floor(x), 0).length);
+  var ip = fmtF(x, dec).split('.')[0].length;       // rounding may carry into a new digit (9.99996 -> 10.0000)
+  return Math.min(dec, Math.max(0, n - ip));
+}
+// A cell's delta row (value − baseline). o.dmode unset: app_xrisk's. 'abs': the same difference, but for a
+// percentage the "%" is left out (it is in percentage points) and only held as an invisible placeholder so
+// the digits stay under the value's; 'rel': the change as a percentage of the baseline, (A − B) / B, with as
+// many digits as the value shows (its padding included), by fitDecimals. (With o.dmode set the cell puts
+// the switch between the two beside this row.) pad: the value's integer width; good, eps: as deltaLook;
+// edit: ▲/▼ on the digits (an editable cell's delta: a step moves the value by that place).
+function deltaRow(o, pad, good, eps, edit){
+  var rel = o.dmode === 'rel', pct = o.suffix === '%', body;
+  var lab = !o.base ? '' : rel ? '<span class="vlab"><span class="frac"><span>A&minus;B</span><span>B</span></span>:</span>'
+                              : vlab(true, 'A&minus;B:');
+  if(rel){
+    if(!(o.ref > 0)) body = '<span class="dch nrel">&mdash;</span>';   // nothing to divide by
+    else {
+      var r = (o.cur - o.ref) / o.ref;
+      var vint = fmtF(Math.abs(o.cur) * o.toDisp, o.decimals).split('.')[0].length;   // the value's integer digits
+      var dec = fitDecimals(Math.abs(r) * 100, Math.max(vint, pad || 0) + o.decimals), dr = deltaLook(r, 100, dec, good, eps);
+      body = buildSlots(r, 100, dec, '%', {editable: edit, digitColor: dr.digitColor, signChar: dr.sgn, signColor: dr.col});
+    }
+  } else {
+    var dv = o.cur - o.ref, d = deltaLook(dv, o.toDisp, o.decimals, good, eps);
+    body = buildSlots(dv, o.toDisp, o.decimals, o.suffix, {pad: pad, editable: edit, digitColor: d.digitColor,
+                      signChar: d.sgn, signColor: d.col, suffixGhost: o.dmode === 'abs' && pct});
+  }
+  return '<div class="vdelta digits">' + lab + body + '</div>';
+}
+// A cell's side column (.vside): a second grid column beside the value / delta / baseline rows, so what sits
+// there never shifts the digits off their shared right edge. It holds the delta switch (beside the delta)
+// and, with the baseline shown, the rate's odds (beside the value and the baseline). Returns a function that
+// wraps one row's side content, or null when the cell has no side column.
+function sideCol(on){
+  return on ? function(html, cls){ return '<div class="vx' + (cls || '') + '">' + (html || '') + '</div>'; } : null;
+}
+// editable value cell (per-digit spinner) with its delta row, and with o.base its baseline row: digits under
+// the value's, with their own ▲/▼ (the baseline is edited like the value), and the three rows labelled.
+// o.top (the rate's odds) sits over the value; with the baseline shown, or o.oddsSide, it moves beside the value
+// instead, and o.topBase (the baseline's odds) beside the baseline. o.dmode puts the delta switch beside the delta.
+// With o.base, o.oddsSide and o.dmode unset the markup is app_xrisk's; app_xrisk shows the baseline beside the value.
+// o: col, cur, ref, kind, vi, toDisp, decimals, suffix, good, sub, color, pad, head, top, oddsSide, delta, base, topBase,
+//    dmode, row, node
 function gcellEdit(o){
-  var dv = o.cur - o.ref, d = deltaLook(dv, o.toDisp, o.decimals, o.good, 1e-12);
+  var delta = o.delta !== false;                   // delta: false hides the delta row ("Show change" unticked)
+  var oddsSide = o.top != null && !!(o.base || o.oddsSide);
+  var x = sideCol(oddsSide || (delta && !!o.dmode));
+  function side(html, cls){ return x ? x(html, cls) : ''; }
   return vcellHtml(o.col,
-    (o.top != null ? '<div class="vtop">' + o.top + '</div>' : '') +
-    '<div class="vstack">' +
-      '<div class="vmain digits"' + sty(o.color) + '>' +
-        buildSlots(o.cur, o.toDisp, o.decimals, o.suffix, {pad: o.pad, refTxt: o.refTxt}) + '</div>' +
-      '<div class="vdelta digits">' +                         // no ▲/▼ on deltas — number-key entry only
-        buildSlots(dv, o.toDisp, o.decimals, o.suffix, {pad: o.pad, editable: false, digitColor: d.digitColor,
-                   signChar: d.sgn, signColor: d.col, refTxt: o.refTxt, refGhost: true}) + '</div>' +
+    (o.head != null ? o.head : '') +               // e.g. the x-risk box's "Exclude from comparison"
+    (o.top != null && !oddsSide ? '<div class="vtop">' + o.top + '</div>' : '') +
+    '<div class="' + (x ? 'vstack vside' : 'vstack') + '">' +
+      '<div class="vmain digits"' + sty(o.color) + '>' + vlab(o.base, 'A:') +
+        buildSlots(o.cur, o.toDisp, o.decimals, o.suffix, {pad: o.pad}) + '</div>' + side(oddsSide ? o.top : '') +
+      (delta ? deltaRow(o, o.pad, o.good, 1e-12, !!o.dmode) +   // ▲/▼ on the page's own cells (app_xrisk's delta has none)
+        side(o.dmode ? dtogHtml(o.row, o.dmode === 'rel', o.suffix === '%') : '', ' vx-d') : '') +
+      (o.base ? '<div class="vbase digits"' + sty(o.color) + '>' + vlab(true, 'B:') +
+        buildSlots(o.ref, o.toDisp, o.decimals, o.suffix, {pad: o.pad}) + '</div>' + side(oddsSide ? o.topBase : '', ' vx-b') : '') +
     '</div>' +
     (o.sub != null ? '<div class="vsub">' + o.sub + '</div>' : ''),
     'vcell xedit', nodeAttr(o.node) + ' data-kind="' + o.kind + '" data-i="' + (o.vi - 1) + '"');
 }
-// read-only value cell: value + a digit-aligned delta below it (delta: false for the first checkpoint).
-// o: col, cur, ref, toDisp, decimals, suffix, kind, sub, color, delta, refTxt, node
+// read-only value cell: value + a digit-aligned delta below it (delta: false for the first checkpoint), and
+// with o.base the baseline under that (read-only here too).
+// o: col, cur, ref, toDisp, decimals, suffix, kind, sub, color, delta, base, dmode, row, node
 function gcellRo(o){
-  var delta = o.delta !== false, dv = o.cur - o.ref, d = deltaLook(dv, o.toDisp, o.decimals, o.kind, 1e-9);
+  var delta = o.delta !== false;
   var pad = fmtF(Math.abs(o.cur) * o.toDisp, o.decimals).split('.')[0].length;   // value's integer-digit width
+  var x = sideCol(delta && !!o.dmode);                  // the delta switch's column (see gcellEdit)
+  function side(html, cls){ return x ? x(html, cls) : ''; }
   return vcellHtml(o.col,
-    '<div class="vstack">' +
-      '<div class="vmain digits"' + sty(o.color) + '>' +              // invisible sign slot: same width as the delta
+    '<div class="' + (x ? 'vstack vside' : 'vstack') + '">' +
+      '<div class="vmain digits"' + sty(o.color) + '>' + vlab(o.base, 'A:') +   // invisible sign slot: same width as the delta
         buildSlots(o.cur, o.toDisp, o.decimals, o.suffix, {pad: pad, editable: false,
-                   signChar: delta ? '±' : null, signColor: 'transparent', refTxt: o.refTxt}) + '</div>' +
-      (delta ? '<div class="vdelta digits">' +
-        buildSlots(dv, o.toDisp, o.decimals, o.suffix, {pad: pad, editable: false, digitColor: d.digitColor,
-                   signChar: d.sgn, signColor: d.col, refTxt: o.refTxt, refGhost: true}) + '</div>' : '') +
+                   signChar: delta ? '±' : null, signColor: 'transparent'}) + '</div>' + side('') +
+      (delta ? deltaRow(o, pad, o.kind, 1e-9, false) + side(o.dmode ? dtogHtml(o.row, o.dmode === 'rel', o.suffix === '%') : '', ' vx-d') : '') +
+      (o.base ? '<div class="vbase digits"' + sty(o.color) + '>' + vlab(true, 'B:') +
+        buildSlots(o.ref, o.toDisp, o.decimals, o.suffix, {pad: pad, editable: false}) + '</div>' + side('', ' vx-b') : '') +
     '</div>' +
     (o.sub != null ? '<div class="vsub">' + o.sub + '</div>' : ''),
     'vcell', nodeAttr(o.node));
@@ -377,6 +558,18 @@ function bigop(sym, lo, up){
          '</span><span class="lim lo">' + lo + '</span></span>';
 }
 function mv(txt, col){ return '<span style="color:' + col + ';">' + txt + '</span>'; }
+// "Exclude from comparison" (shown while the comparison is): the population row's, in its label, and each
+// x-risk box's, on top of it. Excluded values are shared by both scenarios (refState). attrs: its data-excl.
+function exclBox(attrs, on, cls){
+  return '<label class="xchk' + (cls || '') + '" title="Use the same value in both scenarios (A and B)"><input type="checkbox"' +
+         attrs + (on ? ' checked' : '') + '>Exclude from comparison</label>';
+}
+// a rate box's odds, "1 in X", for the value ('cur') or the baseline ('base'); a click makes X a text field
+// (see the odds editing under "editing")
+function oddsHtml(which, rate, cls){
+  return "<span class='" + cls + " odds' data-odds='" + which + "' title='Click to type the odds'>1 in <span class='oddsx'>" +
+         fInt(1 / rate) + '</span></span>';
+}
 function metricGrow(label, color, cells, cls, row, formula, toggle){
   return '<div class="' + ('grow ' + (cls || '')).trim() + '" data-row="' + row + '">' +
     '<div class="rlabel" style="color:' + color + ';"><div class="rlblwrap">' +
@@ -425,8 +618,40 @@ function arrowEdges(vis, n){
   });
   return out.join(';');
 }
+// Arrow colours show where a change starts. Only the inputs that differ from the baseline colour the arrows
+// leaving them: a period's x-risk, and a checkpoint's population potential. Values that moved only as a
+// consequence (later survivals, years, population, life-years, lives) keep plain arrows, so the colour marks
+// the cause, not everything downstream of it.
+// A period's x-risk box and the survival box at the period's end count as one: the x-risk of a period changes
+// exactly when the survival over that period does (a survival edit lands in the x-risk), so a changed period
+// colours the arrows leaving both.
+// Tone: +1 (green) the good way, -1 (red) the bad way — the delta's colours: lower x-risk (higher survival)
+// and more population are good. Compared exactly (up to rounding noise), not as displayed, so a change too
+// small to show in the delta's digits still counts. cur / ref: the {rates, pops} of value and baseline.
+function changeTone(a, b, upGood){
+  var d = a - b;
+  if(!(Math.abs(d) > 1e-9 * Math.max(Math.abs(a), Math.abs(b)))) return 0;
+  return (d > 0) === upGood ? 1 : -1;
+}
+function arrowTones(cur, ref, n){
+  var t = {};
+  for(var i = 1; i < n; i++){                        // period i
+    var p = changeTone(cur.rates[i - 1], ref.rates[i - 1], false);
+    if(p){ t['rate:' + i] = p; t['surv:' + (i + 1)] = p; }
+  }
+  for(var j = 1; j <= n; j++){                       // checkpoint j
+    var q = changeTone(cur.pops[j - 1], ref.pops[j - 1], true);
+    if(q) t['pop:' + j] = q;
+  }
+  return t;
+}
 
 function isChecked(id){ var el = document.getElementById(id); return !!(el && el.checked); }
+// which of the comparison's lines the table shows: the change (delta) and the scenario (B, "baseline" in the
+// script), each only while "Show comparison" is ticked
+function showsCmp(){ return isChecked('showcmp'); }
+function showsChange(){ return showsCmp() && isChecked('showchg'); }
+function showsBase(){ return showsCmp() && isChecked('showref'); }
 function visibleRows(){
   var on = varBoxes().filter(function(x){ return x.checked; }).map(function(x){ return x.value; });
   return ROWS.filter(function(r){ return on.indexOf(r) >= 0; });
@@ -435,12 +660,13 @@ function range1(n){ var a = []; for(var k = 1; k <= n; k++) a.push(k); return a;
 
 // The table. j = checkpoint and i = period, both 1-based as in the R version; arrays are 0-based.
 function panelHtml(cur, ref){
-  var m = M, n = m.n, np = n - 1, sr = isChecked('showref'), rc = rateComp, sc = survComp;
+  var m = M, n = m.n, np = n - 1, rc = rateComp, sc = survComp;
+  var cmp = showsCmp(), sd = showsChange(), sr = showsBase();   // the comparison's lines: change (delta), scenario (B)
   var J = range1(n), I = range1(np), elapsed = [0];
   for(var k = 0; k < np; k++) elapsed.push(elapsed[k] + m.segLen[k]);
   function ycol(j){ return 2 * j; }                       // grid start for year j
   function gcol(i){ return 2 * i + 1; }                   // grid start for gap i (between years i and i+1)
-  function rtxt(v, toDisp, decimals, suffix){ return sr ? fRef(v, toDisp, decimals, suffix) : null; }
+  function dm(r){ return relRows[r] ? 'rel' : 'abs'; }    // the row's delta mode (its switch, deltaRow)
 
   var header = '<div class="grow ghead"><div class="rlabel"></div>' + J.map(function(j){
     return '<div class="ycol" style="grid-column:' + ycol(j) + '/span 2;"><div class="yr">' + fmtYear(m.cps[j - 1]) + '</div></div>';
@@ -463,10 +689,14 @@ function panelHtml(cur, ref){
     rate: function(){                                   // editable, in the gaps between years
       var cells = I.map(function(i){
         var cv = rc ? 1 - cur.rates[i - 1] : cur.rates[i - 1], rv = rc ? 1 - ref.rates[i - 1] : ref.rates[i - 1];
-        return gcellEdit({col: gcol(i), cur: cv, ref: rv, kind: rc ? 'rate_c' : 'rate', vi: i, toDisp: 100, decimals: 4,
-          suffix: '%', good: rc ? 'more_good' : 'more_bad', color: COL_RATE, refTxt: rtxt(rv, 100, 4, '%'), node: 'rate:' + i,
-          top: "<span class='ratio'>1 in " + fInt(1 / cur.rates[i - 1]) + '</span>' +      // odds of extinction either way
-               (sr ? " <span class='ratio vref'>(1 in " + fInt(1 / ref.rates[i - 1]) + ')</span>' : '')});
+        var ex = !!rateExcluded[i - 1];                 // this period's x-risk excluded from the comparison
+        return gcellEdit({col: gcol(i), cur: cv, ref: rv, kind: rc ? 'rate_c' : 'rate', vi: i, toDisp: 100, decimals: PCT_DEC,
+          suffix: '%', good: rc ? 'more_good' : 'more_bad', color: COL_RATE, delta: sd && !ex, base: sr && !ex,
+          dmode: dm('rate'), row: 'rate', node: 'rate:' + i,
+          head: cmp ? exclBox(' data-excl="rate" data-i="' + (i - 1) + '"', ex) : null,
+          top: oddsHtml('cur', cur.rates[i - 1], 'ratio'), oddsSide: cmp, // odds of extinction either way; beside
+                                                                          // the value in every box while comparing
+          topBase: oddsHtml('base', ref.rates[i - 1], 'ratio vref')});    // ...and the baseline's
       }).join('');
       return metricGrow((rc ? 'Annual survival probability' : 'Annual extinction probability') +
           "<br><span class='ital'>if survived until then</span>", COL_RATE, ivl + cells, 'erow rrow', 'rate',
@@ -475,10 +705,10 @@ function panelHtml(cur, ref){
     },
     surv: function(){                                   // editable (backtraces into the rates)
       var cells = J.map(function(j){
-        if(j === 1) return gcellFixed(ycol(1), sc ? 0 : cur.surv[0], 100, 4, '%', COL_SURV, 2, 'surv:1');
+        if(j === 1) return gcellFixed(ycol(1), sc ? 0 : cur.surv[0], 100, PCT_DEC, '%', COL_SURV, 2, 'surv:1');
         var cv = sc ? 1 - cur.surv[j - 1] : cur.surv[j - 1], rv = sc ? 1 - ref.surv[j - 1] : ref.surv[j - 1];
-        return gcellEdit({col: ycol(j), cur: cv, ref: rv, kind: sc ? 'surv_c' : 'surv', vi: j - 1, toDisp: 100, decimals: 4,
-          suffix: '%', pad: 2, good: sc ? 'more_bad' : 'more_good', color: COL_SURV, refTxt: rtxt(rv, 100, 4, '%'), node: 'surv:' + j});
+        return gcellEdit({col: ycol(j), cur: cv, ref: rv, kind: sc ? 'surv_c' : 'surv', vi: j - 1, toDisp: 100, decimals: PCT_DEC,
+          suffix: '%', pad: 2, good: sc ? 'more_bad' : 'more_good', color: COL_SURV, delta: sd, base: sr, dmode: dm('surv'), row: 'surv', node: 'surv:' + j});
       }).join('');
       return metricGrow((sc ? 'Cumulative extinction probability' : 'Cumulative survival probability') +
           "<br><span class='ital'>given past " + (rc ? 'survival' : 'extinction') + ' probabilities</span>', COL_SURV, cells,
@@ -492,8 +722,7 @@ function panelHtml(cur, ref){
         if(j === 1) return gcellRo({col: ycol(1), cur: cur.cumYears[0], ref: cur.cumYears[0], toDisp: 1, decimals: 4, suffix: 'y',
                                     delta: false, color: COL_SURV, node: 'years:1'});
         return gcellRo({col: ycol(j), cur: cur.cumYears[j - 1], ref: ref.cumYears[j - 1], toDisp: 1, decimals: 4, suffix: 'y',
-          sub: 'of ' + fInt(elapsed[j - 1]) + 'y potential', color: COL_SURV, refTxt: rtxt(ref.cumYears[j - 1], 1, 4, 'y'),
-          node: 'years:' + j});
+          sub: 'of ' + fInt(elapsed[j - 1]) + 'y potential', color: COL_SURV, delta: sd, base: sr, dmode: dm('years'), row: 'years', node: 'years:' + j});
       }).join('');
       return metricGrow('Cumulative survived years of humanity', COL_SURV, cells, '', 'years',
                         mv('Y<sub>t</sub>', COL_SURV) + ' = ' + SUM + ' ' + csv('i'));
@@ -503,8 +732,7 @@ function panelHtml(cur, ref){
         if(j === 1) return gcellRo({col: ycol(1), cur: cur.gens[0], ref: cur.gens[0], toDisp: 1, decimals: 4, suffix: '',
                                     delta: false, color: COL_SURV, node: 'gens:1'});
         return gcellRo({col: ycol(j), cur: cur.gens[j - 1], ref: ref.gens[j - 1], toDisp: 1, decimals: 4, suffix: '',
-          sub: 'of ' + fmtF(elapsed[j - 1] / LIFE_EXP, 2) + ' potential', color: COL_SURV, refTxt: rtxt(ref.gens[j - 1], 1, 4, ''),
-          node: 'gens:' + j});
+          sub: 'of ' + fmtF(elapsed[j - 1] / LIFE_EXP, 2) + ' potential', color: COL_SURV, delta: sd, base: sr, dmode: dm('gens'), row: 'gens', node: 'gens:' + j});
       }).join('');
       return metricGrow("Cumulative survived generations <span class='ital'>(75y)</span>", COL_SURV, cells, '', 'gens',
                         mv('G<sub>t</sub>', COL_SURV) + ' = ' + SUM + ' ' + csv('i') + ' / 75');
@@ -512,21 +740,23 @@ function panelHtml(cur, ref){
     pop: function(){                                    // editable checkpoints; growth rate in the gaps
       var cells = J.map(function(j){
         return gcellEdit({col: ycol(j), cur: cur.popPot[j - 1], ref: ref.popPot[j - 1], kind: 'pop', vi: j, toDisp: 1 / 1e6,
-          decimals: 0, suffix: 'm', pad: 5, good: 'more_good', color: COL_POP, node: 'pop:' + j});
+          decimals: 0, suffix: 'm', pad: 5, good: 'more_good', color: COL_POP, delta: sd && !popExcluded, base: sr && !popExcluded,
+          dmode: dm('pop'), row: 'pop', node: 'pop:' + j});
       }).join('');
       var growth = I.map(function(i){
         var g = cur.growth[i] * 100;
-        return '<div class="vgrowth" style="grid-column:' + gcol(i) + '/span 2;">' + (g >= 0 ? '+' : '') + fmtF(g, 3) + '%/yr</div>';
+        return '<div class="vgrowth" style="grid-column:' + gcol(i) + '/span 2;">' + (g >= 0 ? '+' : '') + fmtF(g, PCT_DEC - 1) + '%/yr</div>';
       }).join('');
       return metricGrow("Annual population potential<br><span class='ital'>if survived</span>", COL_POP, cells + growth,
-                        'erow', 'pop', mv('P<sub>t</sub>', COL_POP));
+                        'erow', 'pop', mv('P<sub>t</sub>', COL_POP),
+                        cmp ? exclBox(' data-excl="pop"', popExcluded, ' xchk-row') : '');
     },
     popexp: function(){
       var cells = J.map(function(j){
         if(j === 1) return gcellRo({col: ycol(1), cur: cur.popExp[0], ref: cur.popExp[0], toDisp: 1, decimals: 0, suffix: '',
                                     delta: false, color: COL_POP, node: 'popexp:1'});
         return gcellRo({col: ycol(j), cur: cur.popExp[j - 1], ref: ref.popExp[j - 1], toDisp: 1, decimals: 0, suffix: '',
-          sub: 'of ' + fInt(cur.popPot[j - 1]) + ' potential', color: COL_POP, node: 'popexp:' + j});
+          sub: 'of ' + fInt(cur.popPot[j - 1]) + ' potential', color: COL_POP, delta: sd, base: sr, dmode: dm('popexp'), row: 'popexp', node: 'popexp:' + j});
       }).join('');
       return metricGrow("Annual population<br><span class='ital'>given survival probability</span>", COL_POP, cells, '', 'popexp',
                         mv('E<sub>t</sub>', COL_POP) + ' = ' + mv('P<sub>t</sub>', COL_POP) + ' &middot; ' + csv('t'));
@@ -536,7 +766,7 @@ function panelHtml(cur, ref){
         if(j === 1) return gcellRo({col: ycol(1), cur: cur.cumLy[0], ref: cur.cumLy[0], toDisp: 1, decimals: 0, suffix: '',
                                     delta: false, color: COL_POP, node: 'ly:1'});
         return gcellRo({col: ycol(j), cur: cur.cumLy[j - 1], ref: ref.cumLy[j - 1], toDisp: 1, decimals: 0, suffix: '',
-          sub: 'of ' + fInt(cur.cumLyPot[j - 1]) + ' potential', color: COL_POP, node: 'ly:' + j});
+          sub: 'of ' + fInt(cur.cumLyPot[j - 1]) + ' potential', color: COL_POP, delta: sd, base: sr, dmode: dm('ly'), row: 'ly', node: 'ly:' + j});
       }).join('');
       return metricGrow('Cumulative lived human life-years', COL_POP, cells, '', 'ly',
                         mv('H<sub>t</sub>', COL_POP) + ' = ' + SUM + ' ' + mv('E<sub>i</sub>', COL_POP));
@@ -546,7 +776,7 @@ function panelHtml(cur, ref){
         if(j === 1) return gcellRo({col: ycol(1), cur: cur.lives[0], ref: cur.lives[0], toDisp: 1, decimals: 0, suffix: '',
                                     delta: false, color: COL_POP, node: 'lives:1'});
         return gcellRo({col: ycol(j), cur: cur.lives[j - 1], ref: ref.lives[j - 1], toDisp: 1, decimals: 0, suffix: '',
-          sub: fInt(cur.livesPot[j - 1] - cur.lives[j - 1]) + ' less than potential', color: COL_POP, node: 'lives:' + j});
+          sub: 'of ' + fInt(cur.livesPot[j - 1]) + ' potential', color: COL_POP, delta: sd, base: sr, dmode: dm('lives'), row: 'lives', node: 'lives:' + j});
       }).join('');
       return metricGrow("Cumulative lived human lives <span class='ital'>(75y)</span>", COL_POP, cells, '', 'lives',
                         mv('N<sub>t</sub>', COL_POP) + ' = ' + SUM + ' ' + mv('E<sub>i</sub>', COL_POP) + ' / 75');
@@ -578,22 +808,43 @@ function footHtml(){
 }
 
 // ── state, baselines and history ──
-// rates / pops: the current state. The comparison baseline is either a frozen state ("Set baseline =
-// current", mode 'current') or the state before the most recent change (mode 'previous') — the same
-// rules app_xrisk's server applied.
+// rates / pops: the current state. The comparison baseline is either a frozen state (refStatic, mode
+// 'current': "Set comparison = current", or any edit to a baseline value) or the state before the most
+// recent change (mode 'previous') — the rules app_xrisk's server applied, plus the baseline edits.
+// The page starts, and "Reset to defaults" returns, with the defaults frozen as the baseline ('current').
 var hscale = DEF_EXP, M = modelFor(hscale);
 var rates = M.defRates.slice(), pops = M.defPops.slice();
 var LEN = M.segLen.slice();                      // period lengths (years), for the survival backtrace
 var rateComp = false, survComp = false;          // per-row complement views (the ⇄ buttons)
+var relRows = {};                                // rows whose deltas show the change as a % of the baseline (the pp|% / Δ|% switches)
 function snap(){ return {rates: rates.slice(), pops: pops.slice()}; }
-var mode = 'previous', refStatic = snap(), histPrev = snap(), histLast = snap();
-function refState(){ return fitState(mode === 'previous' ? histPrev : refStatic, M); }
-var sel = {kind:'rate', i:0, place:0.00001, delta:false};  // first period, second-to-last decimal (0.001%); value/delta + which digit
+var mode = 'current', refStatic = snap(), histPrev = snap(), histLast = snap();
+// What is excluded from the comparison ("Exclude from comparison"): the population potential as a whole (an
+// outside assumption, not a lever: on by default) and single periods' x-risk (off by default). An excluded
+// value is shared by both scenarios: the comparison takes the current value, so changing it moves A and B
+// alike and shows no change of its own. The stored comparison keeps its own values meanwhile (refRaw), so
+// they return when the exclusion is lifted. Not part of the undo history (a view choice, like "Show …").
+var popExcluded = true, rateExcluded = {};       // rateExcluded: period index -> true
+function refRaw(){ return fitState(mode === 'previous' ? histPrev : refStatic, M); }
+function refState(){                             // the comparison as compared against: exclusions applied
+  var r = refRaw();
+  if(popExcluded) r.pops = pops.slice();
+  r.rates = r.rates.map(function(v, i){ return rateExcluded[i] ? rates[i] : v; });
+  return r;
+}
+function isRateExcluded(m){ return !!rateExcluded[m]; }
+// the selected digit: which cell (kind, i), which place value, and which of the cell's rows (part): the value
+// ('main'), its change ('delta') or the baseline ('base'). First period, its 0.001% digit.
+var sel = {kind:'rate', i:0, place:0.00001, part:'main'};
 
-// undo / redo: snapshots of {rates, pops}
-var histStack = [snap()];
+// undo / redo: snapshots of the values and the baseline (its mode, and its frozen state)
+function histSnap(){ return {rates: rates.slice(), pops: pops.slice(), mode: mode,
+                             ref: {rates: refStatic.rates.slice(), pops: refStatic.pops.slice()}}; }
+var histStack = [histSnap()];
 var histIdx = 0, histSuppress = false;
-function histEq(a,b){ return a.rates.every(function(v,i){return v===b.rates[i];}) && a.pops.every(function(v,i){return v===b.pops[i];}); }
+function sameArr(a, b){ return a.length === b.length && a.every(function(v, i){ return v === b[i]; }); }
+function histEq(a, b){ return sameArr(a.rates, b.rates) && sameArr(a.pops, b.pops) && a.mode === b.mode &&
+                              sameArr(a.ref.rates, b.ref.rates) && sameArr(a.ref.pops, b.ref.pops); }
 function updateHistBtns(){
   var u = document.getElementById('undoBtn'), r = document.getElementById('redoBtn');
   if(u) u.disabled = (histIdx <= 0);
@@ -601,7 +852,7 @@ function updateHistBtns(){
 }
 function recordHistory(){
   if(histSuppress) return;
-  var cur = snap();
+  var cur = histSnap();
   if(histEq(cur, histStack[histIdx])) return;        // no actual change
   histStack = histStack.slice(0, histIdx + 1);         // drop any redo tail
   histStack.push(cur); histIdx = histStack.length - 1;
@@ -609,7 +860,10 @@ function recordHistory(){
 }
 function restoreHist(){
   var s = histStack[histIdx];
-  histSuppress = true; rates = s.rates.slice(); pops = s.pops.slice(); pushState(); histSuppress = false;
+  histSuppress = true;
+  rates = s.rates.slice(); pops = s.pops.slice();
+  mode = s.mode; refStatic = {rates: s.ref.rates.slice(), pops: s.ref.pops.slice()};
+  pushState(); histSuppress = false;
   updateHistBtns();
 }
 function undo(){ if(histIdx > 0){ histIdx--; restoreHist(); } }
@@ -626,28 +880,34 @@ function scheduleRender(){ if(!renderQueued){ renderQueued = true; requestAnimat
 function render(){
   renderQueued = false;
   var rs = refState(), cur = compute(rates, pops, M), ref = compute(rs.rates, rs.pops, M);
+  // drawArrows (below, and on every resize) colours by this; no colours while the comparison is hidden
+  arrowTone = showsCmp() ? arrowTones({rates: rates, pops: pops}, rs, M.n) : {};
   var sc0 = document.querySelector('.grid-scroll'), scrollX = sc0 ? sc0.scrollLeft : 0;
   document.getElementById('panel').innerHTML = panelHtml(cur, ref);
   document.getElementById('summary').innerHTML = summaryHtml(cur);
   document.getElementById('foot').innerHTML = footHtml();
-  var br = document.getElementById('setref'), bp = document.getElementById('setprev');
-  if(br) br.classList.toggle('active', mode === 'current');
-  if(bp) bp.classList.toggle('active', mode === 'previous');
+  // the Comparison controls follow the mode (an undo, a comparison edit or a reset can change it)
+  var br = document.getElementById('setref'), bp = document.getElementById('cmpprev');
+  if(br) br.disabled = (mode === 'previous');    // "previous value" on: nothing to freeze
+  if(bp) bp.checked = (mode === 'previous');
   cellOf(sel);                                    // a ⇄ toggle renamed the selected cell's kind: follow it
+  if((sel.part === 'base' && !showsBase()) || (sel.part === 'delta' && !showsChange())) sel.part = 'main';   // that line is hidden: don't edit it blind
   applyHighlight();
   watchArrows();
   var sc1 = document.querySelector('.grid-scroll'); if(sc1) sc1.scrollLeft = scrollX;
 }
 
-// the buttons that reset or rebase the state
-function setBaselineCurrent(){ refStatic = snap(); mode = 'current'; scheduleRender(); }
-function setBaselinePrevious(){ mode = 'previous'; scheduleRender(); }
+// the controls that reset or rebase the state (each an undo step, since the baseline is in the history).
+// "Set comparison = current" freezes the values as they are; "Comparison = previous value" switches to the
+// moving baseline, and unticking it returns to the frozen one as it was.
+function setBaselineCurrent(){ refStatic = snap(); mode = 'current'; recordHistory(); scheduleRender(); }
+function setBaselinePrevious(on){ mode = on ? 'previous' : 'current'; recordHistory(); scheduleRender(); }
 function allSurvive(){                              // all x-risk → 0 (all survival 100%); deltas rebased to 0
   rates = rates.map(function(){ return 0; }); refStatic = snap(); mode = 'current'; pushState();
 }
 function resetDefaults(){
   rates = M.defRates.slice(); pops = M.defPops.slice();
-  refStatic = snap(); histPrev = snap(); histLast = snap(); mode = 'previous'; pushState();
+  refStatic = snap(); histPrev = snap(); histLast = snap(); mode = 'current'; pushState();
 }
 // Horizon changed: fit the state to the new number of periods (edits to shared periods kept) and rebase
 // the baseline on it — a structural change, not an edit. The undo history restarts (its snapshots have
@@ -658,7 +918,7 @@ function setHorizon(e){
   var s = fitState(snap(), M);
   rates = s.rates; pops = s.pops; LEN = M.segLen.slice();
   refStatic = snap(); histPrev = snap(); histLast = snap();
-  histStack = [snap()]; histIdx = 0;
+  histStack = [histSnap()]; histIdx = 0;
   var last = (sel.kind === 'pop' ? pops.length : rates.length) - 1;   // rate/rate_c/surv/surv_c all index periods
   if(sel.i > last) sel.i = last;
   updateHistBtns(); scheduleRender();
@@ -674,7 +934,9 @@ function cellOf(s){
   if(!c && ALT_KIND[s.kind]){ c = document.querySelector('.xedit[data-kind="'+ALT_KIND[s.kind]+'"][data-i="'+s.i+'"]'); if(c) s.kind = ALT_KIND[s.kind]; }
   return c;
 }
-function digsOf(c){ if(!c) return []; return Array.prototype.slice.call(c.querySelectorAll((sel.delta ? '.vdelta' : '.vmain') + ' .dig')); }
+var PART_ROW = {main: '.vmain', delta: '.vdelta', base: '.vbase'};   // sel.part -> the cell's row of digits
+function partOf(dig){ return dig.closest('.vdelta') ? 'delta' : (dig.closest('.vbase') ? 'base' : 'main'); }
+function digsOf(c){ if(!c) return []; return Array.prototype.slice.call(c.querySelectorAll(PART_ROW[sel.part] + ' .dig')); }
 function allCells(){ return Array.prototype.slice.call(document.querySelectorAll('.xedit')); }
 function digDelta(el){ return parseFloat(el.getAttribute('data-delta')); }
 function nearestDig(digs, place){                // match a digit by its place value
@@ -703,18 +965,21 @@ function applyHighlight(){
 function survOf(arr, i){                          // cumulative survival through interval i
   var p = 1; for(var k = 0; k <= i; k++) p *= Math.pow(1 - arr[k], LEN[k]); return p;
 }
-// set survival at checkpoint i to target T by solving the interval-i extinction
-// rate, backtracing into earlier intervals when T exceeds the prior survival.
-function setSurv(i, T){
+// set survival at checkpoint i of the rates in arr (the current ones, or the baseline's) to target T by
+// solving the interval-i extinction rate, backtracing into earlier intervals when T exceeds the prior survival.
+// locked(m): periods it must leave as they are (for the baseline: those excluded from the comparison); it
+// solves the latest unlocked period instead, allowing for the locked periods' survival.
+function survFix(arr, i, T, locked){
   T = Math.min(1, Math.max(0, T));               // 100% ceiling, 0 floor
   for(var m = i; m >= 0; m--){
-    var Pprev = 1; for(var k = 0; k < m; k++) Pprev *= Math.pow(1 - rates[k], LEN[k]);
-    var needed = T / Pprev;                       // desired (1-r_m)^len_m
-    if(needed <= 1){ rates[m] = 1 - Math.pow(needed, 1 / LEN[m]); break; }
-    rates[m] = 0;                                 // maxed this interval, keep backtracing
+    if(locked && locked(m)) continue;
+    var P = 1; for(var k = 0; k <= i; k++) if(k !== m) P *= Math.pow(1 - arr[k], LEN[k]);   // through i, without m
+    var needed = T / P;                           // desired (1-r_m)^len_m
+    if(needed <= 1){ arr[m] = 1 - Math.pow(needed, 1 / LEN[m]); break; }
+    arr[m] = 0;                                   // maxed this interval, keep backtracing
   }
-  pushState();
 }
+function setSurv(i, T){ survFix(rates, i, T); pushState(); }
 function valOf(kind, i, rArr, pArr){
   if(kind === 'surv')   return survOf(rArr, i);
   if(kind === 'surv_c') return 1 - survOf(rArr, i);      // cumulative extinction probability
@@ -729,9 +994,40 @@ function setValAbs(v){                            // write the actual value (bac
   else if(sel.kind === 'rate_c'){ rates[sel.i] = Math.min(1, Math.max(0, +(1 - v).toFixed(12))); pushState(); }
   else { var arr = (sel.kind === 'rate') ? rates : pops; arr[sel.i] = Math.max(0, +v.toFixed(12)); pushState(); }
 }
-// when sel.delta, we edit the change (value − baseline); otherwise the value itself
-function editVal(){ return sel.delta ? (curVal() - baseVal()) : curVal(); }
-function applyEdit(nv){ setValAbs(sel.delta ? baseVal() + nv : nv); }
+// Write a baseline value, by the same rules. An edited baseline is a fixed one: a "previous value" baseline
+// is frozen as it stands (mode 'current') before the edit lands in it. The values don't change; the deltas do.
+// A comparison survival is solved on the comparison as compared against (excluded periods at the current
+// x-risk, locked), and only the periods it may change are written back.
+function freezeBase(){ if(mode !== 'current'){ refStatic = refRaw(); mode = 'current'; } }
+function setBaseAbs(v){
+  freezeBase();
+  var b = refStatic;
+  if(sel.kind === 'surv' || sel.kind === 'surv_c'){
+    var eff = refState().rates;
+    survFix(eff, sel.i, sel.kind === 'surv' ? v : 1 - v, isRateExcluded);
+    eff.forEach(function(r, k){ if(!isRateExcluded(k)) b.rates[k] = r; });
+  }
+  else if(sel.kind === 'rate_c') b.rates[sel.i] = Math.min(1, Math.max(0, +(1 - v).toFixed(12)));
+  else { var arr = (sel.kind === 'rate') ? b.rates : b.pops; arr[sel.i] = Math.max(0, +v.toFixed(12)); }
+  recordHistory(); scheduleRender();
+}
+// The selected row decides what an edit changes: the value, the change (moves the value), or the baseline
+// itself. The change is value − baseline, or (value − baseline) / baseline where the row's switch is on %.
+var KIND_ROW = {rate:'rate', rate_c:'rate', surv:'surv', surv_c:'surv', pop:'pop'};
+function relDelta(){ return !!relRows[KIND_ROW[sel.kind]]; }
+function editVal(){
+  if(sel.part === 'base') return baseVal();
+  if(sel.part !== 'delta') return curVal();
+  var b = baseVal();
+  return relDelta() ? (b > 0 ? curVal() / b - 1 : 0) : curVal() - b;
+}
+function applyEdit(nv){
+  if(sel.part === 'base') return setBaseAbs(nv);
+  if(sel.part !== 'delta') return setValAbs(nv);
+  var b = baseVal();
+  if(!relDelta()) setValAbs(b + nv);
+  else if(b > 0) setValAbs(b * (1 + nv));          // a baseline of 0 has no relative change to set
+}
 function change(dir){                             // ▼ always lowers, ▲ always raises (monotonic)
   applyEdit(editVal() + dir * sel.place);         // crosses zero once, never flip-flops
 }
@@ -750,11 +1046,11 @@ function moveDigit(dir, cross){
   if(dir > 0){
     if(idx < digs.length - 1) sel.place = digDelta(digs[idx + 1]);
     else if(cross && ci < cells.length - 1){ var nc = cells[ci + 1], nd = digsOf(nc);
-      sel = {kind:nc.getAttribute('data-kind'), i:+nc.getAttribute('data-i'), place:digDelta(nd[0]), delta:sel.delta}; }
+      if(nd.length) sel = {kind:nc.getAttribute('data-kind'), i:+nc.getAttribute('data-i'), place:digDelta(nd[0]), part:sel.part}; }
   } else {
     if(idx > 0) sel.place = digDelta(digs[idx - 1]);
     else if(cross && ci > 0){ var pc = cells[ci - 1], pd = digsOf(pc);
-      sel = {kind:pc.getAttribute('data-kind'), i:+pc.getAttribute('data-i'), place:digDelta(pd[pd.length - 1]), delta:sel.delta}; }
+      if(pd.length) sel = {kind:pc.getAttribute('data-kind'), i:+pc.getAttribute('data-i'), place:digDelta(pd[pd.length - 1]), part:sel.part}; }
   }
   applyHighlight();
 }
@@ -764,38 +1060,80 @@ document.addEventListener('keydown', function(e){
   if(/^[0-9]$|^Arrow/.test(k) && !cellOf(sel)){      // selected cell's row is hidden: jump to the first visible one, don't edit blind
     var c0 = allCells()[0]; if(!c0) return;
     e.preventDefault();
-    var d0 = digsOf(c0); sel = {kind:c0.getAttribute('data-kind'), i:+c0.getAttribute('data-i'), place:d0.length ? digDelta(d0[0]) : sel.place, delta:false};
+    sel = {kind:c0.getAttribute('data-kind'), i:+c0.getAttribute('data-i'), place:sel.place, part:'main'};
+    var d0 = digsOf(c0); if(d0.length) sel.place = digDelta(d0[0]);
     applyHighlight(); return;
   }
   if(/^[0-9]$/.test(k)){ e.preventDefault(); typeDigit(+k); return; }
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].indexOf(k) < 0) return;
   e.preventDefault();
-  if(k === 'ArrowUp')   { if(!sel.delta) change(1);  return; }   // ▲/▼ change values only, not deltas
-  if(k === 'ArrowDown') { if(!sel.delta) change(-1); return; }
+  if(k === 'ArrowUp')   { change(1);  return; }   // ▲/▼: value, delta or baseline, whichever row is selected
+  if(k === 'ArrowDown') { change(-1); return; }
   moveDigit(k === 'ArrowRight' ? 1 : -1, true);   // arrows may walk on into the next/previous cell
 });
 document.addEventListener('click', function(e){
+  if(e.target.closest('.dtog, .xchk')) return;      // the delta switch and exclude boxes (controls, below) don't select
   var cell = e.target.closest('.xedit'); if(!cell) return;
   var dig  = e.target.closest('.dig');
   if(dig){
-    sel = {kind:cell.getAttribute('data-kind'), i:+cell.getAttribute('data-i'),
-           place:digDelta(dig), delta: !!dig.closest('.vdelta')};
+    sel = {kind:cell.getAttribute('data-kind'), i:+cell.getAttribute('data-i'), place:digDelta(dig), part:partOf(dig)};
     var up = e.target.closest('.ar.up'), dn = e.target.closest('.ar.dn');
     if(up || dn){ change(up ? 1 : -1); return; }
     applyHighlight();
   } else {
-    sel.kind = cell.getAttribute('data-kind'); sel.i = +cell.getAttribute('data-i'); sel.delta = false;
+    sel.kind = cell.getAttribute('data-kind'); sel.i = +cell.getAttribute('data-i'); sel.part = 'main';
     applyHighlight();
   }
+});
+// "1 in X" odds: a click turns X into a text field. Enter, or clicking elsewhere, sets that period's x-risk
+// (or its baseline's) to exactly 1 / X; Escape cancels. X may have spaces or commas; anything below 1 (a risk
+// above 100%) or not a number is ignored. The x-risk is set whichever way its row shows it (ae or as).
+function setOdds(which, i, x){
+  if(which === 'base'){ freezeBase(); refStatic.rates[i] = 1 / x; recordHistory(); scheduleRender(); }
+  else { rates[i] = 1 / x; pushState(); }
+}
+document.addEventListener('click', function(e){
+  var od = e.target.closest('.odds'); if(!od || od.querySelector('input')) return;
+  var cell = od.closest('.xedit'), xs = od.querySelector('.oddsx'); if(!cell || !xs) return;
+  var which = od.getAttribute('data-odds'), i = +cell.getAttribute('data-i'), done = false;
+  var inp = document.createElement('input');
+  inp.type = 'text'; inp.inputMode = 'decimal'; inp.className = 'oddsin'; inp.autocomplete = 'off';
+  inp.value = xs.textContent.replace(/\s/g, '');
+  function fit(){ inp.style.width = Math.max(4, inp.value.length + 2) + 'ch'; }
+  function finish(save){
+    if(done) return; done = true;
+    var v = parseFloat(inp.value.replace(/[\s,_]/g, ''));
+    if(save && isFinite(v) && v >= 1) setOdds(which, i, v); else scheduleRender();   // a redraw puts the text back
+  }
+  inp.addEventListener('keydown', function(k){
+    if(k.key === 'Enter'){ k.preventDefault(); finish(true); }
+    else if(k.key === 'Escape'){ k.preventDefault(); finish(false); }
+  });
+  inp.addEventListener('input', fit);
+  inp.addEventListener('blur', function(){ finish(true); });
+  fit(); xs.replaceWith(inp); inp.focus(); inp.select();
 });
 // mouse wheel over a digit nudges that digit (up = raise, down = lower).
 // Accumulate delta and step per threshold so a touchpad gesture (many events +
 // inertia) doesn't run the digit away — ~one step per notch / firm swipe.
+// Only on a number clicked first, so scrolling the page past the table never edits it by accident: a click
+// on a number (one box's value, change or comparison line) arms the wheel for it, and it stays armed while
+// the pointer stays on that number. Anywhere else, or once the pointer has left it, the wheel scrolls.
+// Armed by identity (box and line), not element: every edit redraws the table.
+var wheelArm = null;
+function numKey(el){                              // "kind:i:part" of the number el is in, or null
+  var cell = el.closest('.xedit'), row = el.closest('.digits');
+  return cell && row ? cell.getAttribute('data-kind') + ':' + cell.getAttribute('data-i') + ':' + partOf(row) : null;
+}
+document.addEventListener('click', function(e){ wheelArm = e.target.closest ? numKey(e.target) : null; });
+document.addEventListener('pointerover', function(e){
+  if(wheelArm && !(e.target.closest && numKey(e.target) === wheelArm)) wheelArm = null;
+});
 var wheelAcc = 0;
 document.addEventListener('wheel', function(e){
   var dig = e.target.closest('.dig'); if(!dig){ wheelAcc = 0; return; }
   var cell = dig.closest('.xedit'); if(!cell){ wheelAcc = 0; return; }
-  if(dig.closest('.vdelta')){ wheelAcc = 0; return; }   // deltas: no wheel change (number keys only)
+  if(numKey(dig) !== wheelArm){ wheelAcc = 0; return; }   // not clicked first: let the page scroll
   e.preventDefault();
   var d = e.deltaY;
   if(e.deltaMode === 1) d *= 33; else if(e.deltaMode === 2) d *= 400;   // lines/pages → px
@@ -803,8 +1141,7 @@ document.addEventListener('wheel', function(e){
   wheelAcc += d;
   var STEP = 90;
   if(Math.abs(wheelAcc) < STEP) return;
-  sel = {kind:cell.getAttribute('data-kind'), i:+cell.getAttribute('data-i'),
-         place:digDelta(dig), delta: !!dig.closest('.vdelta')};
+  sel = {kind:cell.getAttribute('data-kind'), i:+cell.getAttribute('data-i'), place:digDelta(dig), part:partOf(dig)};
   var n = 0;
   while(wheelAcc <= -STEP && n < 8){ wheelAcc += STEP; change(-1); n++; }
   while(wheelAcc >=  STEP && n < 8){ wheelAcc -= STEP; change(1);  n++; }
@@ -817,6 +1154,7 @@ document.addEventListener('wheel', function(e){
 // A value with an h arrow is its previous value *acted on* by the rows above (cs_2036 = cs_2026 · (1 − ae)^10),
 // so its inputs from above don't enter the box: they join the h arrow with an arrowhead (see step 2).
 var SVGNS = 'http://www.w3.org/2000/svg';
+var arrowTone = {};                               // node id -> +1 / -1 / 0, set by render (arrowTones)
 function nodeBox(gw, base, id){
   var el = gw.querySelector('[data-node="' + id + '"]'); if(!el) return null;
   var r = el.getBoundingClientRect(), vm = el.querySelector('.vmain'), m = vm ? vm.getBoundingClientRect() : r;
@@ -832,12 +1170,16 @@ function drawArrows(){
   var svg = document.createElementNS(SVGNS, 'svg');
   svg.setAttribute('class', 'arrows');
   svg.setAttribute('width', gw.scrollWidth); svg.setAttribute('height', gw.scrollHeight);
-  svg.innerHTML = '<defs><marker id="ah" viewBox="0 0 8 8" refX="7.5" refY="4" markerUnits="userSpaceOnUse" ' +
-                  'markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z"/></marker></defs>';
+  function marker(id){ return '<marker id="' + id + '" viewBox="0 0 8 8" refX="7.5" refY="4" markerUnits="userSpaceOnUse" ' +
+                              'markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z"/></marker>'; }
+  svg.innerHTML = '<defs>' + marker('ah') + marker('ah-good') + marker('ah-bad') + '</defs>';   // plain / green / red heads
   gw.appendChild(svg);                                            // attached first: paths get sampled while drawing
-  function add(d, head){
+  // an arrow leaving box `from`, in that box's tone (arrowTone: green / red where a change starts there)
+  function add(d, head, from){
+    var t = arrowTone[from] || 0, tone = t > 0 ? 'good' : (t < 0 ? 'bad' : '');
     var p = document.createElementNS(SVGNS, 'path');
-    p.setAttribute('class', 'e'); p.setAttribute('d', d); if(head) p.setAttribute('marker-end', 'url(#ah)');
+    p.setAttribute('class', tone ? 'e ' + tone : 'e'); p.setAttribute('d', d);
+    if(head) p.setAttribute('marker-end', 'url(#' + (tone ? 'ah-' + tone : 'ah') + ')');
     svg.appendChild(p); return p;
   }
   var edges = spec.split(';').map(function(e){
@@ -849,7 +1191,7 @@ function drawArrows(){
     if(e.type !== 'h') return;
     var x0 = e.S.r + 1, x1 = e.T.l - 1;
     if(x1 - x0 < 6) return;                                       // boxes touching: no room for an arrow
-    add('M' + x0 + ',' + e.S.my + ' L' + x1 + ',' + e.T.my, true);
+    add('M' + x0 + ',' + e.S.my + ' L' + x1 + ',' + e.T.my, true, e.from);
     hseg[e.to] = {x0:x0, y0:e.S.my, x1:x1, y1:e.T.my};
   });
   // 2 · arrows from above. A box directly above feeds from its bottom-left corner (its output side); a
@@ -870,7 +1212,7 @@ function drawArrows(){
           if(xo >= h.x0 + 6){
             var jyd = h.y0 + (h.y1 - h.y0) * (xo - h.x0) / (h.x1 - h.x0);
             if((jyd - 1) - (sy + 12) >= 4){
-              add('M' + xd + ',' + sy + ' Q' + xo + ',' + sy + ' ' + xo + ',' + (sy + 12) + ' L' + xo + ',' + (jyd - 1), true);
+              add('M' + xd + ',' + sy + ' Q' + xo + ',' + sy + ' ' + xo + ',' + (sy + 12) + ' L' + xo + ',' + (jyd - 1), true, e.from);
               return;
             }
           }
@@ -879,7 +1221,7 @@ function drawArrows(){
         var jx = overGap ? Math.max(S.cx, h.x0 + 8) : Math.max(h.x1 - 12, h.x0 + 8);
         var jy = h.y0 + (h.y1 - h.y0) * (jx - h.x0) / (h.x1 - h.x0);
         var cy = (sy + Math.min(T.t, jy)) / 2;
-        add('M' + sx + ',' + sy + ' C' + sx + ',' + cy + ' ' + jx + ',' + cy + ' ' + jx + ',' + (jy - 1), true);
+        add('M' + sx + ',' + sy + ' C' + sx + ',' + cy + ' ' + jx + ',' + cy + ' ' + jx + ',' + (jy - 1), true, e.from);
       });
       return;
     }
@@ -891,7 +1233,7 @@ function drawArrows(){
     var tp = add(straight
       ? 'M' + sx + ',' + sy + ' Q' + xo + ',' + sy + ' ' + xo + ',' + (sy + 12) + ' L' + xo + ',' + (ty - 10) +
         ' Q' + xo + ',' + ty + ' ' + (xo + 10) + ',' + ty + ' L' + tx + ',' + ty
-      : 'M' + sx + ',' + sy + ' C' + xo + ',' + (sy + 16) + ' ' + xo + ',' + ty + ' ' + tx + ',' + ty, true);
+      : 'M' + sx + ',' + sy + ' C' + xo + ',' + (sy + 16) + ' ' + xo + ',' + ty + ' ' + tx + ',' + ty, true, trunk.from);
     // Where the trunk turns down: its leftmost point (topmost, if it runs straight for a while). Joins land
     // exactly there, whichever shape the trunk took. The path is in the SVG, so it can be sampled.
     var px = Infinity, py = sy, L = tp.getTotalLength ? tp.getTotalLength() : 0;
@@ -908,14 +1250,16 @@ function drawArrows(){
         // from further up: swing out to the trunk's line and run straight down it, landing where it turns down
         add((py - 1) - (jsy + 12) >= 4
           ? 'M' + jsx + ',' + jsy + ' Q' + px + ',' + jsy + ' ' + px + ',' + (jsy + 12) + ' L' + px + ',' + (py - 1)
-          : 'M' + jsx + ',' + jsy + ' C' + px + ',' + jsy + ' ' + px + ',' + (py - 10) + ' ' + px + ',' + (py - 1), true);
+          : 'M' + jsx + ',' + jsy + ' C' + px + ',' + jsy + ' ' + px + ',' + (py - 10) + ' ' + px + ',' + (py - 1), true, e.from);
         return;
       }
       var jy = y1 - py >= 8 ? Math.min(Math.max(jsy + 14, py + 4), y1 - 4) : py;   // on the trunk's straight run
       add(jsx - 10 > px ? 'M' + jsx + ',' + jsy + ' Q' + jsx + ',' + jy + ' ' + (jsx - 10) + ',' + jy + ' L' + (px + 1) + ',' + jy
-                        : 'M' + jsx + ',' + jsy + ' L' + (px + 1) + ',' + jy, true);
+                        : 'M' + jsx + ',' + jsy + ' L' + (px + 1) + ',' + jy, true, e.from);
     });
   });
+  // coloured arrows over plain ones where they meet (a join, a shared trunk line)
+  svg.querySelectorAll('path.e.good, path.e.bad').forEach(function(p){ svg.appendChild(p); });
 }
 // Column floor: every value box, year, period label and growth note sits centred at its natural
 // (one-line) width, so the widest one is the smallest pitch at which nothing overlaps. Each cell spans
@@ -950,19 +1294,42 @@ document.addEventListener('click', function(e){
   else if(e.target.closest('#surv100')) allSurvive();
   else if(e.target.closest('#reset')) resetDefaults();
   else if(e.target.closest('#setref')) setBaselineCurrent();
-  else if(e.target.closest('#setprev')) setBaselinePrevious();
 });
 document.addEventListener('keydown', function(e){
+  if(e.target.closest && e.target.closest('input.oddsin')) return;   // typing the odds: the field's own undo
   var z = (e.key === 'z' || e.key === 'Z'), y = (e.key === 'y' || e.key === 'Y');
   if((e.ctrlKey || e.metaKey) && z && !e.shiftKey){ e.preventDefault(); undo(); }
   else if((e.ctrlKey || e.metaKey) && (y || (z && e.shiftKey))){ e.preventDefault(); redo(); }
 });
-$(document).on('change', '#showarrows', function(){ document.body.classList.toggle('noarrows', !this.checked); drawArrows(); });
-$(document).on('change', '#showfx', function(){ document.body.classList.toggle('nofx', !this.checked); });
-$(document).on('change', '#showref', scheduleRender);
+// the checkboxes: "Show …" toggles and the Variables menu
+function applyShowToggles(){
+  document.body.classList.toggle('noarrows', !isChecked('showarrows'));
+  document.body.classList.toggle('nofx', !isChecked('showfx'));
+  var cb = document.querySelector('.cmpbox'); if(cb) cb.classList.toggle('on', showsCmp());   // its other options
+}
+document.addEventListener('change', function(e){
+  var t = e.target;
+  if(t.id === 'showarrows'){ applyShowToggles(); drawArrows(); }
+  else if(t.id === 'showfx') applyShowToggles();              // the table's resize observer redraws the arrows
+  else if(t.id === 'showcmp'){ applyShowToggles(); scheduleRender(); }
+  else if(t.id === 'showref' || t.id === 'showchg') scheduleRender();
+  else if(t.id === 'cmpprev') setBaselinePrevious(t.checked);
+  else if(t.hasAttribute('data-excl')){                       // Exclude from comparison: the population row, or one x-risk
+    if(t.getAttribute('data-excl') === 'pop') popExcluded = t.checked; else rateExcluded[+t.getAttribute('data-i')] = t.checked;
+    scheduleRender();
+  }
+  else if(t.closest('#vars')){ updateVarCount(); scheduleRender(); }
+});
 // per-row complement toggles (rendered inside the table)
-$(document).on('click', '.rtog', function(){
-  if(this.getAttribute('data-input') === 'rate_comp') rateComp = !rateComp; else survComp = !survComp;
+document.addEventListener('click', function(e){
+  var b = e.target.closest('.rtog'); if(!b) return;
+  if(b.getAttribute('data-input') === 'rate_comp') rateComp = !rateComp; else survComp = !survComp;
+  scheduleRender();
+});
+// delta switches (in every box): difference <-> change as a % of the baseline, for the switch's whole row
+document.addEventListener('click', function(e){
+  var b = e.target.closest('.dtog'); if(!b) return;
+  var r = b.getAttribute('data-row'); relRows[r] = !relRows[r];
   scheduleRender();
 });
 // Variables dropdown: live "k / n" count on the button, All / None shortcuts, close on an outside click.
@@ -971,14 +1338,13 @@ function updateVarCount(){
   var b = varBoxes(), c = document.querySelector('.vdrop .vcount');
   if(c) c.textContent = b.filter(function(x){ return x.checked; }).length + ' / ' + b.length;
 }
-$(document).on('change', '#vars input[type=checkbox]', function(){ updateVarCount(); scheduleRender(); });
 document.addEventListener('click', function(e){
   var a = e.target.closest('.vall a');
   if(a){
     e.preventDefault();
     var on = a.getAttribute('data-vars') === 'all';
     varBoxes().forEach(function(x){ x.checked = on; });
-    $('#vars input[type=checkbox]').first().trigger('change');   // one change event → one redraw
+    updateVarCount(); scheduleRender();                         // setting .checked fires no change event
     return;
   }
   var d = document.querySelector('.vdrop[open]');
@@ -987,80 +1353,59 @@ document.addEventListener('click', function(e){
 document.addEventListener('keydown', function(e){
   if(e.key === 'Escape'){ var d = document.querySelector('.vdrop[open]'); if(d) d.removeAttribute('open'); }
 });
-// Time scale: the slider holds the exponent (2..5). Read it from the slider itself on either of its
-// change signals; setHorizon ignores repeats.
-function readScale(){
-  var s = $('#hscale').data('ionRangeSlider');
-  return s ? +s.result.from : parseInt($('#hscale').val(), 10);
+// Time scale: the slider holds the exponent (SCALE_MIN..SCALE_MAX) and shows the reader the year count.
+// The horizon follows the slider while it is dragged; setHorizon ignores repeats.
+function fmtScale(n){ return group3(String(Math.pow(10, n))) + ' y'; }   // 3 → "1 000 y"
+function drawScale(){
+  var box = document.querySelector('.hslider'); if(!box) return;
+  var inp = box.querySelector('input'), val = box.querySelector('.hs-val'), W = box.clientWidth, TH = 22;   // TH: handle width
+  var cx = TH / 2 + (+inp.value - SCALE_MIN) / (SCALE_MAX - SCALE_MIN) * (W - TH);     // handle centre
+  inp.style.setProperty('--fill', cx + 'px');
+  val.textContent = fmtScale(+inp.value);
+  var bw = val.offsetWidth;
+  val.style.left = Math.min(Math.max(cx, bw / 2), W - bw / 2) + 'px';                 // bubble stays inside the slider
+  var vr = val.getBoundingClientRect();
+  box.querySelectorAll('.hs-min, .hs-max').forEach(function(l){
+    var r = l.getBoundingClientRect();
+    l.style.visibility = (r.right + 3 > vr.left && r.left - 3 < vr.right) ? 'hidden' : '';
+  });
 }
-$(document).on('change', '#hscale', function(){ setHorizon(readScale()); });
-$(document).on('shiny:inputchanged', function(ev){ if(ev.name === 'hscale') setHorizon(+ev.value); });
-// slider labels: show the reader "100 y / 1 000 y / 10 000 y / 100 000 y" instead of the exponent
-function fmtScale(n){ return String(Math.pow(10, n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' y'; }
-$(document).on('shiny:connected', function(){
-  var s = $('#hscale').data('ionRangeSlider');
-  if(s) s.update({ prettify: fmtScale });
+document.addEventListener('input', function(e){
+  if(e.target.id !== 'hscale') return;
+  drawScale(); setHorizon(+e.target.value);
 });
 
-// first draw: the page's controls are already in place, so the table needs nothing from the server
+// ── start-up ──
+(function(){
+  var s = document.getElementById('hscale');
+  s.min = SCALE_MIN; s.max = SCALE_MAX; s.value = hscale;
+  document.querySelector('.hs-min').textContent = fmtScale(SCALE_MIN);
+  document.querySelector('.hs-max').textContent = fmtScale(SCALE_MAX);
+})();
+applyShowToggles();
+updateVarCount();
 updateHistBtns();
 render();
-)"
+drawScale();
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(drawScale);
 
-ui <- fluidPage(
-  tags$head(tags$style(HTML(css))),
-  div(class = "wrap",
-    h1("Expected longevity of humanity under extinction risk"),
-    p(class = "lead",
-      "Each period's annual extinction probability cascades into survival ",
-      "probability, population, and cumulative human life lived. ",
-      "Deltas compare against the frozen baseline."),
-    p(class = "khint lead2", HTML(
-      "Edit any <b>extinction probability</b>, <b>survival probability</b>, or ",
-      "<b>population potential</b> digit &mdash; click its ",
-      "<span class='kbd'>&#9650;</span>/<span class='kbd'>&#9660;</span>, or select and use ",
-      "<span class='kbd'>&larr;</span><span class='kbd'>&rarr;</span><span class='kbd'>&uarr;</span><span class='kbd'>&darr;</span>, ",
-      "or type <span class='kbd'>0</span>&ndash;<span class='kbd'>9</span> to set the digit. ",
-      "Survival edits backtrace into the earlier extinction rates.")),
-    div(class = "controls",
-      tags$button(id = "undoBtn", type = "button", class = "btn", title = "Undo (Ctrl+Z)",
-                  disabled = NA, HTML("&#8630;&nbsp;Undo")),
-      tags$button(id = "redoBtn", type = "button", class = "btn", title = "Redo (Ctrl+Y)",
-                  disabled = NA, HTML("Redo&nbsp;&#8631;")),
-      actionButton("surv100", "100% survival", class = "btn"),
-      actionButton("reset", "Reset to defaults", class = "btn"),
-      checkboxInput("showfx",    "Show formulas", TRUE, width = "auto"),
-      checkboxInput("showarrows", "Show arrows", TRUE, width = "auto")),
-    # second row: which variables are shown, the baseline choice, and the time scale
-    div(class = "controls",
-      # Variables: which metric rows are rendered. A hidden row isn't built at all, so its cells
-      # can't be clicked, arrowed into or wheel-edited.
-      tags$details(class = "vdrop",
-        tags$summary(class = "btn", "Variables ",
-          span(class = "vcount", sprintf("%d / %d", length(VAR_ON), length(VAR_ROWS))),
-          HTML(" &#9662;")),
-        div(class = "vmenu",
-          div(class = "vall",
-            tags$a(href = "#", `data-vars` = "all", "All"), " · ",
-            tags$a(href = "#", `data-vars` = "none", "None")),
-          checkboxGroupInput("vars", NULL, choices = VAR_ROWS, selected = VAR_ON))),
-      actionButton("setref",  "Set baseline = current", class = "btn"),
-      actionButton("setprev", "Set baseline = previous value", class = "btn active"),
-      checkboxInput("showref",   "Show baseline values", FALSE, width = "auto"),
-      # Horizon: 100 / 1 000 / 10 000 / 100 000 years. The slider holds the exponent (2..5); a JS prettify
-      # hook shows the reader the year count instead. Default 1 000 keeps the first load light.
-      div(class = "scalectl",
-        span(class = "khint", "Time scale"),
-        sliderInput("hscale", NULL, min = min(SCALE_EXP), max = max(SCALE_EXP), value = DEF_EXP,
-                    step = 1, ticks = FALSE, width = "170px"))),
-    # filled by the JavaScript on every change
-    div(id = "panel"),
-    div(id = "summary"),
-    div(id = "foot"),
-    tags$script(HTML(js)))
-)
-
-# Nothing to do per edit: the page computes and draws everything itself (see the header).
-server <- function(input, output, session) {}
-
-shinyApp(ui, server)
+// Shown in an article's iframe: report the page's height whenever it changes (a re-render, rows shown or
+// hidden, the window narrowing, the Variables menu opening), so the article can size the frame to fit and
+// the app never scrolls inside it. The article's side is written by tools/build_static.R (inject_frame).
+if(window.parent !== window){
+  var postedH = 0;
+  var postHeight = function(){
+    var h = document.querySelector('.page').getBoundingClientRect().height;
+    var m = document.querySelector('.vdrop[open] .vmenu');           // an open menu may reach past the page
+    if(m) h = Math.max(h, m.getBoundingClientRect().bottom + window.scrollY + 12);
+    h = Math.ceil(h);
+    if(h !== postedH){ postedH = h; window.parent.postMessage({appHeight: h}, '*'); }
+  };
+  if(window.ResizeObserver) new ResizeObserver(postHeight).observe(document.querySelector('.page'));
+  document.querySelector('.vdrop').addEventListener('toggle', postHeight);
+  window.addEventListener('load', postHeight);
+  postHeight();
+}
+</script>
+</body>
+</html>
