@@ -4,7 +4,8 @@
 #   - model: compute() at the checkpoints must agree to rounding error
 #   - formatting, cell HTML and the arrow list must be identical strings
 # The baseline display differs by design since 2026-09-25: xriskb shows the baseline on its own editable
-# line under the delta, app_xrisk beside the value. So cells are compared without the baseline shown.
+# line (scenario B, under the value A and the change), app_xrisk beside the value. So cells are compared
+# without the baseline shown.
 # Padding zeros too (2026-09-26): xriskb draws them fainter (FAINT), app_xrisk in the arrows' grey (ZERO).
 # So the JavaScript is run with FAINT = ZERO.
 #

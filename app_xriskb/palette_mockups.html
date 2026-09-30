@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palette mockups</title>
+<!-- Colour mockups for xriskb.html: the same slice of the table (three checkpoints, two periods: one lowered
+     rate, one raised) drawn in each candidate palette. Static markup only; not used by the site. -->
+<style>
+:root{--bg:#0b2236;--row:#0f2b43;--row2:#133350;--ink:#e8eef4;--muted:#8496a4;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 "Segoe UI",system-ui,sans-serif;}
+.page{max-width:1080px;margin:0 auto;padding:24px 16px 60px;}
+h1{font-size:22px;margin:0 0 6px;}
+.intro{color:#b7c6d3;margin:0 0 26px;font-size:13.5px;max-width:760px;}
+.pal{margin:0 0 42px;}
+.pal h2{font-size:17px;margin:0 0 4px;}
+.why{color:#b7c6d3;font-size:13px;margin:0 0 10px;max-width:800px;}
+.sw{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 12px;font-size:11.5px;color:#9fb0bf;}
+.sw span{display:inline-flex;align-items:center;gap:5px;}
+.sw i{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.2);}
+.scroll{overflow-x:auto;}
+.tbl{min-width:760px;border-top:1px solid rgba(255,255,255,.18);}
+.row{display:grid;grid-template-columns:200px 1fr 1fr 1fr;align-items:center;border-bottom:1px solid rgba(255,255,255,.05);}
+.row.e{background:rgba(255,255,255,.05);border-radius:7px;margin:3px 0;}
+.row.head{font-size:20px;font-weight:700;text-align:center;}
+.row.head > div{padding:6px 0 8px;}
+.lab{font-size:12.5px;font-weight:600;text-align:right;padding:9px 10px 9px 0;border-right:1px solid rgba(255,255,255,.1);align-self:stretch;}
+.lab i{font-weight:400;opacity:.85;}
+.lab .f{font-size:13px;font-weight:400;font-style:italic;margin-top:3px;}
+.c{display:flex;justify-content:center;align-items:center;gap:10px;padding:6px 4px;position:relative;}
+.gap{font-size:11px;color:var(--muted);font-style:italic;text-align:center;}
+.box{border:1px solid rgba(143,214,242,.13);border-radius:6px;background:rgba(6,30,48,.21);padding:5px 9px;display:inline-grid;
+  grid-template-columns:auto auto auto;column-gap:6px;row-gap:2px;align-items:center;font-variant-numeric:tabular-nums;}
+.box.accent{border-left-width:3px;}
+.box.sel{outline:2px solid var(--sel);outline-offset:-2px;}
+.box .l{font-size:11.5px;color:#9fb0bf;text-align:right;font-weight:600;}
+.box .v{font-weight:700;font-size:13px;text-align:right;white-space:nowrap;}
+.box .s{font-size:12.5px;font-weight:600;white-space:nowrap;}
+.box .sub{grid-column:1/-1;font-size:11px;color:var(--muted);font-style:italic;text-align:center;}
+.box .odx{background:#0a2438;border-radius:3px;padding:0 3px;}
+.fz{opacity:.32;}
+.gz{color:#8a97a3;}
+.tog{font-size:10px;border:1px solid #2a6a8f;border-radius:3px;padding:0 3px;color:#9fb0bf;}
+.tog b{background:#1f77a8;color:#fff;border-radius:2px;padding:0 2px;font-weight:600;}
+.frac{display:inline-flex;flex-direction:column;font-size:9.5px;line-height:1.05;vertical-align:middle;}
+.frac span:first-child{border-bottom:1px solid currentColor;}
+.arr{flex:1;height:0;border-top:1.3px solid var(--arrow);opacity:.8;min-width:18px;position:relative;}
+.arr::after{content:"";position:absolute;right:-1px;top:-4.5px;border:4px solid transparent;border-left:7px solid var(--arrow);border-right:0;}
+.arr.good{--arrow:var(--good);}
+.arr.bad{--arrow:var(--bad);}
+.xchk{grid-column:1/-1;font-size:11px;color:#9fb0bf;font-weight:400;display:flex;gap:5px;align-items:center;justify-content:center;}
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Variable colour mockups</h1>
+<p class="intro">The same slice of the table in each palette: the first period's x-risk lowered (green), the second's raised
+(red). Each palette sets the three variable families (x-risk; survival and years; population and lives), the change
+colours, the selection outline and the arrows. The page background is the app's navy in all of them, so they compare
+directly.</p>
+<div id="out"></div>
+</div>
+<script>
+var PALETTES = [
+  {name: '0 · Current', why: 'For reference. The x-risk salmon and the population pink are both close to the red used for a worse ' +
+     'change, so a red delta sits among reddish numbers; the cyan survival colour is close to the default arrows.',
+   rate: '#e8836f', surv: '#4fb8d6', pop: '#e46ba6', good: '#7fd18f', bad: '#ee4d4d', formula: '#cbb68e', sel: '#ffd27f', arrow: '#7fb0cc'},
+  {name: '1 · Amber · Sky · Lilac', why: 'Warm for the hazard you set, cool for what follows from it: amber x-risk, sky-blue ' +
+     'survival, lilac people. None of the three is near green or red, so the changes stand out. The selection becomes a ' +
+     'white outline, since gold would read as amber.',
+   rate: '#f5a54a', surv: '#5ec8f2', pop: '#b89cff', good: '#6ee7a8', bad: '#ff5c6c', formula: '#d9c9a3', sel: '#f2f5f8', arrow: '#6f8fa8'},
+  {name: '2 · Okabe–Ito (colour-blind safe)', why: 'Built from the Okabe–Ito set, which stays distinguishable with the common ' +
+     'colour-vision deficiencies. Changes use its bluish green and vermillion instead of pure green and red, the pair ' +
+     'that red-green colour blindness merges. Yellow selection.',
+   rate: '#E69F00', surv: '#56B4E9', pop: '#CC79A7', good: '#2fd1a5', bad: '#ff7043', formula: '#c9bfa8', sel: '#F0E442', arrow: '#7d98ad'},
+  {name: '3 · Soft (Rosé Pine)', why: 'Lower saturation, calmer to read for long: gold, foam and iris from the Rosé Pine palette. ' +
+     'Clear but less punchy; the changes are the brightest colours on the page.',
+   rate: '#f6c177', surv: '#9ccfd8', pop: '#c4a7e7', good: '#a6e3a1', bad: '#eb6f92', formula: '#ebbcba', sel: '#e0def4', arrow: '#6e8aa0'},
+  {name: '4 · Neutral numbers, coloured frames', why: 'A different idea: the numbers are all near-white and each variable ' +
+     'keeps its colour in its title, formula and a stripe on its boxes. The only coloured digits are the changes, so ' +
+     'green and red carry the whole message. Uses palette 1\'s hues.',
+   rate: '#f5a54a', surv: '#5ec8f2', pop: '#b89cff', good: '#6ee7a8', bad: '#ff5c6c', formula: '#d9c9a3', sel: '#f2f5f8', arrow: '#6f8fa8',
+   neutral: '#e6edf3'}
+];
+
+// a number whose leading padding zeros are faint: "0 000 004 980" -> faint "0 000 00" + "4 980"
+function num(txt, lead){ return lead ? '<span class="fz">' + txt.slice(0, lead) + '</span>' + txt.slice(lead) : txt; }
+function mockup(p){
+  var vc = function(c){ return p.neutral || c; };
+  function box(color, lines, o){
+    o = o || {};
+    var st = 'border-color:' + (p.neutral ? color : 'rgba(143,214,242,.13)') + (p.neutral ? ';border-top-color:rgba(143,214,242,.13);border-right-color:rgba(143,214,242,.13);border-bottom-color:rgba(143,214,242,.13)' : '');
+    return '<div class="box' + (p.neutral ? ' accent' : '') + (o.sel ? ' sel' : '') + '" style="' + st + '">' +
+      (o.head || '') +
+      lines.map(function(l){
+        return '<span class="l">' + (l[0] || '') + '</span><span class="v" style="color:' + (l[3] || vc(color)) + '">' + l[1] +
+               '</span><span class="s">' + (l[2] || '') + '</span>';
+      }).join('') + (o.sub ? '<span class="sub">' + o.sub + '</span>' : '') + '</div>';
+  }
+  function odds(color, x){ return '<span style="color:' + vc(color) + '">1 in <span class="odx">' + x + '</span></span>'; }
+  var tog = '<span class="tog"><b>&Delta;</b> %</span>', togr = '<span class="tog">&Delta; <b>%</b></span>';
+  var rel = '<span class="frac"><span>A&minus;B</span><span>B</span></span>:';
+  var G = p.good, B = p.bad;
+  function arr(t){ return '<div class="arr' + (t ? ' ' + t : '') + '"></div>'; }
+  function lab(color, t, sub, f){
+    return '<div class="lab" style="color:' + color + '">' + t + (sub ? '<br><i>' + sub + '</i>' : '') +
+           (f ? '<div class="f" style="color:' + p.formula + '">' + f + '</div>' : '') + '</div>';
+  }
+  var excl = '<span class="xchk">&#9744; Exclude from comparison</span>';
+  var rows = [
+    '<div class="row head"><div></div><div>2026</div><div>2036</div><div>2126</div></div>',
+    '<div class="row e">' + lab(p.rate, 'Annual extinction probability', 'if survived until then', 'ae<sub>t</sub>') +
+      '<div class="c"><span class="gap">&larr; 10 years &rarr;<br>2027&ndash;2036</span></div>' +
+      '<div class="c">' + box(p.rate, [['A:', '0.04931%', odds(p.rate, '2 028')], [rel, '&minus;1.38000%', togr, G],
+                                        ['B:', '0.05000%', odds(p.rate, '2 000')]], {sel: true, head: excl}) + '</div>' +
+      '<div class="c">' + box(p.rate, [['A:', '0.05600%', odds(p.rate, '1 786')], [rel, '+12.00000%', togr, B],
+                                        ['B:', '0.05000%', odds(p.rate, '2 000')]], {head: excl}) + '</div></div>',
+    '<div class="row e">' + lab(p.surv, 'Cumulative survival probability', 'given past extinction probabilities', 'cs<sub>t</sub> = &prod; (1 &minus; ae<sub>i</sub>)') +
+      '<div class="c">' + box(p.surv, [['', '100%']]) + arr() + '</div>' +
+      '<div class="c">' + arr('good') + box(p.surv, [['A:', '99.50690%'], ['A&minus;B:', '+' + num('00.00', 4) + '690', tog, G], ['B:', '99.50000%']]) + '</div>' +
+      '<div class="c">' + arr('bad') + box(p.surv, [['A:', '95.05302%'], ['A&minus;B:', '&minus;' + num('00.04', 4) + '581', tog, B], ['B:', '95.09883%']]) + '</div></div>',
+    '<div class="row">' + lab(p.surv, 'Cumulative survived years of humanity', '', 'Y<sub>t</sub> = &sum; cs<sub>i</sub>') +
+      '<div class="c">' + box(p.surv, [['', '<span class="gz">0</span>y']]) + arr() + '</div>' +
+      '<div class="c">' + arr('good') + box(p.surv, [['A:', '9.9753y'], ['A&minus;B:', '+0.0003y', tog, G], ['B:', '9.9750y']], {sub: 'of 10y potential'}) + '</div>' +
+      '<div class="c">' + arr('bad') + box(p.surv, [['A:', '97.4812y'], ['A&minus;B:', '&minus;' + num('00.0', 3) + '188y', tog, B], ['B:', '97.5000y']], {sub: 'of 100y potential'}) + '</div></div>',
+    '<div class="row e">' + lab(p.pop, 'Annual population potential', 'if survived', 'P<sub>t</sub>') +
+      '<div class="c">' + box(p.pop, [['', num('08 300', 1) + 'm']]) + '</div>' +
+      '<div class="c">' + box(p.pop, [['', num('08 300', 1) + 'm']]) + '</div>' +
+      '<div class="c">' + box(p.pop, [['', num('08 300', 1) + 'm']]) + '</div></div>',
+    '<div class="row">' + lab(p.pop, 'Annual population', 'given survival probability', 'E<sub>t</sub> = P<sub>t</sub> &middot; cs<sub>t</sub>') +
+      '<div class="c">' + box(p.pop, [['', '8 300 000 000']]) + arr() + '</div>' +
+      '<div class="c">' + arr() + box(p.pop, [['A:', '8 259 132 004'], ['A&minus;B:', '+' + num('0 000 00', 7) + '4 980', tog, G], ['B:', '8 259 127 024']],
+                                      {sub: 'of 8 300 000 000 potential'}) + '</div>' +
+      '<div class="c">' + arr() + box(p.pop, [['A:', '7 889 400 066'], ['A&minus;B:', '&minus;' + num('0 00', 4) + '3 802 234', tog, B], ['B:', '7 893 202 300']],
+                                      {sub: 'of 8 300 000 000 potential'}) + '</div></div>',
+    '<div class="row">' + lab(p.pop, 'Cumulative lived human lives', '(75y)', 'N<sub>t</sub> = &sum; E<sub>i</sub> / 75') +
+      '<div class="c">' + box(p.pop, [['', '<span class="gz">0</span>']]) + arr() + '</div>' +
+      '<div class="c">' + arr() + box(p.pop, [['A:', '1 103 704 812'], ['A&minus;B:', '+' + num('0 000 00', 7) + '0 664', tog, G], ['B:', '1 103 704 148']],
+                                      {sub: 'of 1 106 666 667 potential'}) + '</div>' +
+      '<div class="c">' + arr() + box(p.pop, [['A:', '10 790 237 970'], ['A&minus;B:', '&minus;' + num('00 00', 5) + '1 029 893', tog, B], ['B:', '10 791 267 863']],
+                                      {sub: 'of 11 066 666 667 potential'}) + '</div></div>'
+  ];
+  var sw = [['x-risk', p.rate], ['survival, years', p.surv], ['population, lives', p.pop], ['better', p.good], ['worse', p.bad],
+            ['formulas', p.formula], ['selection', p.sel], ['arrows', p.arrow]].concat(p.neutral ? [['numbers', p.neutral]] : []);
+  return '<section class="pal" style="--good:' + p.good + ';--bad:' + p.bad + ';--sel:' + p.sel + ';--arrow:' + p.arrow + '">' +
+    '<h2>' + p.name + '</h2><p class="why">' + p.why + '</p>' +
+    '<div class="sw">' + sw.map(function(s){ return '<span><i style="background:' + s[1] + '"></i>' + s[0] + ' ' + s[1] + '</span>'; }).join('') + '</div>' +
+    '<div class="scroll"><div class="tbl">' + rows.join('') + '</div></div></section>';
+}
+document.getElementById('out').innerHTML = PALETTES.map(mockup).join('');
+</script>
+</body>
+</html>

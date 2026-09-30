@@ -14,13 +14,16 @@ format:
 <iframe class="app-frame" src="apps/hazard.html" title="Threshold curve editor" style="display:block;width:100%;border:0;height:100vh;min-width:800px;"></iframe>
 </div>
 <script>
-/* Fit each app frame to its page: the app posts {appHeight} whenever its height changes. */
+/* Fit each app frame to its page: the app posts {appHeight} whenever its height changes. A mouse drag
+   in the app scrolls this page: it posts {appScrollBy} when it can't scroll it directly. */
 if (!window.appFrameFit) {
   window.appFrameFit = true;
   window.addEventListener('message', function (e) {
-    if (!e.data || typeof e.data.appHeight !== 'number') return;
+    if (!e.data) return;
     document.querySelectorAll('iframe.app-frame').forEach(function (f) {
-      if (f.contentWindow === e.source) f.style.height = Math.ceil(e.data.appHeight) + 'px';
+      if (f.contentWindow !== e.source) return;
+      if (typeof e.data.appHeight === 'number') f.style.height = Math.ceil(e.data.appHeight) + 'px';
+      if (typeof e.data.appScrollBy === 'number') window.scrollBy(0, e.data.appScrollBy);
     });
   });
 }

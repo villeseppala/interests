@@ -133,7 +133,8 @@ inject_shinylive <- function(qmd_path, app_path, marker, height = "clamp(900px, 
 # not used here.) The build copies them to site/articles/apps/ (APP_PAGES, after Quarto below) and writes
 # the iframe that shows them between the article's markers. Never hand-edit those cells either.
 # The frame takes the app's own height: the page posts its height whenever it changes and the listener
-# written with the frame applies it, so the app never scrolls inside the frame; the article does.
+# written with the frame applies it, so the app never scrolls inside the frame; the article does. The same
+# listener scrolls the article for a mouse drag in the app ({appScrollBy}; xriskb.html's "drag to scroll").
 # `min_width` (px) keeps an app that has no narrow-screen layout at that width on a small screen: the
 # frame's wrapper then scrolls sideways, so only the app pans, not the article (the hazard app, 800px,
 # as its shinylive embed was). On a bare full-window page (full = TRUE) the frame starts a window tall
@@ -156,13 +157,16 @@ inject_frame <- function(qmd_path, src, marker, title, full = FALSE, min_width =
             src, title, if (full) "" else ' loading="lazy"', style),
     "</div>",
     "<script>",
-    "/* Fit each app frame to its page: the app posts {appHeight} whenever its height changes. */",
+    "/* Fit each app frame to its page: the app posts {appHeight} whenever its height changes. A mouse drag",
+    "   in the app scrolls this page: it posts {appScrollBy} when it can't scroll it directly. */",
     "if (!window.appFrameFit) {",
     "  window.appFrameFit = true;",
     "  window.addEventListener('message', function (e) {",
-    "    if (!e.data || typeof e.data.appHeight !== 'number') return;",
+    "    if (!e.data) return;",
     "    document.querySelectorAll('iframe.app-frame').forEach(function (f) {",
-    "      if (f.contentWindow === e.source) f.style.height = Math.ceil(e.data.appHeight) + 'px';",
+    "      if (f.contentWindow !== e.source) return;",
+    "      if (typeof e.data.appHeight === 'number') f.style.height = Math.ceil(e.data.appHeight) + 'px';",
+    "      if (typeof e.data.appScrollBy === 'number') window.scrollBy(0, e.data.appScrollBy);",
     "    });",
     "  });",
     "}",
@@ -201,11 +205,22 @@ if (dir.exists(ARTICLES_DIR) && length(list.files(ARTICLES_DIR, pattern = "\\.qm
 }
 
 # The plain-page apps go next to the articles that frame them. Their iframe src gets a ?v= stamp at the
-# end of the build, so the browser never keeps serving an old copy after a rebuild.
+# end of the build, so the browser never keeps serving an old copy after a rebuild. A script the page loads
+# from its own folder (a line <script src="x.js"></script>: xriskb.html's saved settings, xriskb_settings.js)
+# goes into the copy, so the site has the one file and the ?v= stamp covers it too.
 for (nm in names(APP_PAGES)) {
-  dir.create(dirname(file.path(OUT_DIR, "articles", nm)), showWarnings = FALSE, recursive = TRUE)
-  if (file.copy(APP_PAGES[[nm]], file.path(OUT_DIR, "articles", nm), overwrite = TRUE))
-    cat(sprintf("  app page %s -> %s/articles/%s\n", APP_PAGES[[nm]], OUT_DIR, nm))
+  src <- APP_PAGES[[nm]]; dst <- file.path(OUT_DIR, "articles", nm)
+  dir.create(dirname(dst), showWarnings = FALSE, recursive = TRUE)
+  html <- readLines(src, warn = FALSE, encoding = "UTF-8")
+  for (i in grep('^\\s*<script src="[^"/:]+\\.js"></script>\\s*$', html)) {
+    js <- file.path(dirname(src), sub('^\\s*<script src="([^"]+)".*$', "\\1", html[i]))
+    if (file.exists(js)) {
+      html[i] <- paste(c("<script>", readLines(js, warn = FALSE, encoding = "UTF-8"), "</script>"), collapse = "\n")
+      cat(sprintf("  app page %s: inlined %s\n", src, js))
+    }
+  }
+  writeLines(html, dst, useBytes = TRUE)
+  cat(sprintf("  app page %s -> %s/articles/%s\n", src, OUT_DIR, nm))
 }
 
 # ── Share one shinylive/webR runtime between every app page ──────────────────
