@@ -6,8 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="dcterms.date" content="2026-10-03">
 
-<title>Extinction risk calculator</title>
+<title>A review on existential risk estimates</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -23,31 +24,41 @@ ul.task-list li input[type="checkbox"] {
 </style>
 
 
-<script src="xriskb-app_files/libs/clipboard/clipboard.min.js"></script>
-<script src="xriskb-app_files/libs/quarto-html/quarto.js"></script>
-<script src="xriskb-app_files/libs/quarto-html/popper.min.js"></script>
-<script src="xriskb-app_files/libs/quarto-html/tippy.umd.min.js"></script>
-<script src="xriskb-app_files/libs/quarto-html/anchor.min.js"></script>
-<link href="xriskb-app_files/libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="xriskb-app_files/libs/quarto-html/quarto-syntax-highlighting-dark-8ea72dc5fed832574809a9c94082fbbb.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="xriskb-app_files/libs/bootstrap/bootstrap.min.js"></script>
-<link href="xriskb-app_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="xriskb-app_files/libs/bootstrap/bootstrap-0a76704e1c0c55178e8057331fa10b35.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="dark">
+<script src="201.5_files/libs/clipboard/clipboard.min.js"></script>
+<script src="201.5_files/libs/quarto-html/quarto.js"></script>
+<script src="201.5_files/libs/quarto-html/popper.min.js"></script>
+<script src="201.5_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="201.5_files/libs/quarto-html/anchor.min.js"></script>
+<link href="201.5_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="201.5_files/libs/quarto-html/quarto-syntax-highlighting-dark-8ea72dc5fed832574809a9c94082fbbb.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="201.5_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="201.5_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="201.5_files/libs/bootstrap/bootstrap-0a76704e1c0c55178e8057331fa10b35.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="dark">
 
 
 <link rel="stylesheet" href="article.css">
-<link rel="stylesheet" href="app-page.css">
 </head>
 
-<body class="fullcontent">
+<body>
 
-<div class="page-layout-custom">  
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active" data-toc-expanded="99">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#xpt-tournament" id="toc-xpt-tournament" class="nav-link active" data-scroll-target="#xpt-tournament">XPT tournament</a></li>
+  <li><a href="#expert-survey-on-progress-in-ai-espai" id="toc-expert-survey-on-progress-in-ai-espai" class="nav-link" data-scroll-target="#expert-survey-on-progress-in-ai-espai">Expert Survey on Progress in AI (ESPAI)</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
 <div id="site-nav"></div>
 <script src="../site-nav.js"></script>
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Extinction risk calculator</h1>
+<h1 class="title">A review on existential risk estimates</h1>
 </div>
 
 
@@ -55,6 +66,12 @@ ul.task-list li input[type="checkbox"] {
 <div class="quarto-title-meta">
 
     
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">October 3, 2026</p>
+    </div>
+  </div>
   
     
   </div>
@@ -64,30 +81,18 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 
-<!-- The cell between these markers (an iframe showing app_xriskb/xriskb.html) is written by
-     tools/build_static.R on every build. Never hand-edit it: edit app_xriskb/xriskb.html and rebuild. -->
-<!-- XRISK-APP:START -->
-<div class="app-frame-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-<iframe class="app-frame" src="apps/xriskb.html?v=1791042510" title="Extinction risk calculator" style="display:block;width:100%;border:0;height:100vh;"></iframe>
-</div>
-<script>
-/* Fit each app frame to its page: the app posts {appHeight} whenever its height changes. A mouse drag
-   in the app scrolls this page: it posts {appScrollBy} when it can't scroll it directly. */
-if (!window.appFrameFit) {
-  window.appFrameFit = true;
-  window.addEventListener('message', function (e) {
-    if (!e.data) return;
-    document.querySelectorAll('iframe.app-frame').forEach(function (f) {
-      if (f.contentWindow !== e.source) return;
-      if (typeof e.data.appHeight === 'number') f.style.height = Math.ceil(e.data.appHeight) + 'px';
-      if (typeof e.data.appScrollBy === 'number') window.scrollBy(0, e.data.appScrollBy);
-    });
-  });
-}
-</script>
-<!-- XRISK-APP:END -->
+<p>Below are the main existential risk estimate studies I’ve found so far.</p>
+<section id="xpt-tournament" class="level3">
+<h3 class="anchored" data-anchor-id="xpt-tournament">XPT tournament</h3>
+<p>By: Forecasting Research Institute, 2023. Data from: 2022 Link: https://forecastingresearch.org/research/existential-risk-persuasion-tournament Group: Superforecasters (N=88) and experts (N=66) on various fields (see page x) Existential risk definition: Exctinction if defined as a drop in the global population to below 5,000 people Main estimates (95 confidence intervals): Superforecasters: Median: 1% [0.55, 1.23]% Mean: 3.73% [2.09,6.16]%, density-trimmed mean: 1.68% [1.06, 2.49]%, median: Experts: Median: 6% [3.41, 10.00]%, mean: 12.92% [8.78, 17.94]%, density-trimmed mean: 7.78% [5.37, 12.67]%</p>
+</section>
+<section id="expert-survey-on-progress-in-ai-espai" class="level3">
+<h3 class="anchored" data-anchor-id="expert-survey-on-progress-in-ai-espai">Expert Survey on Progress in AI (ESPAI)</h3>
+<p>Note: This focuses only on AI By AI Impacts, 2026. Data from: 2024 Link: https://aiimpacts.org/#latest-paper Group: AI experts Existential risk definition: “AI advances causing human extinction or similarly permanent and severe disempowerment of the human species within the next 100 years?”</p>
+</section>
 
-
+</main>
+<!-- /main column -->
 <hr class="article-foot-sep">
 <p class="article-back">
   <a id="article-back-link" href="../index.html">← See how this relates to my other interests</a>
@@ -521,7 +526,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
   }
 });
 </script>
-</div> <!-- /container fluid -->
+</div> <!-- /content -->
 
 
 

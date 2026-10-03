@@ -239,6 +239,12 @@ var gradientExtent = 20;  // how far node edge-color gradients reach, as % of no
 var nodeOutlineWidth = 3; // resting Theme/Skill/About border width in px; highlight widths scale from this (author-controllable)
 var projectOutlineWidth = 3; // resting Project outline width in px (separate control; Theme/Skill share nodeOutlineWidth)
 var outlineSaturation = 1;   // multiplier on node-outline color saturation (HSV S); 1 = source colors, 0 = grey
+// Outline thickness (px) of the hovered node's edges under hoverWhiteOutline. null = follow the node
+// outline thickness (the behaviour before this setting existed).
+var hoverEdgeOutlineW = null;
+function hoverEdgeOutline() { return (hoverEdgeOutlineW != null) ? hoverEdgeOutlineW : (nodeOutlineWidth || 3); }
+var hoverSatMult = 1;        // hover highlight colour: multiplier on HSV saturation (1 = edge colour as is, 0 = grey)
+var hoverValMult = 1;        // hover highlight colour: multiplier on HSV value/brightness (1 = as is; capped at full)
 var outlineOpacity = 1;      // node-outline opacity (0 = fully transparent, 1 = solid); from the transparency slider
 var nodeTextPad = 0;         // extra horizontal padding (px) between a node's title and its edges (author-controllable)
 var nodeBgSameAsGraph = false;
@@ -267,6 +273,10 @@ var inlineColCenterLatch = { Theme: false, Skill: false };
 // each column's header down by the same amount so the header rides just above its (centred) node stack,
 // keeping the header→stack gap equal to the Project column's.
 var inlineColCenterOff = { Theme: 0, Project: 0, Skill: 0 };
+// Compact titles: while open nodes make the Theme or Skill column taller than the view (so it has to be
+// scrolled to read them all), that column's Theme/Skill title areas — collapsed nodes whole, open nodes'
+// headers — shrink to this share of their height, never below what the title itself needs (compactTitleH).
+var TITLE_COMPACT = 0.7;
 // True while a one-finger scroll or two-finger pinch is in progress. The node-overlay renderer skips
 // rebuilding node inner-HTML while set, so the element under the finger is never detached mid-gesture
 // (detaching it kills touch-event routing → dead scroll/pinch). A final render on touchend applies any
@@ -297,9 +307,8 @@ var ACC_ICONS = {
 var gradientHoverMult = 2;   // hover widens the node's base gradient extent by this factor (1 = no change, 0 = hidden)
 var gradientHoverDesc = false;   // on an inline-expanded node, let the hover extension cover the description area too (not just the title/header)
 var hoverWhiteOutline = false;   // alternative highlight style: mark the hovered node with a plain
-                                 // high-contrast outline and give it NO hover gradient of its own, so the
-                                 // widened source-color gradient marks only the ADJACENT nodes. Reads more
-                                 // clearly than lighting up hovered and adjacent nodes the same way.
+                                 // high-contrast outline (its own hover gradient still widens, like the
+                                 // adjacent nodes'), so the hovered node still stands out from them.
 
 // A color→transparent gradient whose alpha falls off as (1-t)^gradientCurve across the band, so the
 // author can make the fill hug the border (high curve) or spread inward (low curve). `col` is rgba(...).
@@ -553,8 +562,12 @@ function hexToRgba(hex, alpha) {
 
 // Scale a hex color's saturation on the HSV scale by `mult` (1 = unchanged, 0 = grey). Used for the
 // node-outline saturation control; leaves hue/value untouched so only vividness changes.
-function saturateColor(hex, mult) {
-  if (mult == null || mult === 1) return hex;
+function saturateColor(hex, mult) { return scaleHsv(hex, mult, 1); }
+// Scale a colour's HSV saturation and value by the given multipliers (each clamped to 0..1 after
+// scaling; hue untouched). Non-#rrggbb input is returned as is.
+function scaleHsv(hex, mult, vmult) {
+  if (mult == null) mult = 1; if (vmult == null) vmult = 1;
+  if (mult === 1 && vmult === 1) return hex;
   if (typeof hex !== 'string' || hex.charAt(0) !== '#' || hex.length < 7) return hex;
   var r = (parseInt(hex.slice(1,3),16)||0)/255, g = (parseInt(hex.slice(3,5),16)||0)/255, b = (parseInt(hex.slice(5,7),16)||0)/255;
   var max = Math.max(r,g,b), min = Math.min(r,g,b), v = max, d = max - min;
@@ -567,6 +580,7 @@ function saturateColor(hex, mult) {
     h *= 60; if (h < 0) h += 360;
   }
   s = Math.max(0, Math.min(1, s * mult));
+  v = Math.max(0, Math.min(1, v * vmult));
   var c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c, rr = 0, gg = 0, bb = 0;
   if (h < 60)      { rr = c; gg = x; }
   else if (h < 120){ rr = x; gg = c; }
@@ -728,7 +742,7 @@ function saturateColor(hex, mult) {
           var exS = inlineMode ? inlineExpandedMap[id] : null;
           var hdrEl = exS ? d.querySelector('.inline-node-header') : null;
           if (hdrEl) {
-            var oh = exS.origH || 0;
+            var oh = exHdrH(exS) || 0;
             var shift = Math.max(0, Math.min((contentTop - (pos.y - h / 2) * zoom - pan.y) / zoom, h - oh));
             if (shift > 0.5) {
               hdrEl.style.transform = 'translateY(' + shift + 'px)';
@@ -1188,6 +1202,15 @@ function twoRowFloorFor(group) {
   return anyTwo ? Math.round(2 * fontNode * lh + vPad) : 0;
 }
 
+// The author's Theme / Skill height (Layout tab: Theme / Skill height, the tall values in a tall browser —
+// payload hTheme / hSkill), kept as a floor wherever the browser re-measures a title (narrow screens, a
+// language switch, the narrow multipliers); else those re-measures would drop it for the bare text height. Scaled
+// with the node fonts, as the text is. 0 for other groups, or a payload without it.
+function authorNodeFloor(g) {
+  var d = lastData || {}, h = (g === 'Theme') ? d.hTheme : (g === 'Skill') ? d.hSkill : null;
+  return (h > 0) ? h * (uiFontScale || 1) * (userFontScale || 1) : 0;
+}
+
 // Re-measure every collapsed node's height at the current node fonts and re-stack each column,
 // preserving inter-node gaps and each column's top — columns grow downward into the empty space.
 function restackAllColumnsForFonts() {
@@ -1209,7 +1232,7 @@ function restackAllColumnsForFonts() {
     arr.forEach(function (n) {
       var g = n.data('group');
       var bh = hOf(n), by = yOf(n), oldTop = by - bh / 2, oldBottom = by + bh / 2;
-      var newH = collapsedNodeHeight(n.data());                 // re-measured at the scaled node fonts
+      var newH = Math.max(collapsedNodeHeight(n.data()), authorNodeFloor(g));   // re-measured at the scaled node fonts
       if (g === 'Theme' && floorTheme) newH = Math.max(newH, floorTheme);   // even two-row minimum
       else if (g === 'Skill' && floorSkill) newH = Math.max(newH, floorSkill);
       var nTop = (pnb == null) ? oldTop : pnb + (oldTop - pob);  // keep the gap above this node
@@ -1246,9 +1269,10 @@ function applyNodeFontScaleLayout() {
   Object.keys(inlineExpandedMap).forEach(function (id) {
     var node = cy.getElementById(id); if (!node || node.empty()) return;
     var ex = inlineExpandedMap[id];
-    ex.origH = collapsedNodeHeight(node.data());
+    // its header: the collapsed height just re-stacked (floors included), so open and closed agree
+    ex.origH = (inlineBase && inlineBase[id]) ? inlineBase[id].h
+             : Math.max(collapsedNodeHeight(node.data()), authorNodeFloor(node.data('group')));
     ex.h = ex.origH + (id === descEditId ? measureRawHeight(node, ex.raw || '') : measureDescHeight(node, ex.descHtml));
-    if (inlineBase && inlineBase[id]) inlineBase[id].h = ex.origH;
   });
   layoutInlineScroll();
 }
@@ -1273,6 +1297,22 @@ function applyInitialFontScale() {
   applyNodeFontScale();
   applyNodeFontScaleLayout();
 }
+
+// A Theme/Skill node's compact title-area height (TITLE_COMPACT of its base height, but never below the
+// title's own measured height, so it can't clip). Measured once per base height / width / language / fonts.
+function compactTitleH(n) {
+  var b = inlineBase[n.id()];
+  var key = b.h + '|' + (n.data('w') || 0) + '|' + currentLang + '|' + fontNode + '|' + fontSubs;
+  if (b._ck !== key) {
+    b._ck = key;
+    b._ch = Math.min(b.h, Math.max(Math.round(b.h * TITLE_COMPACT), Math.ceil(collapsedNodeHeight(n.data()))));
+  }
+  return b._ch;
+}
+// An expanded node's header (title area) as shown — less than its collapsed height in a compacted column —
+// and its whole height as shown.
+function exHdrH(ex) { return (ex.hdrH != null) ? Math.min(ex.hdrH, ex.origH) : ex.origH; }
+function exShownH(ex) { return ex.h - ex.origH + exHdrH(ex); }
 
 // Re-stack each column from its base layout, growing expanded nodes downward. A growing Theme/Skill
 // column first rises into the empty space above it (up to the Project column's top / header level)
@@ -1316,6 +1356,21 @@ function applyInlinePositions() {
     var arr = cols[g];
     arr.sort(function (a, b) { return inlineBase[a.id()].y - inlineBase[b.id()].y; });
     var firstTop = inlineBase[arr[0].id()].y - inlineBase[arr[0].id()].h / 2;
+    // Compact titles (TITLE_COMPACT): decided on the full heights — would the column, top-aligned and with
+    // something open in it, still run past the visible bottom? — so compacting can't undo its own reason.
+    // cutOf: how much a node's title area loses then; stackH: its height in the stack.
+    function cutOf(n) { var gr = n.data('group'); return (gr === 'Theme' || gr === 'Skill') ? inlineBase[n.id()].h - compactTitleH(n) : 0; }
+    function stackH(n, cmp) { var ex = inlineExpandedMap[n.id()]; return (ex ? ex.h : inlineBase[n.id()].h) - (cmp ? cutOf(n) : 0); }
+    var compact = false;
+    if (g === 'Theme' || g === 'Skill') {
+      var cum0 = 0, bottom0 = -Infinity, open0 = false;
+      arr.forEach(function (n) {
+        var b = inlineBase[n.id()], h = stackH(n, false);
+        bottom0 = (b.y - b.h / 2) + cum0 + h; cum0 += (h - b.h);
+        if (inlineExpandedMap[n.id()]) open0 = true;
+      });
+      compact = open0 && bottom0 - Math.min(cum0, Math.max(0, firstTop - projTop)) > availBottom;
+    }
     // First pass: total growth + base-stacked bottom of the WHOLE column (drives scroll), plus separate
     // "centring subset" metrics that EXCLUDE About nodes — so the Skill stack is centred on its skill
     // nodes only. The About block rides the same offset and simply hangs below (a slightly bottom-heavy
@@ -1324,7 +1379,7 @@ function applyInlinePositions() {
     var centerBottomBase = -Infinity, centerExpBottom = -Infinity;
     arr.forEach(function (n) {
       var b = inlineBase[n.id()], ex = inlineExpandedMap[n.id()];
-      var h = ex ? ex.h : b.h;
+      var h = stackH(n, compact);
       var expBottom = (b.y - b.h / 2) + cum + h;
       bottom = expBottom;
       if (n.data('group') !== 'About') {
@@ -1356,8 +1411,9 @@ function applyInlinePositions() {
       }
     }
     inlineColCenterOff[g] = centerOff;   // header (positionHeaders) rides down by the same amount
-    // Rise into the space above (Theme/Skill only; Project is already at the top)
-    var shiftUp = Math.min(totalDelta, Math.max(0, firstTop - projTop));
+    // Rise into the space above (Theme/Skill only; Project is already at the top). Never down: compact
+    // titles can make the column shorter than its base.
+    var shiftUp = Math.max(0, Math.min(totalDelta, Math.max(0, firstTop - projTop)));
     inlineColShiftUp[g] = shiftUp;
     // Clamp this column's own scroll to what still overflows after the upward shift + centre offset. A
     // bottom clearance lets the last node scroll fully into view instead of sitting flush against the
@@ -1370,7 +1426,8 @@ function applyInlinePositions() {
     cum = 0;
     arr.forEach(function (n) {
       var b = inlineBase[n.id()], ex = inlineExpandedMap[n.id()];
-      var h = ex ? ex.h : b.h;
+      var h = stackH(n, compact);
+      if (ex) ex.hdrH = ex.origH - (compact ? cutOf(n) : 0);   // its header as shown (exHdrH)
       n.data('h', h);
       n.position('y', (b.y - b.h / 2) + cum + h / 2 - shiftUp - off + centerOff);
       cum += (h - b.h);
@@ -1525,6 +1582,8 @@ function editableLabel(data) {
   return span('en-only', 'en', en) + span('fi-only', 'fi', fi);
 }
 
+// Hover-highlight colour: the edge colour with the author's hover saturation / value multipliers.
+function hoverTint(hex) { return scaleHsv(hex, hoverSatMult, hoverValMult); }
 function hexRgba(hex, a) {
   var r = parseInt(hex.slice(1,3),16)||0, g = parseInt(hex.slice(3,5),16)||0, b = parseInt(hex.slice(5,7),16)||0;
   return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
@@ -1532,7 +1591,7 @@ function hexRgba(hex, a) {
 // Project gradient bands: Theme edges on the left, Skill edges on the right, each in the
 // connecting edge's color (at the given alpha), sorted by the other node's Y so band order
 // matches the layout (no crossings). Returns { left:[...colors], right:[...colors] }.
-function projectBandColors(n, alpha) {
+function projectBandColors(n, alpha, tint) {   // tint: optional colour transform (hover HSV sliders)
   var leftArr = [], rightArr = [];
   n.connectedEdges().forEach(function(edge) {
     var otherId = edge.data('source') === n.id() ? edge.data('target') : edge.data('source');
@@ -1540,7 +1599,7 @@ function projectBandColors(n, alpha) {
     var og = on.data('group');
     if (og !== 'Theme' && og !== 'Skill') return;
     var raw = (lightMode ? edge.data('lightColor') : edge.data('color')) || (lightMode ? '#000000' : '#ffffff');
-    var entry = { y: on.position().y, col: hexRgba(raw, alpha) };
+    var entry = { y: on.position().y, col: hexRgba(tint ? tint(raw) : raw, alpha) };
     if (og === 'Theme') leftArr.push(entry); else rightArr.push(entry);
   });
   var byY = function(a, b) { return a.y - b.y; };
@@ -1559,7 +1618,7 @@ function projectBandGeom(id, count) {
   var node = cy ? cy.getElementById(String(id)) : null;
   var fullH = (node && !node.empty()) ? (node.data('h') || 46) : 46;
   var ex = (inlineMode && node && !node.empty()) ? inlineExpandedMap[String(id)] : null;
-  var baseH = ex ? (ex.origH || fullH) : fullH;             // header (collapsed) height
+  var baseH = ex ? (exHdrH(ex) || fullH) : fullH;            // header (collapsed) height, as shown
   var H = edgePinHeader ? baseH : fullH;                    // fill the full border by default; header when pinning
   var g = (edgeBands && cy) ? (edgeGap / cy.zoom()) : 0;    // gap in cyto units (0 when not banding)
   var band = (H - (count - 1) * g) / count;
@@ -1722,40 +1781,73 @@ function gradientOverlay(id, pct, baseOnly) {
   var out = '';
   // `clip` (a % of node height, or null) caps how far down a gradient may reach — used to keep the
   // hover extension within the node's title/header region on inline-expanded nodes.
-  function addDiv(side, col, w, top, height, clip) {
+  // recol: optional {left:[[a,b,col],..], right:[..]} — vertical spans (% of node height) of this div
+  // that are drawn in `col` instead (the base gradient under a hover highlight, see below).
+  function addDiv(side, col, w, top, height, clip, recol) {
     var t = top || 0, h = (height == null ? 100 : height);
     if (clip != null) { if (t >= clip) return; if (t + h > clip) h = clip - t; }
     var ws = w + '%';
-    var box = 'top:' + t + '%;height:' + h + '%;';
-    if (side === 'left'  || side === 'both')
-      out += '<div style="' + sty + box + 'width:' + ws + ';left:0;background:' + expGradient(col, 'to right') + ';"></div>';
-    if (side === 'right' || side === 'both')
-      out += '<div style="' + sty + box + 'width:' + ws + ';right:0;background:' + expGradient(col, 'to left') + ';"></div>';
+    (side === 'both' ? ['left', 'right'] : [side]).forEach(function (sd) {
+      var pieces = [[t, t + h, null]];
+      if (recol) (recol[sd] || []).forEach(function (c) {
+        var next = [];
+        pieces.forEach(function (p) {
+          if (p[2] || c[1] <= p[0] || c[0] >= p[1]) { next.push(p); return; }
+          if (c[0] > p[0]) next.push([p[0], c[0], null]);
+          next.push([Math.max(p[0], c[0]), Math.min(p[1], c[1]), c[2]]);
+          if (c[1] < p[1]) next.push([c[1], p[1], null]);
+        });
+        pieces = next;
+      });
+      pieces.forEach(function (p) {
+        if (p[1] - p[0] <= 0.01) return;
+        var box = 'top:' + p[0] + '%;height:' + (p[1] - p[0]) + '%;', pc = p[2] || col;
+        out += (sd === 'left')
+          ? '<div style="' + sty + box + 'width:' + ws + ';left:0;background:' + expGradient(pc, 'to right') + ';"></div>'
+          : '<div style="' + sty + box + 'width:' + ws + ';right:0;background:' + expGradient(pc, 'to left') + ';"></div>';
+      });
+    });
   }
-  function addBands(side, colors, w, clip) {
+  function addBands(side, colors, w, clip, recol) {
     var n = colors.length; if (!n) return;
     var geom = projectBandGeom(id, n);   // line the gradient bands up with the edge ribbons
-    for (var i = 0; i < n; i++) addDiv(side, colors[i], w, geom[i].top, geom[i].height, clip);
+    for (var i = 0; i < n; i++) addDiv(side, colors[i], w, geom[i].top, geom[i].height, clip, recol);
   }
   // Render a gradient: multi-band {bands:{left,right}}, or a single {side,color} optionally
   // confined to a vertical slice via {top,height} (used to highlight one project band).
-  function render(g, w, clip) {
+  function render(g, w, clip, recol) {
     if (!g) return;
-    if (g.bands) { addBands('left', g.bands.left || [], w, clip); addBands('right', g.bands.right || [], w, clip); }
-    else addDiv(g.side, g.color, w, g.top, g.height, clip);
+    if (g.bands) { addBands('left', g.bands.left || [], w, clip, recol); addBands('right', g.bands.right || [], w, clip, recol); }
+    else addDiv(g.side, g.color, w, g.top, g.height, clip, recol);
   }
   var basePct = pct || 10;
+  // Under a hover highlight the base gradient is drawn in the HOVER colour (hover S/V sliders) for the
+  // parts the highlight covers — same layering and intensity as before, but the node end now matches
+  // its hovered ribbon instead of showing the untinted base colour mixed into the tinted one.
+  var hovClip = null, recol = null;
+  if (hov) {
+    var exH = (inlineMode && !gradientHoverDesc) ? inlineExpandedMap[String(id)] : null;
+    hovClip = (exH && exH.h) ? Math.max(0, Math.min(100, (exHdrH(exH) / exShownH(exH)) * 100)) : null;
+    var lim = (hovClip != null) ? hovClip : 100;
+    recol = { left: [], right: [] };
+    var cover = function (side, a, h, col) {
+      var b = Math.min(lim, a + h); if (b <= a) return;
+      if (side === 'left'  || side === 'both') recol.left.push([a, b, col]);
+      if (side === 'right' || side === 'both') recol.right.push([a, b, col]);
+    };
+    if (hov.bands) ['left', 'right'].forEach(function (sd) {
+      var cs = hov.bands[sd] || [], gm = projectBandGeom(id, cs.length);
+      for (var i = 0; i < cs.length; i++) cover(sd, gm[i].top, gm[i].height, cs[i]);
+    });
+    else cover(hov.side, hov.top || 0, (hov.height == null ? 100 : hov.height), hov.color);
+  }
   // Base gradient at the resting extent (full node height).
-  if (base) render(base, basePct);
+  if (base) render(base, basePct, null, recol);
   // Hover widens just the hover-affected part by gradientHoverMult, using the base gradient (not an
   // extra one). On inline-expanded nodes the extension is confined to the title/header region so the
   // description area keeps only the base gradient — unless gradientHoverDesc extends it over the
   // description as well (then no clip, so the widened gradient spans the full expanded height).
-  if (hov) {
-    var ex = (inlineMode && !gradientHoverDesc) ? inlineExpandedMap[String(id)] : null;
-    var clip = (ex && ex.h) ? Math.max(0, Math.min(100, (ex.origH / ex.h) * 100)) : null;
-    render(hov, basePct * gradientHoverMult, clip);
-  }
+  if (hov) render(hov, basePct * gradientHoverMult, hovClip);
   if (sel) render(sel, basePct * (sel.widthMult || 1));
   return out;
 }
@@ -1951,7 +2043,7 @@ function inlineContentTopPx() {
 }
 
 function inlineExpandedNodeHtml(data, exEntry) {
-  var origH = exEntry.origH || (data.h || 46);
+  var origH = exHdrH(exEntry) || (data.h || 46);   // the header as shown (compact titles: exHdrH)
   var gpct = (data.group === 'Project') ? gradientExtent / 2 : gradientExtent;
   var descCol = lightMode ? 'rgba(0,0,0,0.86)' : 'rgba(255,255,255,0.9)';
   var lineCol = lightMode ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.5)';
@@ -2076,9 +2168,9 @@ function positionDescEditor() {
   var w = node.data('w') || 200, h = node.data('h') || 46;
   var ta = _descEditor;
   ta.style.left = ((pos.x - w / 2) * zoom + pan.x) + 'px';
-  ta.style.top  = ((pos.y - h / 2 + ex.origH) * zoom + pan.y) + 'px';
+  ta.style.top  = ((pos.y - h / 2 + exHdrH(ex)) * zoom + pan.y) + 'px';
   ta.style.width = w + 'px';
-  ta.style.height = Math.max(h - ex.origH, 16) + 'px';
+  ta.style.height = Math.max(h - exHdrH(ex), 16) + 'px';
   ta.style.transform = 'scale(' + zoom + ')';
   ta.style.fontSize = descFontSize + 'px';
   ta.style.lineHeight = '1.45';
@@ -2619,7 +2711,7 @@ function applyHighlightState() {
       var side2 = gradSide(hovGrp, og2);
       if (!side2) return;
       var rawHov = (lightMode ? edge.data('lightColor') : edge.data('color')) || (lightMode ? '#000000' : '#ffffff');
-      var edgeCol = hexRgba(rawHov, GRAD_ALPHA_BASE);  // hover reuses the base gradient (same opacity), just wider
+      var edgeCol = hexRgba(hoverTint(rawHov), GRAD_ALPHA_BASE);  // hover reuses the base gradient (same opacity), just wider
       // When hovering a Theme/Skill, confine the project's highlight to that node's band; else full-height
       if (og2 === 'Project' && (hovGrp === 'Theme' || hovGrp === 'Skill')) {
         var bi2 = projectBandIndex(on2, hovGrp, hid);
@@ -2633,14 +2725,14 @@ function applyHighlightState() {
         mergeHovGrad(nodeHoverGradients, otherId, side2, edgeCol);
       }
       // Theme/Skill self lights up in the edge color; Project self uses banded edge colors (set below).
-      // Both are skipped under hoverWhiteOutline: there the hovered node carries only its plain outline,
-      // leaving the widened gradient to mark the adjacent nodes alone.
-      if (hovGrp !== 'Project' && !hoverWhiteOutline)
+      // The hovered node's own gradient widens too — also under hoverWhiteOutline, where it additionally
+      // carries its plain outline.
+      if (hovGrp !== 'Project')
         mergeHovGrad(nodeHoverGradients, String(hid), oppSide(side2), edgeCol);
     });
     // Hovered project lights up in its connecting edge colors (wider bands), not the orange group color
-    if (hovGrp === 'Project' && !hoverWhiteOutline)
-      nodeHoverGradients[String(hid)] = { bands: projectBandColors(hn, GRAD_ALPHA_BASE) };
+    if (hovGrp === 'Project')
+      nodeHoverGradients[String(hid)] = { bands: projectBandColors(hn, GRAD_ALPHA_BASE, hoverTint) };
   }
   var _hovIds = pinnedHoverIds.slice();
   if (hoveredNodeId && _hovIds.indexOf(String(hoveredNodeId)) < 0) _hovIds.push(String(hoveredNodeId));
@@ -2695,6 +2787,7 @@ function toggleLightMode() {
 
 /* ── Edge SVG Overlay ────────────────────────────────────────────────────── */
 
+var EDGE_TUCK = 2;   // screen px that each edge end runs under its node (see drawEdgeOverlay)
 function drawEdgeOverlay() {
   var area = document.getElementById('graph-area');
   var oldSvg = document.getElementById('edge-overlay'); if (oldSvg) oldSvg.remove();
@@ -2713,7 +2806,7 @@ function drawEdgeOverlay() {
   function attachGeom(node) {
     var h = node.data('h') || 46, cyy = node.position().y;
     var ex = inlineMode ? inlineExpandedMap[node.id()] : null;
-    return { baseH: ex ? (ex.origH || h) : h, fullH: h, cy: cyy };  // baseH = collapsed height (band thickness budget)
+    return { baseH: ex ? (exHdrH(ex) || h) : h, fullH: h, cy: cyy };  // baseH = collapsed height (band thickness budget)
   }
   cy.edges().forEach(function (edge) {
     var d = edge.data();
@@ -2729,10 +2822,14 @@ function drawEdgeOverlay() {
     // The Theme/Skill endpoint — hovering/clicking this edge highlights it (like hovering that node).
     var sGrp = src.data('group');
     var hlId = (sGrp === 'Theme' || sGrp === 'Skill') ? String(d.source) : String(d.target);
+    // Ends run EDGE_TUCK px under the node: the node box (opaque, drawn above the ribbons) and the ribbon
+    // would otherwise both end on the same fractional pixel, each anti-aliased to partial coverage, and
+    // the dark background showed through as a thin seam between ribbon and node. The tucked part is
+    // hidden under the node, so nothing else changes.
     rawEdges.push({
       d: d, edge: edge, hlId: hlId,
-      sx: (sp.x + sw / 2) * zoom + pan.x,
-      tx: (tp.x - tw / 2) * zoom + pan.x,
+      sx: (sp.x + sw / 2) * zoom + pan.x - EDGE_TUCK,
+      tx: (tp.x - tw / 2) * zoom + pan.x + EDGE_TUCK,
       syBase: syBase, tyBase: tyBase,
       syOff: 0, tyOff: 0,
       srcCy: sa.cy, srcBaseH: sa.baseH, srcFullH: sa.fullH,   // band thickness from base height; spread over full height
@@ -2802,7 +2899,7 @@ function drawEdgeOverlay() {
   // node's links carry the same outline as the node. Never a hit target (hlId null) — the coloured
   // path on top of it keeps that role.
   var hovCase  = hoverWhiteOutline ? plainHoverColor() : null;
-  var hovCaseW = strokeW * 2.25 + 2 * (nodeOutlineWidth || 3) * zoom;
+  var hovCaseW = strokeW * 2.25 + 2 * hoverEdgeOutline() * zoom;
   var NORM_OP = edgeOpacity;  // default edge opacity (author-controllable)
   var DIM_OP = edgeOpacity * (lightMode ? 0.6 : 0.82);  // faded context when a node is selected
   if (anySel) {
@@ -2816,7 +2913,7 @@ function drawEdgeOverlay() {
     edgePaths.forEach(function (ep) {
       if (!ep.isHov || ep.isSel) return;
       if (hovCase) svg.appendChild(makePath(ep.pathD, hovCase, hovCaseW, NORM_OP, ep.dashes, null));
-      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW * 2.25, NORM_OP, ep.dashes, ep.hlId));
+      svg.appendChild(makePath(ep.pathD, hoverTint(lightMode ? ep.lightColor : ep.color), strokeW * 2.25, NORM_OP, ep.dashes, ep.hlId));   // hovered: hover S/V sliders apply
     });
     // Top: selected edges — full color, fully opaque, slightly thicker
     edgePaths.forEach(function (ep) {
@@ -2828,7 +2925,7 @@ function drawEdgeOverlay() {
     edgePaths.forEach(function (ep) {
       if (!ep.isHov) return;
       if (hovCase) svg.appendChild(makePath(ep.pathD, hovCase, hovCaseW, NORM_OP, ep.dashes, null));
-      svg.appendChild(makePath(ep.pathD, lightMode ? ep.lightColor : ep.color, strokeW * 2.25, NORM_OP, ep.dashes, ep.hlId));
+      svg.appendChild(makePath(ep.pathD, hoverTint(lightMode ? ep.lightColor : ep.color), strokeW * 2.25, NORM_OP, ep.dashes, ep.hlId));   // hovered: hover S/V sliders apply
     });
     edgePaths.forEach(function (ep) {
       if (ep.isHov) return;
@@ -2874,6 +2971,9 @@ function drawEdgeBands(svg, rawEdges, zoom, pan) {
 
   function ribbon(re, op, stroke, strokeWidth) {
     var color = lightMode ? (re.d.lightColor || lightEdgeColor) : (re.d.color || '#ffffff');
+    // A hover-highlighted ribbon takes the same hover saturation / brightness as the highlighted nodes
+    // (a selected one keeps its own colour).
+    if (re.edge.hasClass('hovered') && !re.edge.hasClass('selected')) color = hoverTint(color);
     var x1 = re.sx, x2 = re.tx;
     var y1 = re.sBandY * zoom + pan.y, y2 = re.tBandY * zoom + pan.y;
     var hsH = re.sBandH * zoom / 2, htH = re.tBandH * zoom / 2;
@@ -2940,7 +3040,7 @@ function drawEdgeBands(svg, rawEdges, zoom, pan) {
   // hoverWhiteOutline: ring the hovered node's edges in the same plain colour as the node itself, so
   // the whole hovered "star" (node + its links) is outlined while the adjacent nodes stay purely colour-coded.
   var hovStroke  = hoverWhiteOutline ? plainHoverColor() : null;
-  var hovStrokeW = (nodeOutlineWidth || 3) * zoom;
+  var hovStrokeW = hoverEdgeOutline() * zoom;
   rawEdges.forEach(function (re) {                                   // hovered (takes precedence)
     if (!ok(re) || !re.edge.hasClass('hovered') || re.edge.hasClass('selected')) return;
     svg.appendChild(ribbon(re, 1, hovStroke, hovStrokeW));
@@ -3678,9 +3778,9 @@ function applyNarrowScale(data) {
     if (!n.data || !n.position) return;
     n.data._oy = n.position.y; n.data._oh = n.data.h;
     var g = n.data.group;
-    if (g === 'Theme')        { n.data.w = newThemeW; n.position.x = 0;         n.data.h = measureThemeNodeHeight(n.data, newThemeW); }
+    if (g === 'Theme')        { n.data.w = newThemeW; n.position.x = 0;         n.data.h = Math.max(measureThemeNodeHeight(n.data, newThemeW), authorNodeFloor(g)); }
     else if (g === 'About')   { n.data.w = newThemeW; n.position.x = newSkillX; n.data.h = measureThemeNodeHeight(n.data, newThemeW); }
-    else if (g === 'Skill')   { n.data.w = newThemeW; n.position.x = newSkillX; n.data.h = measureSkillNodeHeight(n.data, newThemeW); }
+    else if (g === 'Skill')   { n.data.w = newThemeW; n.position.x = newSkillX; n.data.h = Math.max(measureSkillNodeHeight(n.data, newThemeW), authorNodeFloor(g)); }
     else if (g === 'Project') { n.data.w = newProjW;  n.position.x = newProjX; }  // height/re-stack: autoFitProjectWidth
   });
   (data.headers || []).forEach(function (h, i) {
@@ -4855,6 +4955,19 @@ Shiny.addCustomMessageHandler('setProjectOutline', function (msg) {
   if (cy) { cy.style(buildStyle()); cy.emit('render'); }  // re-draw Project outline overlay
 });
 
+// Hover highlight colour: saturation / value multipliers on the edge colour (author sliders).
+// Hovered-edge outline thickness in px (author slider); null/undefined = follow the node outline.
+Shiny.addCustomMessageHandler('setHoverEdgeOutline', function (msg) {
+  hoverEdgeOutlineW = (msg && msg.px != null && msg.px !== '') ? +msg.px : null;
+  if (cy) drawEdgeOverlay();
+});
+
+Shiny.addCustomMessageHandler('setHoverHsv', function (msg) {
+  if (msg.sat != null) hoverSatMult = +msg.sat;
+  if (msg.val != null) hoverValMult = +msg.val;
+  if (cy) applyHighlightState();
+});
+
 Shiny.addCustomMessageHandler('setOutlineSaturation', function (msg) {
   outlineSaturation = (msg.value != null) ? msg.value : 1;
   if (cy) cy.emit('render');  // re-draw outline overlays with new saturation
@@ -5232,6 +5345,8 @@ window.initStaticApp = function(payload) {
   if (payload.node_outline != null) Shiny._handlers['setNodeOutline']({ width: payload.node_outline });
   if (payload.project_outline != null) Shiny._handlers['setProjectOutline']({ width: payload.project_outline });
   if (payload.outline_saturation != null) Shiny._handlers['setOutlineSaturation']({ value: payload.outline_saturation });
+  if (payload.hover_sat != null || payload.hover_val != null) Shiny._handlers['setHoverHsv']({ sat: payload.hover_sat, val: payload.hover_val });
+  if (payload.hover_edge_outline != null) Shiny._handlers['setHoverEdgeOutline']({ px: payload.hover_edge_outline });
   if (payload.outline_transparency != null) Shiny._handlers['setOutlineTransparency']({ pct: payload.outline_transparency });
   if (payload.node_pad != null) Shiny._handlers['setNodePad']({ px: payload.node_pad });
   if (payload.project_max_width != null) Shiny._handlers['setProjectMaxWidth']({ px: payload.project_max_width });

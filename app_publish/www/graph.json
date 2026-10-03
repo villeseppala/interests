@@ -4,7 +4,7 @@
       "id": 106,
       "group": "Theme",
       "title": "Russia/Ukraine",
-      "edgeColor": "#43A839",
+      "edgeColor": "#339B88",
       "title_fi": "Venäjä/Ukraina",
       "lightEdgeColor": "#B9EF95"
     },
@@ -12,7 +12,7 @@
       "id": 101,
       "group": "Theme",
       "title": "Existential risks and longtermism",
-      "edgeColor": "#39A887",
+      "edgeColor": "#31959D",
       "title_fi": "Eksistentiaaliset riskit ja longtermismi",
       "lightEdgeColor": "#78D585"
     },
@@ -20,7 +20,7 @@
       "id": 104,
       "group": "Theme",
       "title": "Climate Change",
-      "edgeColor": "#A83962",
+      "edgeColor": "#32789B",
       "title_fi": "Ilmastonmuutos",
       "lightEdgeColor": "#81CFB7"
     },
@@ -28,7 +28,7 @@
       "id": 105,
       "group": "Theme",
       "title": "Electricity markets",
-      "edgeColor": "#A83C39",
+      "edgeColor": "#9C3165",
       "title_fi": "Sähkömarkkinat",
       "lightEdgeColor": "#7EBDD1"
     },
@@ -36,7 +36,7 @@
       "id": 103,
       "group": "Theme",
       "title": "European Union",
-      "edgeColor": "#3972A8",
+      "edgeColor": "#A63850",
       "title_fi": "Euroopan Unioni",
       "lightEdgeColor": "#DB888C"
     },
@@ -44,7 +44,7 @@
       "id": 102,
       "group": "Theme",
       "title": "Global harmony",
-      "edgeColor": "#399DA8",
+      "edgeColor": "#A33A35",
       "title_fi": "Globaali harmonia",
       "lightEdgeColor": "#E2B88E",
       "hidden": true
@@ -126,7 +126,7 @@
       "group": "Skill",
       "title": "Artificial intelligence",
       "subs": [],
-      "edgeColor": "#3A849B",
+      "edgeColor": "#9D3033",
       "title_fi": "Tekoäly",
       "lightEdgeColor": "#ACD977"
     },
@@ -135,7 +135,7 @@
       "group": "Skill",
       "title": "Data visualization and graphic design",
       "subs": [],
-      "edgeColor": "#9B3A3A",
+      "edgeColor": "#9C4828",
       "title_fi": "Datavisualisointi ja graafinen suunnittelu",
       "lightEdgeColor": "#88FD98"
     },
@@ -144,7 +144,7 @@
       "group": "Skill",
       "title": "Dashboards and websites",
       "subs": [],
-      "edgeColor": "#3F9B3A",
+      "edgeColor": "#309E8C",
       "title_fi": "Dashboardit ja nettisivut",
       "lightEdgeColor": "#7ADDCB"
     },
@@ -153,7 +153,7 @@
       "group": "Skill",
       "title": "Videos and streaming",
       "subs": [],
-      "edgeColor": "#3A9B5E",
+      "edgeColor": "#2A8C9C",
       "title_fi": "Videot ja striimaus",
       "lightEdgeColor": "#84BCF4"
     },
@@ -161,7 +161,7 @@
       "id": 305,
       "group": "Skill",
       "title": "Social media",
-      "edgeColor": "#9B3A63",
+      "edgeColor": "#2D71A8",
       "title_fi": "Sosiaalinen media",
       "subs": [],
       "lightEdgeColor": "#FA988E"
@@ -185,10 +185,10 @@
     {
       "id": 211,
       "group": "Project",
-      "title": "Improving this \"My interests\" -site",
+      "title": "My interests -website",
       "ptype": "Website",
       "pnum": 999,
-      "title_fi": "Tämän \"Kiinnostukseni\" -nettisivun kehittäminen"
+      "title_fi": "Kiinnostukseni -nettisivu"
     },
     {
       "id": 206.5,
@@ -211,7 +211,7 @@
       "group": "Theme",
       "title": "Finnish economy",
       "title_fi": "Suomen talous",
-      "edgeColor": "#39A85B",
+      "edgeColor": "#A45330",
       "lightEdgeColor": "#DDE27D"
     },
     {
@@ -234,7 +234,7 @@
       "id": 303.5,
       "group": "Skill",
       "title": "Economics",
-      "edgeColor": "#3A9B88",
+      "edgeColor": "#9E2E53",
       "lightEdgeColor": "#DFC879",
       "title_fi": "Taloustiede",
       "subs": []
@@ -265,321 +265,364 @@
       "ptype": "Text",
       "pnum": 209,
       "title_fi": "Kannusteet Venäjälle sodan lopettamiseksi"
+    },
+    {
+      "id": 205.7,
+      "group": "Project",
+      "title": "Ethical use of AI",
+      "ptype": "Text",
+      "pnum": 205
+    },
+    {
+      "id": 201.5,
+      "group": "Project",
+      "title": "A review on existential risk estimates",
+      "ptype": "Text",
+      "pnum": 201,
+      "title_fi": ""
     }
   ],
   "edges": [
     {
       "from": 101,
       "to": 201,
-      "color": "#39A887",
+      "color": "#31959D",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 202,
-      "color": "#39A887",
+      "color": "#31959D",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 204,
-      "color": "#39A887",
+      "color": "#31959D",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 204.1,
-      "color": "#399DA8",
+      "color": "#A33A35",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 204,
-      "color": "#399DA8",
+      "color": "#A33A35",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 204.1,
-      "color": "#3972A8",
+      "color": "#A63850",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 103,
       "to": 207,
-      "color": "#3972A8",
+      "color": "#A63850",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206,
-      "color": "#A83962",
+      "color": "#32789B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 207,
-      "color": "#A83962",
+      "color": "#32789B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 208,
-      "color": "#A83962",
+      "color": "#32789B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 207,
-      "color": "#A83C39",
+      "color": "#9C3165",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 208,
-      "color": "#A83C39",
+      "color": "#9C3165",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 201,
       "to": 301,
-      "color": "#e43f97",
+      "color": "#9C4828",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 201,
       "to": 302,
-      "color": "#5a83d6",
+      "color": "#309E8C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 201,
       "to": 304,
-      "color": "#c084fc",
+      "color": "#9D3033",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 209,
       "to": 301,
-      "color": "#e43f97",
+      "color": "#9C4828",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 209,
       "to": 302,
-      "color": "#5a83d6",
+      "color": "#309E8C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 210,
       "to": 302,
-      "color": "#5a83d6",
+      "color": "#309E8C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 205.5,
-      "color": "#399DA8",
+      "color": "#A33A35",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 205.5,
-      "color": "#A83962",
+      "color": "#32789B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 204,
-      "color": "#A83962",
+      "color": "#32789B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 206,
       "to": 301,
-      "color": "#e43f97",
+      "color": "#9C4828",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 206,
       "to": 303,
-      "color": "#d17bb7",
+      "color": "#2A8C9C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 204.3,
-      "color": "#399DA8",
+      "color": "#A33A35",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 206.5,
-      "color": "#A83962",
+      "color": "#32789B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 105,
       "to": 206.5,
-      "color": "#A83C39",
+      "color": "#9C3165",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 206.5,
       "to": 302,
-      "color": "#d17bb7",
+      "color": "#309E8C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 209.5,
       "to": 302,
-      "color": "#d17bb7",
+      "color": "#309E8C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 211,
       "to": 302,
-      "color": "#d17bb7",
+      "color": "#309E8C",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 209.5,
       "to": 301,
-      "color": "#e43f97",
+      "color": "#9C4828",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 211,
       "to": 304,
-      "color": "#d17bb7",
+      "color": "#9D3033",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 104,
       "to": 204.1,
-      "color": "#A83962",
+      "color": "#32789B",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 102,
       "to": 201,
-      "color": "#399DA8",
+      "color": "#A33A35",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 106.1,
       "to": 209.6,
-      "color": "#39A85B",
+      "color": "#A45330",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 106,
       "to": 209.55,
-      "color": "#43A839",
+      "color": "#339B88",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 204.1,
       "to": 303.5,
-      "color": "#d17bb7",
+      "color": "#9E2E53",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 205.5,
       "to": 303.5,
-      "color": "#d17bb7",
+      "color": "#9E2E53",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 206,
       "to": 303.5,
-      "color": "#d17bb7",
+      "color": "#9E2E53",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 207,
       "to": 303.5,
-      "color": "#d17bb7",
+      "color": "#9E2E53",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 208,
       "to": 303.5,
-      "color": "#d17bb7",
+      "color": "#9E2E53",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 209.55,
       "to": 303.5,
-      "color": "#d17bb7",
+      "color": "#9E2E53",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 209.6,
       "to": 303.5,
-      "color": "#d17bb7",
+      "color": "#9E2E53",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 106,
       "to": 209.56,
-      "color": "#43A839",
+      "color": "#339B88",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 204.3,
-      "color": "#39A887",
+      "color": "#31959D",
       "dashes": false,
       "hidden": false
     },
     {
       "from": 101,
       "to": 205.5,
-      "color": "#39A887",
+      "color": "#31959D",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 101,
+      "to": 205.7,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 104,
+      "to": 205.7,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 205.7,
+      "to": 304,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 101,
+      "to": 201.5,
+      "color": "#d17bb7",
       "dashes": false,
       "hidden": false
     }
@@ -596,11 +639,13 @@
     ],
     "Project": [
       201,
+      201.5,
       202,
       204,
       204.1,
       204.3,
       205.5,
+      205.7,
       206,
       206.5,
       207,
@@ -628,7 +673,7 @@
     ]
   },
   "layout": {
-    "gap_v": 12,
+    "gap_v": 6,
     "gap_col": 60,
     "font_node": 21,
     "font_project": 21,
@@ -637,20 +682,20 @@
     "font_desc": 19,
     "font_hdr1": 30,
     "font_hdr2": 24,
-    "h_theme": 80,
+    "h_theme": 100,
     "h_project": 40,
-    "h_skill": 80,
+    "h_skill": 100,
     "w_project": 476,
     "w_node": 340,
     "ptype_pct": 19,
     "edge_width": 8,
     "edge_bands": true,
     "edge_sankey": true,
-    "edge_gap": 2,
-    "edge_transparency": 0,
+    "edge_gap": 0,
+    "edge_transparency": 1,
     "edge_min_width": 44,
     "edge_min_on": false,
-    "edge_curve": 2.7,
+    "edge_curve": 2.8,
     "edge_pin_header": false,
     "fill_nodew": 31,
     "fill_projw": 27,
@@ -658,16 +703,19 @@
     "fill_nodepad": 3,
     "narrow_gap_mult": 1,
     "narrow_node_mult": 1,
-    "gradient_extent": 35,
-    "gradient_transparency": 11,
-    "gradient_curve": 1.1,
-    "gradient_hover_mult": 3.1,
+    "gradient_extent": 18,
+    "gradient_transparency": 0,
+    "gradient_curve": 1.2,
+    "gradient_hover_mult": 2.9,
+    "hover_sat": 1.3,
+    "hover_val": 0.9,
     "gradient_hover_desc": true,
     "hover_white_outline": true,
-    "node_outline": 2.5,
-    "project_outline": 2,
-    "outline_saturation": 1,
-    "outline_transparency": 0,
+    "hover_edge_outline": 0,
+    "node_outline": 0,
+    "project_outline": 0,
+    "outline_saturation": 2,
+    "outline_transparency": 100,
     "node_pad": 0,
     "project_max_width": 0,
     "desc_pad": 8,
@@ -689,7 +737,7 @@
     "frame_fill_pct": 68,
     "frame_fill_opacity": 0,
     "headers_on_stack": true,
-    "col_bg": "#523c33",
+    "col_bg": "#604f48",
     "col_sidebar_bg": "#373e48",
     "col_node_bg": "#292f38",
     "col_column_bg": "#42576c",
@@ -752,16 +800,16 @@
     "fi_funding_intro": "Tällä hetkellä en ole työelämässä ja työstän näitä kiinnostuksenkohteita omalla ajallani, mutta olen hyvin kiinnostunut myös tekemään töitä niiden parissa.\nOta yhteyttä, mikäli sinulla on vinkkejä potentiaalisista rahoitus - tai työvaihtoehdoista, jotka voisivat sopia minulle, vaikka ne eivät suoraan liittyisikään kiinnostuksiini. \n\nCV:ni on täällä: https://villeseppala.wordpress.com/cv/\n\nTässä on jonkinlainen löyhä preferenssijärjestys sille, miten haluaisin tulla rahoitetuksi:",
     "ec_hsv": {
       "ec_h_theme": [
-        15,
-        105
+        20,
+        155
       ],
       "ec_s_theme": [
-        62,
-        70
+        66,
+        76
       ],
       "ec_v_theme": [
         60,
-        66
+        67
       ],
       "ec_hue_dist_theme": 25,
       "ec_max_s_dist": 5,
@@ -816,10 +864,10 @@
     },
     "tall_w_node": 340,
     "tall_w_project": 540,
-    "tall_h_theme": 92,
+    "tall_h_theme": 100,
     "tall_h_project": 40,
-    "tall_h_skill": 92,
-    "tall_gap_v": 12,
+    "tall_h_skill": 100,
+    "tall_gap_v": 8,
     "tall_gap_col": 60,
     "tall_font_node": 21,
     "tall_font_project": 21,

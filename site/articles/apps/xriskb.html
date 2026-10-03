@@ -18,7 +18,7 @@
 *, *::before, *::after{box-sizing:border-box;}
 html{-webkit-text-size-adjust:100%;}
 body{font-size:14px;line-height:1.42857143;}
-.page{padding:0 15px;}                              /* Shiny's container-fluid gutter */
+.page{padding:0 8px;}                               /* the side gutter: with .wrap's, 13 px a side (half Shiny's 26) */
 h1{line-height:1.1;}
 sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline;}   /* don't stretch the formula lines */
 sup{top:-.5em;} sub{bottom:-.25em;}
@@ -30,7 +30,7 @@ button,input{font:inherit;color:inherit;margin:0;}
 
 /* ── the app (as app_xrisk/app.R) ── */
 body{background:#0b3552;color:#e8eef4;font-family:Arial,Helvetica,sans-serif;margin:0;}
-.wrap{max-width:1240px;margin:0 auto;padding:18px 11px 70px;}
+.wrap{max-width:1600px;margin:0 auto;padding:18px 5px 70px;}
 h1{font-size:21px;font-weight:700;margin:0 0 4px;}
 .lead{font-size:13px;color:#b7c6d3;margin:0 0 14px;line-height:1.5;}
 .controls{display:flex;gap:10px;align-items:center;margin:12px 0 20px;flex-wrap:wrap;}
@@ -53,6 +53,20 @@ body:not(.author) .authbox{display:none;}
 .acsave textarea{flex-basis:100%;height:150px;font:11.5px/1.4 Consolas,monospace;color:#e8eef4;background:#0a2438;
   border:1px solid #2a6a8f;border-radius:4px;}
 .acsave:not(.showtext) textarea{display:none;}
+/* Scenes (author mode): the scene menu with ◀ ▶, its number, Save / Delete and the Notes toggle in a row, the
+   notes under them; the title's checkbox collapses the group to a bar (as the comparison box) */
+body:not(.author) .scenebox{display:none;}
+.scenebox{margin:0 0 10px;}
+.scenebox:not(.on){padding-top:0;padding-bottom:0;}
+.scenebox:not(.on) > :not(legend){display:none;}
+.scrow{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+#scList{min-width:220px;max-width:420px;font:inherit;font-size:13px;color:#e8eef4;background:#0a2438;border:1px solid #2a6a8f;
+  border-radius:5px;padding:4px 6px;}
+#scNum{width:64px;}
+.scenebox .btn.armed{background:#8a2a2f;border-color:#d9363e;}   /* asking for the second click (armed) */
+#scNotes{flex-basis:100%;min-height:110px;font:13px/1.45 Arial,sans-serif;color:#e8eef4;background:#0a2438;
+  border:1px solid #2a6a8f;border-radius:5px;padding:6px 8px;resize:vertical;}
+.scenebox:not(.notes) #scNotes{display:none;}
 .acin{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:#cdd9e3;}
 .acin input[type=number]{width:56px;font:inherit;color:#e8eef4;background:#0a2438;border:1px solid #2a6a8f;border-radius:4px;padding:2px 4px;}
 .acin input[type=color]{width:34px;height:22px;padding:0;border:1px solid #2a6a8f;border-radius:4px;background:#0a2438;cursor:pointer;}
@@ -93,8 +107,9 @@ body:not(.author) .authbox{display:none;}
 /* each value is a box sized to its content; "Show arrows" adds an SVG overlay (drawArrows) linking
    each box to the values it is computed from. Boxes sit vertically centred in their row, so the arrows along a
    row, which run between box centres, stay level whatever each box's height. */
-.grid-wrap .vcell{position:relative;justify-self:center;align-self:center;margin:25px 3px 7px;padding:5px calc(4px + .5ch);   /* sides: + half a digit each */
-  border:1px solid rgba(143,214,242,.132);border-radius:6px;}
+.grid-wrap .vcell{position:relative;justify-self:center;align-self:center;margin:25px 3px 7px;padding:6px calc(5px + .5ch);   /* sides: + half a digit each */
+  border:0;border-radius:6px;   /* the outline: the graphs' (Author controls), drawn inside; the padding has the 1 px a border had */
+  box-shadow:inset 0 0 0 var(--g-line-w, .5px) var(--g-line-col, #ffffff);}
 /* a box's caption (data-cap: "by 2036", "at 2036", "2026 to 2036"), centred just above it in its top margin, which
    is 25 px for this (18 more than the bottom's; graphs and growth notes are offset to match, so centres stay level) */
 .grid-wrap .vcell[data-cap]::before{content:attr(data-cap);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
@@ -113,6 +128,9 @@ body:not(.author) .authbox{display:none;}
 .gplot polyline, .gplot line{fill:none;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round;
   vector-effect:non-scaling-stroke;}   /* the plot stretches sideways (stretchGraphs); the lines keep their width */
 .gplot .ga{stroke-dasharray:3 3;opacity:.6;}      /* B, the comparison */
+/* the area under a running total's curve (A's, and B's while it is drawn): 90% see-through, each on its own, so
+   where they overlap the two stack (81% see-through there) */
+.gplot .garea{stroke:none;fill-opacity:.1;}
 .gplot .gsoft{opacity:.5;}   /* the x-risk line when it shares the survival line's colour (riskOverlay) */
 .gplot .ga.gsoft{opacity:.3;}
 /* the growth note over the plot, top left: on a patch of the page's colour so a line under it can't blur it */
@@ -120,13 +138,24 @@ body:not(.author) .authbox{display:none;}
   font-size:10.5px;line-height:1.2;font-style:italic;color:#8496a4;white-space:nowrap;pointer-events:none;}
 /* only the boxes the reader can edit (.xedit) get the darker fill; computed values are outlined only */
 .grid-wrap .vcell.xedit{background:rgba(4,20,34,.55);}   /* the editable boxes: a clearly darker fill */
+/* the population potential set in an annual population box (potInBoxes): its label, then its value on the editable
+   boxes' fill, over the box's own value */
+.vpotw{display:flex;flex-direction:column;align-items:center;margin-bottom:6px;}
+.vpotlab{font-size:11px;line-height:1.3;font-style:italic;color:#8496a4;margin-bottom:2px;}
+.grid-wrap .vpot.xedit{display:flex;flex-direction:column;align-items:center;padding:2px 5px;border-radius:5px;background:rgba(4,20,34,.55);}
+.grid-wrap .vpot.xedit.sel{outline-offset:0;}
 /* captions under the number (vsub) wrap to the number's width instead of widening the box: inline-size containment
    makes them contribute no width of their own, and stretch fills whatever the number sets */
 .grid-wrap .vcell > .vsub{contain:inline-size;align-self:stretch;}
 .grid-wrap .xedit:not(.sel):hover{background:rgba(255,255,255,.07);}
 svg.arrows{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:2;}
-svg.arrows path.e{fill:none;stroke:#7fb0cc;stroke-width:1.3;opacity:.75;}
-svg.arrows marker path{fill:#7fb0cc;opacity:.9;}
+svg.arrows path.e{fill:none;stroke:#a3acb4;stroke-width:1.3;opacity:.75;}   /* grey: apart from survival's blue */
+svg.arrows path.e.hl{stroke-width:2.6;}   /* the hovered box's arrows, in and out (markArrows) */
+/* graphs and arrows both on: room over the graphs for the arrows from one checkpoint to the next, which run over their tops (the same
+   added to the boxes, so the two stay level) */
+body.garrows .grid-wrap .vcell{margin-top:37px;}
+body.garrows .grid-wrap .gcell{margin-top:16px;}
+svg.arrows marker path{fill:#a3acb4;opacity:.9;}
 /* arrows leaving a box where a change starts (an input that differs from the baseline): the delta's green / red (arrowTones) */
 svg.arrows path.e.good{stroke:#7fd18f;opacity:.9;}
 svg.arrows path.e.bad{stroke:#ee4d4d;opacity:.9;}
@@ -161,6 +190,11 @@ body.dragging, body.dragging *{cursor:grabbing !important;user-select:none !impo
   max-width:calc(var(--labw) + (var(--ncols1,7) + var(--k1,1)) * max(var(--halfcol), var(--halfmin,0px)));
   min-width:calc(var(--labw) + (var(--ncols1,7) + var(--k1,1)) * var(--halfmin,0px));
   border-bottom:var(--row-line-w, 2px) solid var(--row-line-col, rgba(255,255,255,.4));}   /* the line between variables (Author controls) */
+/* Packed (fitColumns, once the cells are measured; the half-columns above are only the first layout): one track per
+   column of cells (--gtpl, their widths), the row exactly as wide as they are (--gsum); each cell one track wide,
+   at its natural width, from the track's start and shifted onto its column's centre (left, set per cell) */
+.grid-wrap.packed .grow{grid-template-columns:var(--labw) var(--gtpl);width:calc(var(--labw) + var(--gsum));max-width:none;min-width:0;}
+.grid-wrap.packed .grow > :not(.rlabel){grid-column-end:span 1 !important;justify-self:start;width:max-content;position:relative;}
 /* horizon slider: compact, dark-themed, five stops (100 / 1 000 / 10 000 / 100 000 / 1 000 000 years) */
 .scalectl{display:flex;align-items:center;gap:10px;}
 /* table zoom: − / the percentage (a click: back to 100%) / + */
@@ -354,6 +388,11 @@ body.names .scnames{display:flex;}
 body:not(.nospin) .vstack:has(> .arsp:first-child){padding-bottom:13px;}
 .dig.digsel .dch{color:#ffd27f !important;}
 .dig.digsel .ar{color:#e8b96a;}
+/* ▲ / ▼ in the delta's colours: green the way that makes the value better, red the way that makes it worse (data-good:
+   which way is better). The same on all three lines: raising B, or B − A, is the same move. Hover: gold */
+.xedit[data-good="more_good"] .ar.up, .xedit[data-good="more_bad"] .ar.dn{color:#7fd18f;}
+.xedit[data-good="more_bad"] .ar.up, .xedit[data-good="more_good"] .ar.dn{color:#ee4d4d;}
+.xedit[data-good] .ar:hover{color:#ffd27f;}
 .xedit{cursor:pointer;border-radius:6px;}
 .xedit:not(.sel):hover{background:rgba(255,255,255,.045);}
 .xedit.sel{outline:2px solid rgba(255,210,127,.55);outline-offset:-2px;}   /* the gold outline only: the fill stays the editable boxes' own */
@@ -380,16 +419,34 @@ body:not(.nospin) .vstack:has(> .arsp:first-child){padding-bottom:13px;}
   <fieldset class="controls ctlbox authbox">
     <legend>Author controls</legend>
     <label class="acin">Graph background <input id="acGbg" type="color" value="#0b3552"></label>
-    <label class="acin">Graph outline colour <input id="acGcol" type="color" value="#ffffff"></label>
-    <label class="acin">Graph outline <input id="acGw" type="number" min="0" max="6" step="0.5" value="0.5"> px</label>
+    <label class="acin" title="The outline of the graphs and the value boxes">Box outline colour <input id="acGcol" type="color" value="#ffffff"></label>
+    <label class="acin" title="The outline of the graphs and the value boxes">Box outline <input id="acGw" type="number" min="0" max="6" step="0.5" value="0.5"> px</label>
     <label class="acin">Lines between variables <input id="acRw" type="number" min="0" max="8" step="0.5" value="2"> px</label>
     <!-- the swatch starts at what the default line (white at 40%) looks like over the page's colour -->
     <label class="acin">Line colour <input id="acRcol" type="color" value="#6d8697"></label>
+    <label class="acin" title="Set the population potential in the annual population's boxes, over its value; its own row keeps only its graphs and growth rates. Unticked: in its own row"><input id="acPotIn" type="checkbox" autocomplete="off">Population potential in the population boxes</label>
     <div class="acsave">
       <button id="acSave" type="button" class="btn" title="Save these controls, and the page as it is now as what readers first see, to xriskb_settings.js. Shift-click: pick the file again">Save settings</button>
       <span id="acSaved" class="khint"></span>
       <textarea id="acText" readonly spellcheck="false" aria-label="The settings file's text"></textarea>
     </div>
+  </fieldset>
+  <!-- Scenes (author mode): numbered saved states of the whole page, Author controls aside, for presenting it scene
+       by scene, each with its notes. Kept by app_xriskb/author.R outside the project (see "scenes" in the script).
+       The checkbox in the title collapses the group. -->
+  <fieldset class="controls ctlbox scenebox on notes">
+    <legend><label class="lgchk"><input id="showscenes" type="checkbox" checked autocomplete="off"><span>Scenes</span></label></legend>
+    <div class="scrow">
+      <button id="scPrev" type="button" class="btn zbtn" title="Previous scene (Page Up)" aria-label="Previous scene">&#9664;</button>
+      <select id="scList" aria-label="Scene"></select>
+      <button id="scNext" type="button" class="btn zbtn" title="Next scene (Page Down)" aria-label="Next scene">&#9654;</button>
+      <label class="acin">Number <input id="scNum" type="number" step="any" autocomplete="off"></label>
+      <button id="scSave" type="button" class="btn" title="Save the page as it is now (values, comparison, views, menus; not Author controls) as the scene with this number">Save scene</button>
+      <button id="scDel" type="button" class="btn" title="Delete the chosen scene">Delete</button>
+      <label class="vbtn c-plain"><input id="scShowNotes" type="checkbox" checked autocomplete="off"><span>Notes</span></label>
+      <span id="scStatus" class="khint"></span>
+    </div>
+    <textarea id="scNotes" spellcheck="false" placeholder="Notes for this scene (saved with it)" aria-label="Scene notes"></textarea>
   </fieldset>
   <div class="controls">
     <button id="undoBtn" type="button" class="btn" title="Undo (Ctrl+Z)" disabled>&#8630;&nbsp;Undo</button>
@@ -440,9 +497,9 @@ body:not(.nospin) .vstack:has(> .arsp:first-child){padding-bottom:13px;}
       <label class="vbtn c-rate" title="Annual extinction probability"><input type="checkbox" value="rate" checked autocomplete="off"><span>Extinction probability</span></label>
       <label class="vbtn c-surv" title="Cumulative survival probability"><input type="checkbox" value="surv" checked autocomplete="off"><span>Survival probability</span></label>
       <label class="vbtn c-surv" title="Cumulative years or generations, survived or lost"><input type="checkbox" value="years" checked autocomplete="off"><span>Years</span></label>
-      <label class="vbtn c-pop" title="Annual population potential"><input type="checkbox" value="pop" checked autocomplete="off"><span>Population potential</span></label>
       <label class="vbtn c-pop" title="Annual population"><input type="checkbox" value="popexp" checked autocomplete="off"><span>Population</span></label>
       <label class="vbtn c-pop" title="Cumulative lives or life-years, lived or lost"><input type="checkbox" value="lives" checked autocomplete="off"><span>Lives</span></label>
+      <label class="vbtn c-pop" title="Annual population potential"><input type="checkbox" value="pop" checked autocomplete="off"><span>Population potential</span></label>
     </div>
     <span class="vall"><a href="#" data-vars="all">All</a> · <a href="#" data-vars="none">None</a></span>
   </fieldset>
@@ -454,8 +511,8 @@ body:not(.nospin) .vstack:has(> .arsp:first-child){padding-bottom:13px;}
     <div class="checkbox cmpopt"><label><input id="showref" type="checkbox" checked autocomplete="off"><span>Show B</span></label></div>
     <div class="checkbox cmpopt"><label><input id="shownames" type="checkbox" autocomplete="off"><span>Name the scenarios</span></label></div>
   </fieldset>
-  <!-- Show elements: parts of the table that can be switched off, toggle buttons as in Show variables. Arrows are
-       disabled while graphs are shown (applyShowToggles); the ▲/▼ buttons start off (keys and wheel still edit). -->
+  <!-- Show elements: parts of the table that can be switched off, toggle buttons as in Show variables. With graphs,
+       the arrows go round them (drawArrows); the ▲/▼ buttons start off (keys and wheel still edit). -->
   <fieldset class="controls ctlbox elbox">
     <legend>Show elements</legend>
     <div class="vbtns">
@@ -489,26 +546,25 @@ window.XRISKB_SETTINGS = {
     "--g-bg": "#1e2933",
     "--g-line-col": "#000000",
     "--row-line-w": "1px",
-    "--row-line-col": "#030303"
+    "--row-line-col": "#030303",
+    "potInPop": true
   },
   "view": {
     "horizon": 2,
     "first": 1,
-    "zoom": 1,
-    "boxText": 1,
-    "namesWidth": 303,
+    "zoom": 0.769,
+    "boxText": 1.4,
+    "namesWidth": 298,
     "variables": [
       "rate",
       "surv",
-      "years",
-      "pop",
       "popexp",
       "lives"
     ],
     "show": {
       "graphs": true,
       "arrows": true,
-      "spin": false,
+      "spin": true,
       "formulas": true,
       "change": true,
       "b": true,
@@ -518,10 +574,11 @@ window.XRISKB_SETTINGS = {
     "comparePrevious": false,
     "excludePopulation": true,
     "graphScale": {
-      "surv": "per",
+      "surv": "all",
       "years": "potall",
       "popexp": "pot",
-      "lives": "potall"
+      "lives": "potall",
+      "pop": "all"
     },
     "views": {
       "rateComp": true,
@@ -531,7 +588,9 @@ window.XRISKB_SETTINGS = {
       "livesLy": false,
       "livesLoss": false
     },
-    "relative": {}
+    "relative": {
+      "rate": true
+    }
   }
 };
 </script>
@@ -555,7 +614,9 @@ var ALL_RATES = [0.0005, 0.0005, 0.0001, 0.00005, 0.00001, 0.00001];
 var COL_RATE = '#e8836f', COL_SURV = '#4fb8d6', COL_POP = '#e46ba6';
 var GOOD = '#7fd18f', BAD = '#ee4d4d', ZERO = '#8a97a3';
 var FAINT = 'rgba(138,151,163,.32)';   // padding zeros (see buildSlots); app_xrisk greys them as ZERO
-var ROWS = ['rate', 'surv', 'years', 'pop', 'popexp', 'lives'];   // display order (generations: a view of years; life-years: of lives)
+// display order (generations: a view of years; life-years: of lives). The population potential is at the bottom, so
+// its arrow into the annual population (two rows up, past the lives) points up (drawArrows)
+var ROWS = ['rate', 'surv', 'years', 'popexp', 'lives', 'pop'];
 
 // Checkpoints are START plus every power of ten from 10^f, the first after the present (f = 1 unless given), up to
 // the horizon 10^e (2026, 2036, 2126, 3026, ...); the periods between them are 10, 90, 900, ... years long. With a
@@ -780,6 +841,15 @@ function sideCol(on){
 // o: col, cur, ref, kind, vi, toDisp, decimals, suffix, good, sub, color, pad, head, top, oddsSide, delta, base, topBase,
 //    dmode, row, node
 function gcellEdit(o){
+  return vcellHtml(o.col, editInner(o), 'vcell xedit', nodeAttr(o.node) + editAttrs(o) + capAttr(o.cap));
+}
+// what the editing finds an editable value by: its kind and index (see "editing"); on the page's own cells (o.dmode)
+// also which way is better (data-good: the ▲ / ▼ colours, CSS)
+function editAttrs(o){
+  return ' data-kind="' + o.kind + '" data-i="' + (o.vi - 1) + '"' + (o.dmode ? ' data-good="' + o.good + '"' : '');
+}
+// gcellEdit's contents: a box of its own, or (the population potential with potInBoxes) a part of another box
+function editInner(o){
   var delta = o.delta !== false;                   // delta: false hides the delta row ("Show change" unticked)
   var oddsSide = o.top != null && !!(o.base || o.oddsSide);
   var x = sideCol(oddsSide || (delta && !!o.dmode));
@@ -790,16 +860,15 @@ function gcellEdit(o){
               side(o.dmode ? dtogHtml(o.row, o.dmode === 'rel', o.suffix === '%') : '', ' vx-d');
   var cmp = !o.base ? '' : '<div class="vbase digits"' + sty(o.color) + '>' + vlab(true, vkey(true, o.color) + 'B:') +
               buildSlots(o.ref, o.toDisp, o.decimals, o.suffix, {pad: o.pad}) + '</div>' + side(oddsSide ? o.topBase : '', ' vx-b');
-  return vcellHtml(o.col,
-    (o.head != null ? o.head : '') +               // e.g. the x-risk box's "Exclude from comparison"
+  return (o.head != null ? o.head : '') +          // e.g. the x-risk box's "Exclude from comparison"
     (o.top != null && !oddsSide ? '<div class="vtop">' + o.top + '</div>' : '') +
     '<div class="' + (x ? 'vstack vside' : 'vstack') + '">' + val + chg + cmp + '</div>' +
-    (o.sub != null ? '<div class="vsub">' + o.sub + '</div>' : ''),
-    'vcell xedit', nodeAttr(o.node) + ' data-kind="' + o.kind + '" data-i="' + (o.vi - 1) + '"' + capAttr(o.cap));
+    (o.sub != null ? '<div class="vsub">' + o.sub + '</div>' : '');
 }
 // read-only value cell: value + a digit-aligned delta (delta: false for the first checkpoint), and with o.base
-// the baseline (read-only here too), in gcellEdit's order.
-// o: col, cur, ref, toDisp, decimals, suffix, kind, sub, color, delta, base, dmode, row, node
+// the baseline (read-only here too), in gcellEdit's order. o.pre: markup over the value (the annual population's
+// box: the population potential's, potInBoxes).
+// o: col, cur, ref, toDisp, decimals, suffix, kind, sub, color, delta, base, dmode, row, node, pre
 function gcellRo(o){
   var delta = o.delta !== false;
   var pad = fmtF(Math.abs(o.cur) * o.toDisp, o.decimals).split('.')[0].length;   // value's integer-digit width
@@ -813,7 +882,7 @@ function gcellRo(o){
   var cmp = !o.base ? '' : '<div class="vbase digits"' + sty(o.color) + '>' + vlab(true, vkey(true, o.color) + 'B:') +
               buildSlots(o.ref, o.toDisp, o.decimals, o.suffix, {pad: pad, editable: false}) + '</div>' + side('', ' vx-b');
   return vcellHtml(o.col,
-    '<div class="' + (x ? 'vstack vside' : 'vstack') + '">' + val + chg + cmp + '</div>' +
+    (o.pre || '') + '<div class="' + (x ? 'vstack vside' : 'vstack') + '">' + val + chg + cmp + '</div>' +
     (o.sub != null ? '<div class="vsub">' + o.sub + '</div>' : ''),
     'vcell', nodeAttr(o.node) + capAttr(o.cap));
 }
@@ -852,7 +921,7 @@ function metricGrow(label, color, cells, cls, row, formula, toggle){
 // is GRAPH_W x GRAPH_H px, all of it plot (its outline included: the lines draw over it), then stretched sideways
 // (stretchGraphs). A period of up to GRAPH_STEP years is drawn in yearly steps, not a smooth curve: each year's
 // value is reached at the year's start and held through it, so a running total visibly adds up year by year.
-// While the graphs are shown the dependency arrows are not drawn.
+// With the arrows on too, the arrows go round the graphs (drawArrows).
 var GRAPH_W = 120, GRAPH_H = 116, GRAPH_K = 60;   // box = plot size (px), and samples per period
 var GRAPH_STEP = 101;                             // periods this long or shorter: sampled every year, drawn as steps
 function sameSeries(a, b){
@@ -865,7 +934,8 @@ function sameSeries(a, b){
 // row's own, for the x-risk in the survival row), tipMore(i) (tooltip text after the values), lo / hi (fixed
 // ends of the vertical scale; an end left out is the data's own), hiAt(i) (period i's own fixed top, instead of
 // hi), perPeriod (each period on its own scale: its own data's range, or hiAt's), extra(i) (more values period i's
-// scale must hold, or, on one scale, every period's: an overlay drawn on the row's own scale). overlay gets
+// scale must hold, or, on one scale, every period's: an overlay drawn on the row's own scale), area (shade under
+// the curves, A's and B's: the running totals). overlay gets
 // box.yOf, the period's scale, for that.
 function graphCells(row, val, cur, ref, withB, gcol, o){
   var top = 0, bot = GRAPH_H, left = 0, right = GRAPH_W;   // the plot fills the box, outline included
@@ -892,14 +962,21 @@ function graphCells(row, val, cur, ref, withB, gcol, o){
   return cur.track.map(function(t, i){
     var sc = shared || scaleOf([i]);
     function yOf(v){ return bot - (v - sc.lo) / (sc.hi - sc.lo) * (bot - top); }
-    function line(t, s, color, dashed){
+    function points(t, s){                          // the curve's points, left to right
       var y0 = t.yr[0], span = t.yr[t.yr.length - 1] - y0;
       function xy(k, v){ return (left + (t.yr[k] - y0) / span * (right - left)).toFixed(1) + ',' + yOf(v).toFixed(1); }
       var pts = [];
       if(span <= GRAPH_STEP)                        // steps: up to year k's value at year k - 1's end, then along
         s.forEach(function(v, k){ if(k) pts.push(xy(k - 1, v)); pts.push(xy(k, v)); });
       else pts = s.map(function(v, k){ return xy(k, v); });
-      return '<polyline points="' + pts.join(' ') + '" stroke="' + color + '"' + (dashed ? ' class="ga"' : '') + '/>';
+      return pts;
+    }
+    function line(t, s, color, dashed){
+      return '<polyline points="' + points(t, s).join(' ') + '" stroke="' + color + '"' + (dashed ? ' class="ga"' : '') + '/>';
+    }
+    function area(t, s, color){                     // o.area: the area under a curve, down to the plot's foot (CSS: faint)
+      return '<polygon class="garea" points="' + left + ',' + bot + ' ' + points(t, s).join(' ') + ' ' + right + ',' + bot +
+             '" fill="' + color + '"/>';
     }
     var box = {left: left, right: right, top: top, bot: bot, yOf: yOf};
     var sa = sA[i], y1 = t.yr[t.yr.length - 1];
@@ -908,6 +985,7 @@ function graphCells(row, val, cur, ref, withB, gcol, o){
     return '<div class="gcell" style="grid-column:' + gcol(i + 1) + '/span 2;" data-gnode="' + row + ':' + (i + 1) + '" title="' + tip + '">' +
       (o.notes ? '<div class="gnote">' + o.notes[i] + '</div>' : '') +
       '<svg class="gplot" width="' + GRAPH_W + '" height="' + GRAPH_H + '" viewBox="0 0 ' + GRAPH_W + ' ' + GRAPH_H + '" preserveAspectRatio="none" aria-hidden="true">' +
+        (o.area ? (sB ? area(ref.track[i], sB[i], o.color) : '') + area(t, sa, o.color) : '') +   // B's too: where they overlap, both
         (o.overlay ? o.overlay(i, box) : '') + (sB ? line(ref.track[i], sB[i], o.color, true) : '') + line(t, sa, o.color) +
       '</svg></div>';
   }).join('');
@@ -1035,6 +1113,9 @@ function visibleRows(){
   var on = varBoxes().filter(function(x){ return x.checked; }).map(function(x){ return x.value; });
   return ROWS.filter(function(r){ return on.indexOf(r) >= 0; });
 }
+// The population potential set in the annual population's boxes, over the value (potInPop, Author controls), not
+// in a row of its own: its row then keeps only its graphs and growth rates. Only while annual population is shown.
+function potInBoxes(){ return potInPop && visibleRows().indexOf('popexp') >= 0; }
 function range1(n){ var a = []; for(var k = 1; k <= n; k++) a.push(k); return a; }
 
 // The table. j = checkpoint and i = period, both 1-based as in the R version; arrays are 0-based.
@@ -1043,6 +1124,7 @@ function panelHtml(cur, ref){
   var cmp = showsCmp(), sd = showsChange(), sr = showsBase();   // the comparison's lines: change (delta), scenario (B)
   var J = range1(n), I = range1(np), elapsed = [0];
   for(var k = 0; k < np; k++) elapsed.push(elapsed[k] + m.segLen[k]);
+  var potIn = potInBoxes(), popShown = visibleRows().indexOf('pop') >= 0;
   function ycol(j){ return 2 * j; }                       // grid start for year j
   function gcol(i){ return 2 * i + 1; }                   // grid start for gap i (between years i and i+1)
   function dm(r){ return relRows[r] ? 'rel' : 'abs'; }    // the row's delta mode (its switch, deltaRow)
@@ -1057,9 +1139,9 @@ function panelHtml(cur, ref){
   function fGens(x){ return fmtF(x, 4, true); }
   // The graphs' vertical scales, chosen per row in its "Graph scale" menu (graphScale, GSCALE_OPTS): the survival
   // row min/max over all periods, min/max per period, or 0–100%; the years and lives rows 0 to the potential,
-  // over all periods (at the horizon) or per period (at each period's end); annual population min/max over all
-  // periods, or the potential scale: 0 to the next power of ten above the largest population potential, which
-  // the population potential row always uses.
+  // over all periods (at the horizon) or per period (at each period's end); the population potential 0 to its
+  // largest value over all periods, or over each period (potMax); annual population min/max over all periods, or
+  // the potential scale: the population potential row's scale, whichever it is.
   function gscale(row){
     if(!gOn) return '';
     var now = GSCALE_OPTS[row].filter(function(op){ return op[0] === graphScale[row]; })[0];
@@ -1069,7 +1151,23 @@ function panelHtml(cur, ref){
     }).join('') + '</select></span></label>';
   }
   function potAt(a, b, j){ return Math.max(a[j], b[j]); }   // a potential at checkpoint index j, A or B the larger
-  var popTop = nextPow10(Math.max.apply(null, cur.popPot.concat(ref.popPot)));
+  function potMax(i){                               // the population potential's largest over period i: A's, and B's while compared
+    var m = Math.max.apply(null, cur.track[i].popPot);
+    return cmp ? Math.max(m, Math.max.apply(null, ref.track[i].popPot)) : m;
+  }
+  function potScale(){ return {lo: 0, perPeriod: graphScale.pop === 'per', hiAt: potMax}; }   // its Scale menu's choice
+  // the population potential's value at checkpoint j, editable: its own box, or (potIn) its part of the annual
+  // population's box, under "population potential" (potSet)
+  function potOpts(j, more){
+    return Object.assign({cur: cur.popPot[j - 1], ref: ref.popPot[j - 1], kind: 'pop', vi: j, toDisp: 1 / 1e6,
+      decimals: 0, suffix: 'm', pad: 5, good: 'more_good', color: COL_POP, delta: sd && !popExcluded, base: sr && !popExcluded,
+      dmode: dm('pop'), row: 'pop'}, more);
+  }
+  function potSet(j){
+    var o = potOpts(j);
+    return '<div class="vpotw"><div class="vpotlab">population potential</div>' +
+           '<div class="vpot xedit"' + editAttrs(o) + '>' + editInner(o) + '</div></div>';
+  }
 
   // the header: each checkpoint's year, and between two of them the period's length ("← 10 years →")
   var header = '<div class="grow ghead"><div class="rlabel">' + COLGRIP + '</div>' + J.map(function(j){
@@ -1120,15 +1218,17 @@ function panelHtml(cur, ref){
           suffix: '%', pad: 2, good: sc ? 'more_bad' : 'more_good', color: survCol, delta: sd, base: sr, dmode: dm('surv'), row: 'surv', node: 'surv:' + j, cap: by(j),
           // the odds of cumulative extinction, "1 in X", in either view (as the x-risk row's), placed and typed into as those
           top: oddsHtml('cur', 1 - cur.surv[j - 1], 'ratio'), oddsSide: cmp, topBase: oddsHtml('base', 1 - ref.surv[j - 1], 'ratio vref')});
-      }).join('') +
+      }).join('');
+      var rateShown = visibleRows().indexOf('rate') >= 0;   // the x-risk row hidden: its line is left out of these graphs too
+      cells +=
         graphs('surv', survCol, sc ? 'Cumulative extinction probability' : 'Cumulative survival probability', fPct,
           function(t, k){ return sc ? 1 - t.surv[k] : t.surv[k]; },
-          {lo: graphScale.surv === 'full' ? 0 : null, hi: graphScale.surv === 'full' ? 1 : null, perPeriod: graphScale.surv === 'per',
+          {lo: graphScale.surv === 'full' ? 0 : null, hi: graphScale.surv === 'full' ? 1 : null, perPeriod: graphScale.surv === 'per', area: true,
            // the x-risk, joined to its survival: on the same scale when
-           overlay: riskOverlay(cur, ref, cmp, rc, rc !== sc, rateCol),   // both rows show survival, or both extinction
-           extra: rc !== sc ? riskValues(cur, ref, cmp, rc) : null,
-           tipMore: function(i){ var r = cur.rates[i];
-             return '; annual ' + (rc ? 'survival' : 'extinction') + ' probability ' + fPct(rc ? 1 - r : r); }});
+           overlay: rateShown ? riskOverlay(cur, ref, cmp, rc, rc !== sc, rateCol) : null,   // both rows show survival, or both extinction
+           extra: rateShown && rc !== sc ? riskValues(cur, ref, cmp, rc) : null,
+           tipMore: rateShown ? function(i){ var r = cur.rates[i];
+             return '; annual ' + (rc ? 'survival' : 'extinction') + ' probability ' + fPct(rc ? 1 - r : r); } : null});
       return metricGrow('Cumulative<br>' + seg('surv_comp', sc, 'survival', 'extinction', COL_SURV, COL_RATE, true) + '<br>probability' +
           "<br><span class='ital'>given past " + (rc ? 'survival' : 'extinction') + ' probabilities</span>', survCol, cells,
           'erow', 'surv',
@@ -1151,7 +1251,7 @@ function panelHtml(cur, ref){
       }).join('') +
         graphs('years', col, 'Cumulative ' + (lost ? 'lost ' : 'survived ') + (gen ? 'generations' : 'years'), gen ? fGens : fYears,
           function(t, k){ return (lost ? t.yr[k] - START - t.cumYears[k] : t.cumYears[k]) / per; },
-          {lo: 0, perPeriod: graphScale.years === 'potper',
+          {lo: 0, perPeriod: graphScale.years === 'potper', area: true,
            hiAt: function(i){ return elapsed[graphScale.years === 'potper' ? i + 1 : n - 1] / per; }});
       var name = 'Cumulative<br>' + seg('years_comp', lost, 'survived', 'lost', COL_SURV, COL_RATE, true) + '<br>' +
                  seg('years_gens', gen, 'years', 'generations', col, col) +   // a unit switch: the row's colour
@@ -1160,34 +1260,34 @@ function panelHtml(cur, ref){
       return metricGrow(name, col, cells, '', 'years', lhs + ' = ' + SUM + ' ' + (lost ? lostv('i') : csv('i')) + (gen ? ' / 75' : ''),
                         gscale('years'));
     },
-    pop: function(){                                    // editable checkpoints; growth rate in the gaps
-      var cells = J.map(function(j){
-        return gcellEdit({col: ycol(j), cur: cur.popPot[j - 1], ref: ref.popPot[j - 1], kind: 'pop', vi: j, toDisp: 1 / 1e6,
-          decimals: 0, suffix: 'm', pad: 5, good: 'more_good', color: COL_POP, delta: sd && !popExcluded, base: sr && !popExcluded,
-          dmode: dm('pop'), row: 'pop', node: 'pop:' + j, cap: at(j)});
-      }).join('');
+    pop: function(){                                    // editable checkpoints (unless potIn); growth rate in the gaps
+      var cells = potIn ? '' : J.map(function(j){ return gcellEdit(potOpts(j, {col: ycol(j), node: 'pop:' + j, cap: at(j)})); }).join('');
       var notes = I.map(function(i){ var g = cur.growth[i] * 100; return (g >= 0 ? '+' : '') + fmtF(g, PCT_DEC - 1) + '%/yr'; });
       var growth = gOn   // the growth rates: inside the graphs, or on their own in the gaps
         ? graphs('pop', COL_POP, 'Annual population potential', fInt, function(t, k){ return t.popPot[k]; },
-            {notes: notes, lo: 0, hi: popTop})
+            Object.assign({notes: notes}, potScale()))
         : I.map(function(i){
             return '<div class="vgrowth" style="grid-column:' + gcol(i) + '/span 2;">' + notes[i - 1] + '</div>';
           }).join('');
       return metricGrow("Annual population potential<br><span class='ital'>if survived</span>", COL_POP, cells + growth,
                         'erow', 'pop', mv('pp<sub>t</sub>', COL_POP),
-                        cmp ? exclBox(' data-excl="pop"', popExcluded, ' xchk-row') : '');
+                        (cmp ? exclBox(' data-excl="pop"', popExcluded, ' xchk-row') : '') + gscale('pop'));
     },
     popexp: function(){
+      // potIn: the potential's setter over the value, which then needs no "of … potential" under it
       var cells = J.map(function(j){
         if(j === 1) return gcellRo({col: ycol(1), cur: cur.popExp[0], ref: cur.popExp[0], toDisp: 1, decimals: 0, suffix: '',
-                                    delta: false, color: COL_POP, node: 'popexp:1', cap: at(1)});
+                                    delta: false, color: COL_POP, node: 'popexp:1', cap: at(1), pre: potIn ? potSet(1) : null});
         return gcellRo({col: ycol(j), cur: cur.popExp[j - 1], ref: ref.popExp[j - 1], toDisp: 1, decimals: 0, suffix: '',
-          sub: 'of ' + fInt(cur.popPot[j - 1]) + ' potential', color: COL_POP, delta: sd, base: sr, dmode: dm('popexp'), row: 'popexp', node: 'popexp:' + j, cap: at(j)});
+          sub: potIn ? null : 'of ' + fInt(cur.popPot[j - 1]) + ' potential', pre: potIn ? potSet(j) : null,
+          color: COL_POP, delta: sd, base: sr, dmode: dm('popexp'), row: 'popexp', node: 'popexp:' + j, cap: at(j)});
       }).join('') +
         graphs('popexp', COL_POP, 'Annual population', fInt, function(t, k){ return t.popExp[k]; },
-          graphScale.popexp === 'pot' ? {lo: 0, hi: popTop} : {});
+          graphScale.popexp === 'pot' ? potScale() : {});
       return metricGrow("Annual population<br><span class='ital'>given survival probability</span>", COL_POP, cells, '', 'popexp',
-                        mv('ap<sub>t</sub>', COL_POP) + ' = ' + mv('pp<sub>t</sub>', COL_POP) + ' &middot; ' + csv('t'), gscale('popexp'));
+                        mv('ap<sub>t</sub>', COL_POP) + ' = ' + mv('pp<sub>t</sub>', COL_POP) + ' &middot; ' + csv('t'),
+                        // the potential's "Exclude from comparison" here while its own row, which has it, is hidden
+                        (potIn && cmp && !popShown ? exclBox(' data-excl="pop"', popExcluded, ' xchk-row') : '') + gscale('popexp'));
     },
     // cumulative lives, or (⇄, livesLy) the life-years they are counted from; and either lived or (the second ⇄,
     // livesLoss) lost: the potential's less the lived. One row (the Lives button). Lost is the extinction side:
@@ -1205,7 +1305,7 @@ function panelHtml(cur, ref){
       }).join('') +
         graphs('lives', col, 'Cumulative ' + (loss ? 'lost ' : '') + (ly ? 'life-years' : 'lives'), fInt,
           function(t, k){ return (loss ? t.cumLyPot[k] - t.cumLy[k] : t.cumLy[k]) / per; },
-          {lo: 0, perPeriod: graphScale.lives === 'potper',
+          {lo: 0, perPeriod: graphScale.lives === 'potper', area: true,
            hiAt: function(i){ return potAt(pot(cur), pot(ref), graphScale.lives === 'potper' ? i + 1 : n - 1); }});
       var name = 'Cumulative<br>' + seg('lives_loss', loss, 'lived', 'lost', COL_SURV, COL_RATE, true) + '<br>' +   // as survived / lost
                  seg('lives_ly', ly, 'lives', 'life-years', COL_POP, COL_POP) +          // a unit switch: lives' pink
@@ -1218,9 +1318,11 @@ function panelHtml(cur, ref){
   };
 
   var vis = visibleRows();
+  // potIn: no arrows from the potential's row (its value is in the annual population's box, which has its arrows)
+  var avis = potIn ? vis.filter(function(r){ return r !== 'pop'; }) : vis;
   // --halfcol: column pitch cap for this horizon (see the .grow CSS comment)
   return '<div class="grid-scroll"><div class="grid-wrap" style="--ncols1:' + (2 * n - 1) + ';--ncols2:' + (2 * n - 3) + ';--halfcol:' +
-         (Math.round(1.05 * (46 + 7 * n) * 10) / 10) + 'px;" data-edges="' + arrowEdges(vis, n) + '"><div class="zprobe"></div>' +   // zprobe: gridScale
+         (Math.round(1.05 * (46 + 7 * n) * 10) / 10) + 'px;" data-edges="' + arrowEdges(avis, n) + '"><div class="zprobe"></div>' +   // zprobe: gridScale
          header +
          vis.map(function(r){ return rows[r](); }).join('') +
          (vis.length ? '' : '<div class="novars">No variables selected — pick some from the Variables menu.</div>') +
@@ -1252,14 +1354,16 @@ var LEN = M.segLen.slice();                      // period lengths (years), for 
 var rateComp = false, survComp = false;          // per-row complement views (the ⇄ buttons)
 var yearsComp = false, yearsGens = false;        // ...lost instead of survived years; generations instead of years
 var livesLy = false, livesLoss = false;           // ...life-years instead of lives; lost instead of lived
+var potInPop = false;                             // the population potential set in the annual population's boxes (potInBoxes)
 // each graphed row's Graph scale (its menu; see panelHtml): the option ids, then the defaults
 var GSCALE_OPTS = {
   surv:   [['all', 'min/max, all periods'], ['per', 'min/max per period'], ['full', '0–100%']],
   years:  [['potall', '0/potential, all periods'], ['potper', '0/potential per period']],
   popexp: [['all', 'min/max, all periods'], ['pot', 'potential scale']],
-  lives:  [['potall', '0/potential, all periods'], ['potper', '0/potential per period']]
+  lives:  [['potall', '0/potential, all periods'], ['potper', '0/potential per period']],
+  pop:    [['all', '0/max, all periods'], ['per', '0/max, per period']]
 };
-var graphScale = {surv: 'full', years: 'potall', popexp: 'pot', lives: 'potall'};
+var graphScale = {surv: 'full', years: 'potall', popexp: 'pot', lives: 'potall', pop: 'all'};
 var relRows = {};                                // rows whose deltas show the change as a % of the baseline (the pp|% / Δ|% switches)
 function snap(){ return {rates: rates.slice(), pops: pops.slice()}; }
 var mode = 'current', refStatic = snap(), histPrev = snap(), histLast = snap();
@@ -1327,6 +1431,8 @@ function render(){
   var rs = refState(), cur = compute(rates, pops, M, K), ref = compute(rs.rates, rs.pops, M, K);
   // drawArrows (below, and on every resize) colours by this; no colours while the comparison is hidden
   arrowTone = showsCmp() ? arrowTones(rs, {rates: rates, pops: pops}, M.n) : {};   // B judged against A, as the change lines
+  if(potInBoxes()) for(var j = 1; j <= M.n; j++)   // the potential in the annual population's box: a change of it colours that box's arrows
+    if(arrowTone['pop:' + j]) arrowTone['popexp:' + j] = arrowTone['pop:' + j];
   var sc0 = document.querySelector('.grid-scroll'), scrollX = sc0 ? sc0.scrollLeft : 0;
   document.getElementById('panel').innerHTML = panelHtml(cur, ref);
   document.getElementById('summary').innerHTML = summaryHtml(cur);
@@ -1505,6 +1611,11 @@ function change(dir){                             // ▼ always lowers, ▲ alwa
 function typeDigit(d){
   var place = sel.place, v = editVal(), av = Math.abs(v), sign = v < 0 ? -1 : 1;
   if(pendingSign && pendingSign.key === selKey()){ sign = pendingSign.s; av = 0; }   // a zero change typed after + / −
+  // The number as shown: rounded at its last digit (−1.0000099… shows as −1.00001), so the digit typed over is the
+  // one on screen (else a 1 shown could read as a 0, and typing 0 over it would change nothing)
+  var cell = cellOf(sel), digs = cell ? digsOf(cell) : [];
+  var q = digs.length ? Math.min.apply(null, digs.map(digDelta)) : place;
+  if(q > 0 && q <= place) av = Math.round(av / q) * q;
   var cd = Math.floor(av / place + 1e-6) % 10;      // current digit at this place
   applyEdit(sign * (av + (d - cd) * place));
   moveDigit(1, false);                              // advance like a text field; stops at the last digit
@@ -1598,26 +1709,28 @@ document.addEventListener('click', function(e){
 // mouse wheel over a digit nudges that digit (up = raise, down = lower).
 // Accumulate delta and step per threshold so a touchpad gesture (many events +
 // inertia) doesn't run the digit away — ~one step per notch / firm swipe.
-// Only on a number clicked first, so scrolling the page past the table never edits it by accident: a click
-// on a number (one box's value, change or comparison line) arms the wheel for it, and it stays armed while
-// the pointer stays on that number. Anywhere else, or once the pointer has left it, the wheel scrolls.
-// Armed by identity (box and line), not element: every edit redraws the table.
+// Only in a box clicked first, so scrolling the page past the table never edits it by accident: a click anywhere in
+// an editable box arms the wheel for the whole box, and it stays armed while the pointer stays in the box. Then
+// the wheel over any of its digits (the value's, the change's, the comparison's) nudges that digit, and anywhere
+// else in the box it does nothing (so aiming between digits doesn't scroll the page away). Anywhere else, or once
+// the pointer has left the box, the wheel scrolls. Armed by identity (the box's kind and index), not element:
+// every edit redraws the table.
 var wheelArm = null;
-function numKey(el){                              // "kind:i:part" of the number el is in, or null
-  var cell = el.closest('.xedit'), row = el.closest('.digits');
-  return cell && row ? cell.getAttribute('data-kind') + ':' + cell.getAttribute('data-i') + ':' + partOf(row) : null;
+function boxKey(el){                              // "kind:i" of the editable box el is in, or null
+  var cell = el.closest && el.closest('.xedit');
+  return cell ? cell.getAttribute('data-kind') + ':' + cell.getAttribute('data-i') : null;
 }
-document.addEventListener('click', function(e){ wheelArm = e.target.closest ? numKey(e.target) : null; });
-document.addEventListener('pointerover', function(e){
-  if(wheelArm && !(e.target.closest && numKey(e.target) === wheelArm)) wheelArm = null;
-});
-var wheelAcc = 0;
+document.addEventListener('click', function(e){ wheelArm = boxKey(e.target); });
+document.addEventListener('pointerover', function(e){ if(wheelArm && boxKey(e.target) !== wheelArm) wheelArm = null; });
+var wheelAcc = 0, wheelDig = null;                // the turning so far, and the digit it is for
 document.addEventListener('wheel', function(e){
   if(e.ctrlKey || e.metaKey){ wheelAcc = 0; return; }   // Ctrl / ⌘ + wheel: the table zoom's
-  var dig = e.target.closest('.dig'); if(!dig){ wheelAcc = 0; return; }
-  var cell = dig.closest('.xedit'); if(!cell){ wheelAcc = 0; return; }
-  if(numKey(dig) !== wheelArm){ wheelAcc = 0; return; }   // not clicked first: let the page scroll
-  e.preventDefault();
+  if(!wheelArm || boxKey(e.target) !== wheelArm){ wheelAcc = 0; return; }   // not clicked first: let the page scroll
+  e.preventDefault();                             // in the armed box: never the page's
+  var dig = e.target.closest('.dig'), cell = dig && dig.closest('.xedit');
+  if(!cell){ wheelAcc = 0; return; }              // between its digits: nothing
+  var dk = partOf(dig) + ':' + digDelta(dig);
+  if(dk !== wheelDig){ wheelDig = dk; wheelAcc = 0; }   // moved to another digit: start its count afresh
   var d = e.deltaY;
   if(e.deltaMode === 1) d *= 33; else if(e.deltaMode === 2) d *= 400;   // lines/pages → px
   if(wheelAcc !== 0 && (d < 0) !== (wheelAcc < 0)) wheelAcc = 0;         // direction flip → reset
@@ -1626,8 +1739,8 @@ document.addEventListener('wheel', function(e){
   if(Math.abs(wheelAcc) < STEP) return;
   sel = {kind:cell.getAttribute('data-kind'), i:+cell.getAttribute('data-i'), place:digDelta(dig), part:partOf(dig)};
   var n = 0;
-  while(wheelAcc <= -STEP && n < 8){ wheelAcc += STEP; change(-1); n++; }
-  while(wheelAcc >=  STEP && n < 8){ wheelAcc -= STEP; change(1);  n++; }
+  while(wheelAcc <= -STEP && n < 8){ wheelAcc += STEP; change(1);  n++; }   // wheel up (deltaY < 0): raise
+  while(wheelAcc >=  STEP && n < 8){ wheelAcc -= STEP; change(-1); n++; }   // wheel down: lower
   if(n >= 8) wheelAcc = 0;   // guard against a pathological single event
 }, {passive:false});
 
@@ -1649,7 +1762,7 @@ function nodeBox(gw, base, id, k){
 function drawArrows(){
   var gw = document.querySelector('.grid-wrap'); if(!gw) return;
   var old = gw.querySelector('svg.arrows'); if(old) old.remove();
-  if(document.body.classList.contains('noarrows') || showsGraphs()) return;   // graphs fill the gaps instead
+  if(document.body.classList.contains('noarrows')) return;
   var spec = gw.getAttribute('data-edges'); if(!spec) return;
   var base = gw.getBoundingClientRect(), k = gridScale(gw);
   var svg = document.createElementNS(SVGNS, 'svg');
@@ -1663,25 +1776,198 @@ function drawArrows(){
                               'markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z"/></marker>'; }
   svg.innerHTML = '<defs>' + marker('ah') + marker('ah-good') + marker('ah-bad') + '</defs>';   // plain / green / red heads
   gw.appendChild(svg);                                            // attached first: paths get sampled while drawing
-  // an arrow leaving box `from`, in that box's tone (arrowTone: green / red where a change starts there)
-  function add(d, head, from){
-    var t = arrowTone[from] || 0, tone = t > 0 ? 'good' : (t < 0 ? 'bad' : '');
+  // edge e's arrow (box e.from → box e.to), in its source box's tone (arrowTone: green / red where a change starts
+  // there; or e.tone, given); both boxes named on it, for the hover (markArrows; a shared stretch names several
+  // sources, space-separated)
+  function add(d, head, e){
+    var t = e.tone != null ? e.tone : arrowTone[e.from] || 0, tone = t > 0 ? 'good' : (t < 0 ? 'bad' : '');
     var p = document.createElementNS(SVGNS, 'path');
     p.setAttribute('class', tone ? 'e ' + tone : 'e'); p.setAttribute('d', d);
+    p.setAttribute('data-from', e.from); p.setAttribute('data-to', e.to);
     if(head) p.setAttribute('marker-end', 'url(#' + (tone ? 'ah-' + tone : 'ah') + ')');
     svg.appendChild(p); return p;
   }
   var edges = spec.split(';').map(function(e){
     var p = e.split(','); return {from:p[0], to:p[1], type:p[2], S:nodeBox(gw, base, p[0], k), T:nodeBox(gw, base, p[1], k)};
   }).filter(function(e){ return e.S && e.T; });
+  // With graphs in the gaps the arrows go round them, in straight runs with square turns, through lanes the layout
+  // keeps on both sides of each column's boxes while both are on (ARROW_LANE: fitColumns, stretchGraphs; the last
+  // column's right lane in the room kept after it, and room over the graphs: CSS, body.garrows):
+  //   from above: down the left lane of the target's column (between the graphs before it and the column's widest
+  //     box) and into the target's left side. A source over the lane (an x-risk box, in the gap) drops straight
+  //     into it; a year box leaves from its own left side, low.
+  //   from below (the population potential's arrow up into the annual population): out of the source's right side,
+  //     up the right lane of the column, into the target's right side.
+  //   h (a row's previous value → this one): out of the box's right side, high, up its right lane, over the top of
+  //     the graph between the two boxes, down the next box's left lane and into its left side. Arrows from above
+  //     into a box with an h arrow join that arrow's run over the graph instead (as they join it without graphs).
+  // Arrows that would run along each other run side by side instead, ARROW_STEP apart (2 px between the lines): in
+  // a lane each run takes a track. Of two runs that meet, the one inside (nearer the boxes) is the way round with
+  // the cheaper crossings: a run's turns towards the boxes (into or out of one) cross the runs inside it, its turns
+  // away from them (an h arrow's, over the graph) the runs outside it; a crossing next to an arrowhead costs most,
+  // one over a graph less, one where an arrow leaves a box least (a tie: the one starting lower inside). Into a
+  // box's left side the inner tracks turn in higher, into its right side (from below) lower; out of its left side
+  // (going down) the inner tracks leave lower, out of its right side (going up) higher; so those don't cross either.
+  // Runs that don't meet share the lane's inner track.
+  if(gw.querySelector('.gcell')){
+    var G = ARROW_STEP, cols = {};
+    var col = function(j){                          // column j's boxes (the x-risk boxes sit in the gaps): their extent
+      if(cols[j]) return cols[j];
+      var l = Infinity, r = -Infinity;
+      gw.querySelectorAll('[data-node$=":' + j + '"]').forEach(function(el){
+        if(/^rate:/.test(el.getAttribute('data-node'))) return;
+        var b = el.getBoundingClientRect(); l = Math.min(l, (b.left - base.left) / k); r = Math.max(r, (b.right - base.left) / k);
+      });
+      return (cols[j] = {l: l, r: r});
+    };
+    var graphAt = function(sel){                    // a graph's plot box, in the table's px; null if none
+      var g = gw.querySelector(sel); if(!g) return null;
+      var b = g.getBoundingClientRect();
+      return {l: (b.left - base.left) / k, r: (b.right - base.left) / k, t: (b.top - base.top) / k};
+    };
+    // the middle of the lane left ('L') or right ('R') of column j: hugging the column's widest box (the graphs keep
+    // at least a lane's width clear; where they leave more, the arrows stay by the boxes)
+    var laneMid = function(side, j){ var c = col(j); return side === 'L' ? c.l - ARROW_LANE / 2 : c.r + ARROW_LANE / 2; };
+    // each arrow's runs in the lanes: {side, X (the lane's middle), top, bot (as laid out before the side-by-side
+    // offsets), to (its turns towards the boxes), away (from them), t (its track)}
+    var arrows = [], lanes = {};
+    // ins / outs: where it turns into a box / out of one; away: where it turns away from the boxes (over a graph)
+    var run = function(a, side, j, top, bot, ins, outs, away){
+      var r = {a: a, side: side, X: laneMid(side, j), top: top, bot: bot, ins: ins, outs: outs, away: away || [], t: 0};
+      (lanes[side + j] = lanes[side + j] || []).push(r); return r;
+    };
+    var hOf = {};                                   // target -> its h arrow (over a graph)
+    edges.forEach(function(e){                      // the h arrows first: the arrows from above may join them
+      if(e.type !== 'h') return;
+      var S = e.S, T = e.T, j = +e.to.split(':')[1], a = {e: e};
+      var g = graphAt('.gcell[data-gnode="' + e.to.split(':')[0] + ':' + (j - 1) + '"] svg');
+      if(!g) a.kind = 'straight';                   // no graph between them: straight across
+      else {
+        a.kind = 'h'; a.yTop = g.t - 6; a.g = g; a.joins = []; hOf[e.to] = a;
+        a.out = run(a, 'R', j - 1, a.yTop, S.t + 6, [], [S.t + 6], [a.yTop]);   // up the source's right lane
+        a.in = run(a, 'L', j, a.yTop, T.my, [T.my], [], [a.yTop]);              // down the target's left lane
+      }
+      arrows.push(a);
+    });
+    edges.forEach(function(e){
+      if(e.type === 'h') return;
+      var S = e.S, T = e.T, j = +e.to.split(':')[1], a = {e: e}, X = laneMid('L', j), H = hOf[e.to];
+      if(S.t > T.b){
+        a.kind = 'up'; a.out = a.in = run(a, 'R', j, T.my, S.t + 6, [T.my], [S.t + 6]);
+      } else if(H){
+        // The target is its previous value acted on by this input (S_t = S_t-1 · (1 − e)^n, L_t = L_t-1 + …): the
+        // arrow joins the h arrow's run over the graph instead of the box, landing on its middle. A source over the
+        // graph (an x-risk box) drops straight onto it; a year box leaves from its bottom-left corner, runs over the
+        // graph a little above the h arrow's run, and drops onto it. From where it lands, the h arrow's way on is
+        // shared (drawn below).
+        a.kind = 'join'; a.H = H; H.joins.push(a);
+        a.drop = S.l + 8 < H.g.r - 8 && S.r - 8 > H.g.l + 8;
+      } else {
+        a.kind = 'down'; a.over = X > S.l + 4 && X < S.r - 4;
+        var y0 = a.over ? S.b : S.b - 6;
+        a.out = a.in = run(a, 'L', j, y0, T.my, [T.my], a.over ? [] : [y0]);
+      }
+      arrows.push(a);
+    });
+    Object.keys(lanes).forEach(function(key){       // tracks
+      var list = lanes[key], n = list.length, pairs = [];
+      function meet(a, b){ return a.top - 6 < b.bot && b.top - 6 < a.bot; }
+      function within(y, s){ return y > s.top + 1 && y < s.bot - 1; }
+      // what a inside b costs: b's turns into or out of a box cross a's run, a's turns away from the boxes cross b's;
+      // weighed by where: at an arrowhead (into a box) worst, over a graph next, where an arrow leaves a box least
+      function cross(a, b){
+        function cnt(ys, s){ return ys.filter(function(y){ return within(y, s); }).length; }
+        return 3 * cnt(b.ins, a) + cnt(b.outs, a) + 2 * cnt(a.away, b);
+      }
+      for(var p = 0; p < n; p++) for(var q = p + 1; q < n; q++){
+        var a = list[p], b = list[q]; if(!meet(a, b)) continue;
+        var ab = cross(a, b), ba = cross(b, a);
+        pairs.push((ab !== ba ? ab < ba : a.top !== b.top ? a.top > b.top : a.bot < b.bot) ? [a, b] : [b, a]);
+      }
+      for(var it = 0; it < n; it++) pairs.forEach(function(pr){ if(pr[1].t < pr[0].t + 1) pr[1].t = pr[0].t + 1; });
+      list.forEach(function(r){ r.x = r.side === 'L' ? r.X + G - r.t * G : r.X - G + r.t * G; });   // inner: nearest the boxes
+    });
+    // where runs turn into and out of the boxes, side by side (see above)
+    var inL = {}, inR = {}, outL = {}, outR = {};
+    function put(m, id, r){ (m[id] = m[id] || []).push(r); }
+    arrows.forEach(function(a){
+      var e = a.e;
+      if(a.kind === 'up'){ put(inR, e.to, a.in); put(outR, e.from, a.out); }
+      else if(a.kind === 'h'){ put(inL, e.to, a.in); put(outR, e.from, a.out); }
+      else if(a.kind === 'down'){ put(inL, e.to, a.in); if(!a.over) put(outL, e.from, a.out); }
+    });
+    function spread(m, place){
+      Object.keys(m).forEach(function(id){ m[id].sort(function(p, q){ return p.t - q.t; }).forEach(function(r, i, all){ place(r, i, all.length); }); });
+    }
+    spread(inL, function(r, i, n){ r.yIn = r.a.e.T.my - (n - 1) * G / 2 + i * G; });    // inner highest
+    spread(inR, function(r, i, n){ r.yIn = r.a.e.T.my + (n - 1) * G / 2 - i * G; });    // inner lowest
+    spread(outL, function(r, i){ r.yOut = r.a.e.S.b - 6 - i * G; });                    // inner lowest
+    spread(outR, function(r, i){ r.yOut = r.a.e.S.t + 6 + i * G; });                    // inner highest
+    function clamp(x, lo, hi){ return Math.max(lo, Math.min(hi, x)); }
+    arrows.forEach(function(a){                     // the joins first: where they land splits their h arrow (below)
+      if(a.kind !== 'join') return;
+      var e = a.e, S = e.S, H = a.H, lo = H.out.x + 8, hi = H.in.x - 8, mid = (H.g.l + H.g.r) / 2;
+      if(a.drop){ a.jx = clamp(clamp(mid, S.l + 8, S.r - 8), lo, hi); add('M' + a.jx + ',' + (S.b + 1) + ' V' + (H.yTop - 1), true, e); }
+      else {
+        a.jx = clamp(mid, lo, hi);
+        add('M' + (S.l + 6) + ',' + (S.b + 1) + ' V' + (H.yTop - 8) + ' H' + a.jx + ' V' + (H.yTop - 1), true, e);
+      }
+    });
+    arrows.forEach(function(a){
+      var e = a.e, S = e.S, T = e.T;
+      if(a.kind === 'straight') add('M' + (S.r + 1) + ',' + S.my + ' L' + (T.l - 1) + ',' + T.my, true, e);
+      else if(a.kind === 'h'){
+        var start = 'M' + (S.r + 1) + ',' + a.out.yOut + ' H' + a.out.x + ' V' + a.yTop, way = ' V' + a.in.yIn + ' H' + (T.l - 1);
+        if(!a.joins.length){ add(start + ' H' + a.in.x + way, true, e); return; }
+        // Joined: its own part up to the leftmost landing, then the shared way on into the box, which carries every
+        // source's hover (all named on it) and the colour of a change coming in (a join's first, else its own).
+        var sx = Math.min.apply(null, a.joins.map(function(j){ return j.jx; })), srcs = [e.from], tone = 0;
+        a.joins.forEach(function(j){ srcs.push(j.e.from); tone = tone || arrowTone[j.e.from] || 0; });
+        add(start + ' H' + sx, false, e);
+        add('M' + sx + ',' + a.yTop + ' H' + a.in.x + way, true, {from: srcs.join(' '), to: e.to, tone: tone || arrowTone[e.from] || 0});
+      }
+      else if(a.kind === 'up')
+        add('M' + (S.r + 1) + ',' + a.out.yOut + ' H' + a.out.x + ' V' + a.in.yIn + ' H' + (T.r + 1), true, e);
+      else if(a.kind === 'join') return;
+      else {
+        var x = a.in.x;
+        add((a.over ? 'M' + x + ',' + (S.b + 1) : 'M' + (x < S.l ? S.l - 1 : S.r + 1) + ',' + a.out.yOut + ' H' + x) +
+            ' V' + a.in.yIn + ' H' + (T.l - 1), true, e);
+      }
+    });
+    svg.querySelectorAll('path.e.good, path.e.bad').forEach(function(p){ svg.appendChild(p); });
+    markArrows();
+    return;
+  }
   // 1 · across arrows; remember each one's segment so arrows from above can join it
   var hseg = {};
   edges.forEach(function(e){
     if(e.type !== 'h') return;
     var x0 = e.S.r + 1, x1 = e.T.l - 1;
     if(x1 - x0 < 6) return;                                       // boxes touching: no room for an arrow
-    add('M' + x0 + ',' + e.S.my + ' L' + x1 + ',' + e.T.my, true, e.from);
-    hseg[e.to] = {x0:x0, y0:e.S.my, x1:x1, y1:e.T.my};
+    var p = add('M' + x0 + ',' + e.S.my + ' L' + x1 + ',' + e.T.my, true, e);
+    hseg[e.to] = {x0:x0, y0:e.S.my, x1:x1, y1:e.T.my, p:p, e:e, joins:[]};   // joins: where arrows land on it (3)
+  });
+  // 1b · arrows from below (pp → ap, the population potential being the bottom row), mirroring those from above (2): into the target's
+  // across arrow from under it, else out of the source's top-left corner, up the boxes' left side and into the
+  // target's left edge (a little below its middle when an arrow from above enters there too: 2 then enters above)
+  var fromAbove = {}, fromBelow = {};
+  edges.forEach(function(e){ e.up = e.S.t > e.T.b; if(e.type !== 'h') (e.up ? fromBelow : fromAbove)[e.to] = true; });
+  edges.forEach(function(e){
+    if(e.type === 'h' || !e.up) return;
+    var S = e.S, T = e.T, h = hseg[e.to], sx = S.l + 5, sy = S.t - 1;
+    if(h && h.x1 - h.x0 >= 22){
+      var jx = Math.max(h.x1 - 12, h.x0 + 8), jy = h.y0 + (h.y1 - h.y0) * (jx - h.x0) / (h.x1 - h.x0);
+      var cy = (sy + Math.max(T.b, jy)) / 2;
+      add('M' + sx + ',' + sy + ' C' + sx + ',' + cy + ' ' + jx + ',' + cy + ' ' + jx + ',' + (jy + 1), true, e);
+      h.joins.push({x: jx, from: e.from});
+      return;
+    }
+    var xo = Math.min(S.l, T.l) - 12, tx = T.l - 1, ty = T.my + (fromAbove[e.to] ? 3 : 0);
+    add((sy - 12) - (ty + 10) >= 8                                  // room for a straight vertical run?
+      ? 'M' + sx + ',' + sy + ' Q' + xo + ',' + sy + ' ' + xo + ',' + (sy - 12) + ' L' + xo + ',' + (ty + 10) +
+        ' Q' + xo + ',' + ty + ' ' + (xo + 10) + ',' + ty + ' L' + tx + ',' + ty
+      : 'M' + sx + ',' + sy + ' C' + xo + ',' + (sy - 16) + ' ' + xo + ',' + ty + ' ' + tx + ',' + ty, true, e);
   });
   // 2 · arrows from above. A box directly above feeds from its bottom-left corner (its output side); a
   // box sitting over the gap between years (the ae row) drops straight down from its centre.
@@ -1690,7 +1976,7 @@ function drawArrows(){
   //                                 and enters the target's left edge; any other inputs join the trunk
   //                                 (ap_t = pp_t · S_t: pp's arrow meets the S arrow on its way into ap)
   var byT = {};
-  edges.forEach(function(e){ if(e.type !== 'h') (byT[e.to] = byT[e.to] || []).push(e); });
+  edges.forEach(function(e){ if(e.type !== 'h' && !e.up) (byT[e.to] = byT[e.to] || []).push(e); });
   Object.keys(byT).forEach(function(to){
     var list = byT[to], T = list[0].T, h = hseg[to];
     if(h && h.x1 - h.x0 >= 22){
@@ -1701,7 +1987,8 @@ function drawArrows(){
           if(xo >= h.x0 + 6){
             var jyd = h.y0 + (h.y1 - h.y0) * (xo - h.x0) / (h.x1 - h.x0);
             if((jyd - 1) - (sy + 12) >= 4){
-              add('M' + xd + ',' + sy + ' Q' + xo + ',' + sy + ' ' + xo + ',' + (sy + 12) + ' L' + xo + ',' + (jyd - 1), true, e.from);
+              add('M' + xd + ',' + sy + ' Q' + xo + ',' + sy + ' ' + xo + ',' + (sy + 12) + ' L' + xo + ',' + (jyd - 1), true, e);
+              h.joins.push({x: xo, from: e.from});
               return;
             }
           }
@@ -1710,19 +1997,20 @@ function drawArrows(){
         var jx = overGap ? Math.max(S.cx, h.x0 + 8) : Math.max(h.x1 - 12, h.x0 + 8);
         var jy = h.y0 + (h.y1 - h.y0) * (jx - h.x0) / (h.x1 - h.x0);
         var cy = (sy + Math.min(T.t, jy)) / 2;
-        add('M' + sx + ',' + sy + ' C' + sx + ',' + cy + ' ' + jx + ',' + cy + ' ' + jx + ',' + (jy - 1), true, e.from);
+        add('M' + sx + ',' + sy + ' C' + sx + ',' + cy + ' ' + jx + ',' + cy + ' ' + jx + ',' + (jy - 1), true, e);
+        h.joins.push({x: jx, from: e.from});
       });
       return;
     }
     // the trunk is the input from directly above (ap_t: pp_t is primary); inputs that skip rows join it
     var trunk = list.filter(function(e){ return e.type === 'v'; })[0] || list[0], S = trunk.S;
     var xo = Math.min.apply(null, [S.l, T.l].concat(list.map(function(e){ return e.S.l; }))) - 12;
-    var sx = S.l + 5, sy = S.b + 1, tx = T.l - 1, ty = T.my;
+    var sx = S.l + 5, sy = S.b + 1, tx = T.l - 1, ty = T.my - (fromBelow[to] ? 3 : 0);   // above one from below (1b)
     var straight = (ty - 10) - (sy + 12) >= 8;                      // room for a straight vertical run?
     var tp = add(straight
       ? 'M' + sx + ',' + sy + ' Q' + xo + ',' + sy + ' ' + xo + ',' + (sy + 12) + ' L' + xo + ',' + (ty - 10) +
         ' Q' + xo + ',' + ty + ' ' + (xo + 10) + ',' + ty + ' L' + tx + ',' + ty
-      : 'M' + sx + ',' + sy + ' C' + xo + ',' + (sy + 16) + ' ' + xo + ',' + ty + ' ' + tx + ',' + ty, true, trunk.from);
+      : 'M' + sx + ',' + sy + ' C' + xo + ',' + (sy + 16) + ' ' + xo + ',' + ty + ' ' + tx + ',' + ty, true, trunk);
     // Where the trunk turns down: its leftmost point (topmost, if it runs straight for a while). Joins land
     // exactly there, whichever shape the trunk took. The path is in the SVG, so it can be sampled.
     var px = Infinity, py = sy, L = tp.getTotalLength ? tp.getTotalLength() : 0;
@@ -1739,25 +2027,55 @@ function drawArrows(){
         // from further up: swing out to the trunk's line and run straight down it, landing where it turns down
         add((py - 1) - (jsy + 12) >= 4
           ? 'M' + jsx + ',' + jsy + ' Q' + px + ',' + jsy + ' ' + px + ',' + (jsy + 12) + ' L' + px + ',' + (py - 1)
-          : 'M' + jsx + ',' + jsy + ' C' + px + ',' + jsy + ' ' + px + ',' + (py - 10) + ' ' + px + ',' + (py - 1), true, e.from);
+          : 'M' + jsx + ',' + jsy + ' C' + px + ',' + jsy + ' ' + px + ',' + (py - 10) + ' ' + px + ',' + (py - 1), true, e);
         return;
       }
       var jy = y1 - py >= 8 ? Math.min(Math.max(jsy + 14, py + 4), y1 - 4) : py;   // on the trunk's straight run
       add(jsx - 10 > px ? 'M' + jsx + ',' + jsy + ' Q' + jsx + ',' + jy + ' ' + (jsx - 10) + ',' + jy + ' L' + (px + 1) + ',' + jy
-                        : 'M' + jsx + ',' + jsy + ' L' + (px + 1) + ',' + jy, true, e.from);
+                        : 'M' + jsx + ',' + jsy + ' L' + (px + 1) + ',' + jy, true, e);
     });
+  });
+  // 3 · a joined across arrow: its own part up to the leftmost landing, then the shared way on into the box, which
+  // carries every source's hover (all named on it) and the colour of a change coming in (a join's first, else its
+  // own), as with graphs
+  Object.keys(hseg).forEach(function(to){
+    var h = hseg[to]; if(!h.joins.length) return;
+    var sx = Math.min.apply(null, h.joins.map(function(j){ return j.x; }));
+    var sy = h.y0 + (h.y1 - h.y0) * (sx - h.x0) / (h.x1 - h.x0), srcs = [h.e.from], tone = 0;
+    h.joins.forEach(function(j){ srcs.push(j.from); tone = tone || arrowTone[j.from] || 0; });
+    h.p.setAttribute('d', 'M' + h.x0 + ',' + h.y0 + ' L' + sx + ',' + sy); h.p.removeAttribute('marker-end');
+    add('M' + sx + ',' + sy + ' L' + h.x1 + ',' + h.y1, true, {from: srcs.join(' '), to: to, tone: tone || arrowTone[h.e.from] || 0});
   });
   // coloured arrows over plain ones where they meet (a join, a shared trunk line)
   svg.querySelectorAll('path.e.good, path.e.bad').forEach(function(p){ svg.appendChild(p); });
+  markArrows();                                    // a redraw under the pointer keeps the hover's arrows thick
 }
-// Column floor: every value box, year, period label and growth note sits centred at its natural
-// (one-line) width, so the widest one is the smallest pitch at which nothing overlaps. Each cell spans
-// two half-columns, so half of that (plus a little air) becomes --halfmin for every row's grid. Box
-// widths don't depend on the column width, so this can't feed back on itself; it runs once per render.
-// A graph (in a gap) and the value box beside it (on a year) are only one half-column apart, their spans
-// overlapping: the pitch also keeps them apart at their natural widths (GRAPH_GAP px between their margins);
-// stretchGraphs then widens each graph to meet its neighbours. The 2026 boxes are left to fitFirstCol.
-var GRAPH_GAP = 0;
+// Hovering a value box doubles the width of the arrows leaving and entering it (path.hl); by the boxes named on each
+// arrow (add), so it holds across redraws (markArrows runs at the end of each).
+var hoverNode = null;
+function markArrows(){
+  document.querySelectorAll('svg.arrows path.e').forEach(function(p){
+    p.classList.toggle('hl', !!hoverNode && (p.getAttribute('data-from').split(' ').indexOf(hoverNode) >= 0 ||
+                                             p.getAttribute('data-to') === hoverNode));
+  });
+}
+document.addEventListener('mouseover', function(e){
+  var box = e.target.closest && e.target.closest('.grid-wrap [data-node]');
+  var id = box ? box.getAttribute('data-node') : null;
+  if(id !== hoverNode){ hoverNode = id; markArrows(); }
+});
+document.documentElement.addEventListener('mouseleave', function(){ if(hoverNode){ hoverNode = null; markArrows(); } });   // off the page
+// Packed columns (fitColumns). The cells sit in columns k = 0, 1, 2, … : 2026's values, the first period's (its
+// rates, graphs, growth notes, label), 2036's, … (the grid column a cell starts at, less 2). Each column's centre
+// X_k goes as far left as the cells allow, left to right: no cell left of FIRST_BAND past the names, and in every
+// row each cell at least a gap from the one before it (a graph and a box: GRAPH_TOUCH, or with arrows the lane they
+// run down, ARROW_LANE; two boxes: BOX_GAP, or with arrows and no graphs ARROW_BOX_GAP, room for the arrows across;
+// the header's years and period labels: HEAD_GAP). So each column is only as wide as its own cells need, not the
+// widest cell anywhere. Then each period's graphs widen to fill their gap (to that gap from the widest box beside
+// them in their rows), the grid gets one track per column (between the midpoints of the centres; the names column
+// first), and each cell is shifted (left) onto its column's centre. Box widths don't depend on the layout (their
+// content keeps to one line; captions under them wrap to the box), so this can't feed back on itself.
+var FIRST_BAND = 14, BOX_GAP = 14, ARROW_BOX_GAP = 44, HEAD_GAP = 10;
 // Screen px per px of the table's own (the table zoom, "table zoom" below): read off the hidden 100 px probe that
 // panelHtml puts in the table, so it holds however a browser reports sizes inside a zoomed element. Every
 // on-screen measurement inside the table is divided by it before it is compared with, or set as, a CSS length.
@@ -1772,86 +2090,91 @@ function outerW(el){                              // an element's width with its
 }
 function fitColumns(){
   var gw = document.querySelector('.grid-wrap'); if(!gw) return;
-  var hm = 0;
-  gw.querySelectorAll('.vcell, .ycol, .ivlcell, .vgrowth, .gcell').forEach(function(el){ hm = Math.max(hm, outerW(el) / 2 + 3); });
-  gw.querySelectorAll('.gcell').forEach(function(g){
-    var s = +g.style.gridColumnStart, wg = outerW(g);
-    Array.prototype.forEach.call(g.parentNode.children, function(el){
-      var c = +el.style.gridColumnStart;
-      if(el !== g && (c === s + 1 || (c === s - 1 && c > 2))) hm = Math.max(hm, (wg + outerW(el)) / 2 + GRAPH_GAP);
-    });
-  });
-  gw.style.setProperty('--halfmin', Math.ceil(hm) + 'px');
-  fitFirstCol();
-}
-// The first half-column (k of a normal one, see the .grow CSS): narrowed so the empty band between the row
-// labels and the widest 2026 box is 49% of what equal columns leave. k never drops below what the 2026 boxes
-// need: room in their two half-columns. Whatever sits in the same row's first gap (a graph, or the population
-// row's growth note) must stay clear of the 2026 box too: their centres sit (k + 1 + e) h / 2 apart, e being what
-// 2036's left half-column is widened by, so e takes up what k leaves (the band stays as set; the 2026 to 2036
-// period is that much wider). Graphs are measured at their natural width (stretchGraphs then fits them to the
-// columns). The pitch is measured with equal columns, its smallest value (a narrower first column only frees
-// width for the others), and re-measured on every window resize.
-function fitFirstCol(){
-  var gw = document.querySelector('.grid-wrap'); if(!gw) return;
   var rows = gw.querySelectorAll('.grow'); if(!rows.length) return;
-  ['--k1', '--c1', '--c3'].forEach(function(p){ gw.style.removeProperty(p); });
-  gw.querySelectorAll('.gcell svg').forEach(function(s){ s.style.width = ''; });   // natural width (see above)
-  var w1 = 0, need = 0;
+  var K = 2 * M.n - 1;                              // columns: n years and the n − 1 periods between them
+  // measured first, laid out as nothing yet (empty tracks; graphs at their natural size, cells unshifted)
+  gw.classList.add('packed');
+  gw.style.setProperty('--gtpl', 'repeat(' + K + ', 0px)'); gw.style.setProperty('--gsum', '0px');
+  gw.querySelectorAll('.gcell svg').forEach(function(s){ s.style.width = ''; s.style.height = ''; });
+  var R = [];                                       // per row: its cells by column, {el, k, w (outer), g (a graph)}
   rows.forEach(function(row){
-    var y = 0, g = 0;
+    var list = [];
     Array.prototype.forEach.call(row.children, function(el){
-      var c = el.style.gridColumnStart;
-      if(c === '2') y = Math.max(y, outerW(el));            // 2026's box (ycol(1))
-      else if(c === '3') g = Math.max(g, outerW(el));       // the first period's (gcol(1)): growth note, graph
+      var k = +el.style.gridColumnStart - 2; if(!(k >= 0) || el.classList.contains('rlabel')) return;
+      el.style.left = '';
+      list.push({el: el, k: k, w: outerW(el), g: el.classList.contains('gcell')});
     });
-    w1 = Math.max(w1, y);
-    if(y && g) need = Math.max(need, y + g + 4);            // their centres sit half the span apart
+    list.sort(function(a, b){ return a.k - b.k; });
+    R.push({head: row.classList.contains('ghead'), list: list});
   });
-  var h = parseFloat(getComputedStyle(rows[0]).gridTemplateColumns.split(' ')[2]);   // the pitch, equal columns
-  if(!(h > 0)){ stretchGraphs(); return; }
-  // band = (1 + k) h / 2 - w1 / 2, against h - w1 / 2 with equal columns: at 49%, k = 2 * 0.49 - 1 + 0.51 w1 / h;
-  // the span (1 + k) h must hold the widest 2026 box, and (1 + k + e) h `need`
-  var k = Math.min(1, Math.max(-0.02 + 0.51 * w1 / h, w1 / h - 1, 0));
-  var e = Math.max(0, need / h - 1 - k);
-  k = Math.round(k * 1000) / 1000; e = Math.ceil(e * 1000) / 1000;
-  gw.style.setProperty('--k1', String(k + e));
-  gw.style.setProperty('--c1', 'minmax(0px,' + k + 'fr)');
-  if(e > 0) gw.style.setProperty('--c3', 'minmax(var(--halfmin,0px),' + (1 + e) + 'fr)');
-  stretchGraphs();                                  // the columns are final: fill the gaps
+  var gar = document.body.classList.contains('garrows'), laneG = gar ? ARROW_LANE : GRAPH_TOUCH;
+  var gapB = !document.body.classList.contains('noarrows') && !showsGraphs() ? ARROW_BOX_GAP : BOX_GAP;
+  function gapOf(r, a, b){ return r.head ? HEAD_GAP : (a.g || b.g) ? laneG : gapB; }
+  var X = [];
+  for(var k = 0; k < K; k++){                       // the centres, left to right
+    X[k] = k ? X[k - 1] + 2 : FIRST_BAND;           // never before the column on its left
+    R.forEach(function(r){
+      r.list.forEach(function(c, i){
+        if(c.k !== k) return;
+        X[k] = Math.max(X[k], FIRST_BAND + c.w / 2);
+        var p = r.list[i - 1]; if(p) X[k] = Math.max(X[k], X[p.k] + (p.w + c.w) / 2 + gapOf(r, p, c));
+      });
+    });
+  }
+  // each period's graphs: as wide as the room their rows leave them, the same in every row (natural width at least)
+  var gW = {};
+  R.forEach(function(r){
+    r.list.forEach(function(c, i){
+      if(!c.g) return;
+      var p = r.list[i - 1], q = r.list[i + 1], room = Infinity;
+      if(p) room = Math.min(room, X[c.k] - (X[p.k] + p.w / 2) - laneG);
+      if(q) room = Math.min(room, (X[q.k] - q.w / 2) - X[c.k] - laneG);
+      gW[c.k] = Math.min(gW[c.k] == null ? Infinity : gW[c.k], 2 * room);
+    });
+  });
+  R.forEach(function(r){
+    r.list.forEach(function(c){
+      if(!c.g || !isFinite(gW[c.k])) return;
+      var w = Math.max(c.w, gW[c.k]);               // outer width; the plot is that less the cell's side margins
+      c.el.querySelector('svg').style.width = (GRAPH_W + w - c.w) + 'px'; c.w = w;
+    });
+  });
+  // the tracks: from midpoint to midpoint between centres; the last one out past every cell (and, with arrows round
+  // the graphs, past the lane on the last column's right)
+  var B = [0], end = 0;
+  for(k = 1; k < K; k++) B.push((X[k - 1] + X[k]) / 2);
+  R.forEach(function(r){ r.list.forEach(function(c){ end = Math.max(end, X[c.k] + c.w / 2); }); });
+  B.push(end + (gar ? ARROW_LANE + 4 : 8));
+  var tpl = [];
+  for(k = 0; k < K; k++) tpl.push(Math.max(0, B[k + 1] - B[k]).toFixed(1) + 'px');
+  gw.style.setProperty('--gtpl', tpl.join(' ')); gw.style.setProperty('--gsum', B[K].toFixed(1) + 'px');
+  // each cell onto its column's centre (it starts at its track's start)
+  R.forEach(function(r){ r.list.forEach(function(c){ c.el.style.left = (X[c.k] - B[c.k] - c.w / 2).toFixed(1) + 'px'; }); });
+  stretchGraphs();                                  // their height
 }
-// All graphs share one size and sit centred on their gap, which is the same x in every row, so a period's graphs
-// line up down the table. The width is the largest that, centred, stays GRAPH_TOUCH px clear of the nearer value
-// box beside it in every row: the widest box beside a gap sets it, and rows with narrower boxes keep space at
-// the sides. (fitColumns has already made the columns wide enough for the graphs' natural width.) All share one
-// height too: that of the tallest value box outside the x-risk row with its caption, so a graph spans from the
-// caption's top to the box's bottom; but at least GRAPH_MIN_H, so they don't flatten when only short boxes are
-// shown. The plot stretches both ways (the SVG scales its axes, preserveAspectRatio none; strokes keep their
-// width); the graph stays centred in its own two half-columns, so the grid doesn't move.
-var GRAPH_TOUCH = 3, GRAPH_MIN_H = 90;
+// The graphs' width is set per period by fitColumns (the room their rows leave them, the same down the column, so
+// a period's graphs line up). They all share one height: that of the tallest value box outside the x-risk row
+// with its caption, so a graph spans from the caption's top to the box's bottom; but at least GRAPH_MIN_H, so they
+// don't flatten when only short boxes are shown, and at most GRAPH_MAX_H, so tall boxes (a large box text, all the
+// comparison's lines) don't stretch every graph with them. The plot stretches both ways (the SVG scales its axes,
+// preserveAspectRatio none; strokes keep their width).
+// Beside a graph a box keeps GRAPH_TOUCH px clear, or with the arrows on too ARROW_LANE: the arrows' lanes.
+var GRAPH_TOUCH = 3, GRAPH_MIN_H = 90, GRAPH_MAX_H = 130, ARROW_LANE = 26;
+var ARROW_STEP = 3.3;                             // side-by-side arrows: centre to centre (a 1.3 px line, 2 px between)
 function stretchGraphs(){
   var gs = Array.prototype.slice.call(document.querySelectorAll('.grid-wrap .gcell')); if(!gs.length) return;
-  gs.forEach(function(g){ var s = g.querySelector('svg'); s.style.width = ''; s.style.height = ''; });   // natural size first
-  var natural = 0, room = Infinity, k = gridScale(gs[0]);   // measured on screen, used in the table's px
-  gs.forEach(function(g){
-    var s = +g.style.gridColumnStart, r = g.getBoundingClientRect(), c = (r.left + r.right) / 2;
-    natural = r.width / k;
-    Array.prototype.forEach.call(g.parentNode.children, function(el){
-      var col = +el.style.gridColumnStart;
-      if(col === s - 1) room = Math.min(room, 2 * ((c - el.getBoundingClientRect().right) / k - GRAPH_TOUCH));
-      else if(col === s + 1) room = Math.min(room, 2 * ((el.getBoundingClientRect().left - c) / k - GRAPH_TOUCH));
-    });
-  });
-  if(!isFinite(room)) return;
-  var svgW = Math.max(natural, room) - (natural - GRAPH_W);   // all measured first, then written: one layout
-  // the height: the tallest value box outside the x-risk row, with its caption ("by 2036:") above it
+  var k = gridScale(gs[0]);                         // measured on screen, used in the table's px
+  // the height: the tallest value box outside the x-risk row, with its caption ("by 2036:") above it; an annual
+  // population box without the population potential over its value (potInBoxes), so that doesn't raise every graph
   var H = 0;
   document.querySelectorAll('.grid-wrap .grow:not([data-row="rate"]) .vcell').forEach(function(b){
     var cs = getComputedStyle(b, '::before'), ch = b.hasAttribute('data-cap') ? (parseFloat(cs.height) || 18) + (parseFloat(cs.marginBottom) || 3) : 0;
-    H = Math.max(H, b.getBoundingClientRect().height / k + ch);
+    var pw = b.querySelector('.vpotw'), vs = pw && pw.nextElementSibling;
+    var pot = vs ? vs.getBoundingClientRect().top - pw.getBoundingClientRect().top : 0;
+    H = Math.max(H, (b.getBoundingClientRect().height - pot) / k + ch);
   });
-  H = Math.max(H, GRAPH_MIN_H);                     // never flatter than this
-  gs.forEach(function(g){ var s = g.querySelector('svg'); s.style.width = svgW + 'px'; if(H > 0) s.style.height = Math.round(H) + 'px'; });
+  H = Math.min(Math.max(H, GRAPH_MIN_H), GRAPH_MAX_H);   // never flatter than this, nor taller than that
+  gs.forEach(function(g){ if(H > 0) g.querySelector('svg').style.height = Math.round(H) + 'px'; });
 }
 // Redraw the arrows whenever the table's box changes size (window resize, formulas toggled, fonts
 // loading). Each render replaces .grid-wrap, so the observer is re-attached every time.
@@ -1879,7 +2202,7 @@ function watchArrows(){
   fitColumns();
   drawArrows();
 }
-window.addEventListener('resize', function(){ requestAnimationFrame(function(){ fitFirstCol(); drawArrows(); }); });
+window.addEventListener('resize', function(){ requestAnimationFrame(function(){ fitColumns(); drawArrows(); }); });
 if(document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ placeScales(); fitColumns(); drawArrows(); });
 
 // ── controls ──
@@ -1891,7 +2214,7 @@ document.addEventListener('click', function(e){
   else if(e.target.closest('#setref')) setBaselineCurrent();
 });
 document.addEventListener('keydown', function(e){
-  if(e.target.closest && e.target.closest('input.oddsin, .scn textarea')) return;   // typing the odds or a name: the field's own undo
+  if(e.target.closest && e.target.closest('input.oddsin, textarea, input[type=number]')) return;   // typing (odds, a name, notes, a number): the field's own undo
   var z = (e.key === 'z' || e.key === 'Z'), y = (e.key === 'y' || e.key === 'Y');
   if((e.ctrlKey || e.metaKey) && z && !e.shiftKey){ e.preventDefault(); undo(); }
   else if((e.ctrlKey || e.metaKey) && (y || (z && e.shiftKey))){ e.preventDefault(); redo(); }
@@ -1899,8 +2222,8 @@ document.addEventListener('keydown', function(e){
 // the checkboxes: "Show …" toggles and the Variables menu
 function applyShowToggles(){
   document.body.classList.toggle('noarrows', !isChecked('showarrows'));
-  var sa = document.getElementById('showarrows');   // no arrows while the graphs fill the gaps (drawArrows)
-  if(sa){ sa.disabled = showsGraphs(); sa.parentNode.title = sa.disabled ? 'Arrows are off while graphs are shown' : ''; }
+  // both on: the arrows go round the graphs, in lanes the layout keeps for them (drawArrows, ARROW_LANE)
+  document.body.classList.toggle('garrows', showsGraphs() && isChecked('showarrows'));
   document.body.classList.toggle('nofx', !isChecked('showfx'));
   document.body.classList.toggle('graphs', showsGraphs());         // the A / B line key in the boxes (CSS)
   document.body.classList.toggle('nospin', !isChecked('showspin'));
@@ -1909,7 +2232,7 @@ function applyShowToggles(){
 }
 document.addEventListener('change', function(e){
   var t = e.target;
-  if(t.id === 'showarrows'){ applyShowToggles(); drawArrows(); }
+  if(t.id === 'showarrows'){ applyShowToggles(); requestAnimationFrame(watchArrows); }   // with graphs: the lanes open or close
   else if(t.id === 'showfx' || t.id === 'showspin'){ applyShowToggles(); requestAnimationFrame(watchArrows); }   // box heights change: re-fit the graphs
   else if(t.id === 'showcmp'){ cmpCollapse(t.checked); applyShowToggles(); fitNames(); scheduleRender(); }
   else if(t.id === 'showref' || t.id === 'showchg') scheduleRender();
@@ -2115,6 +2438,10 @@ document.addEventListener('input', function(e){
   if(v[1] === 'px'){ x = parseFloat(x); if(!(x >= 0)) return; x = x + 'px'; }
   document.documentElement.style.setProperty(v[0], x);
 });
+// ...and one that changes the table: where the population potential is set (potInBoxes); saved as author.potInPop
+document.addEventListener('change', function(e){
+  if(e.target.id === 'acPotIn'){ potInPop = e.target.checked; scheduleRender(); }
+});
 
 // ── box text size ──
 // The "Box text" − / 100% / + buttons: CSS zoom on each value box's contents (--boxt on #panel), in 10% steps
@@ -2181,8 +2508,8 @@ function scrollPageBy(dy){
 
 // ── saved settings ──
 // xriskb_settings.js (beside the page; the build puts its text into the published copy) sets XRISKB_SETTINGS:
-// the Author controls' CSS variables, and the view readers first see — the page as it was when saved. Author
-// mode (xriskb.html?author, or #author) shows Author controls and Save settings, which writes that file: through
+// the Author controls (their CSS variables, and potInPop), and the view readers first see — the page as it was
+// when saved. Author mode (xriskb.html?author, or #author) shows Author controls and Save settings, which writes that file: through
 // app_xriskb/author.R's local server when the page is served by it (any browser, Positron's included); else in
 // Chrome or Edge directly (the first save asks where; the file is remembered, in IndexedDB, and later saves
 // overwrite it; Shift-click asks again); else the file's text is shown to copy into it. Without the file, or
@@ -2194,6 +2521,7 @@ function currentSettings(){
   Object.keys(AUTHOR_VARS).forEach(function(id){
     var p = AUTHOR_VARS[id][0], x = root.getPropertyValue(p).trim(); if(x) author[p] = x;   // only those set
   });
+  if(potInPop) author.potInPop = true;
   var show = {};
   Object.keys(SHOW_IDS).forEach(function(k){
     var id = SHOW_IDS[k]; show[k] = (cmpSaved && id in cmpSaved) ? cmpSaved[id] : isChecked(id);   // as before a collapse
@@ -2219,7 +2547,15 @@ function applySettings(s){                       // at start-up, before the firs
     document.documentElement.style.setProperty(v[0], x);
     var el = document.getElementById(id); if(el) el.value = v[1] === 'px' ? parseFloat(x) : x;
   });
-  var v = s.view || {}, w = v.views || {}, sh = v.show || {};
+  potInPop = a.potInPop === true;
+  var pc = document.getElementById('acPotIn'); if(pc) pc.checked = potInPop;
+  applyView(s.view || {});
+  histStack = [histSnap()]; histIdx = 0;
+}
+// The view part (currentSettings().view): at start-up (applySettings) and on loading a scene (applyScene). A new
+// time scale starts from its defaults (the caller then sets any values of its own); the history is the caller's.
+function applyView(v){
+  var w = v.views || {}, sh = v.show || {};
   var e0 = (v.horizon >= SCALE_MIN && v.horizon <= SCALE_MAX) ? Math.round(v.horizon) : hscale;
   var f0 = (v.first >= FIRST_MIN && v.first <= e0) ? Math.round(v.first) : Math.min(hfirst, e0);
   if(e0 !== hscale || f0 !== hfirst){               // the defaults at that time scale
@@ -2227,13 +2563,14 @@ function applySettings(s){                       // at start-up, before the firs
     rates = M.defRates.slice(); pops = M.defPops.slice(); LEN = M.segLen.slice();
     refStatic = snap(); histPrev = snap(); histLast = snap();
   }
-  if(v.comparePrevious === true) mode = 'previous';
-  histStack = [histSnap()]; histIdx = 0;
+  if(typeof v.comparePrevious === 'boolean') mode = v.comparePrevious ? 'previous' : 'current';
   if(Array.isArray(v.variables)) varBoxes().forEach(function(b){ b.checked = v.variables.indexOf(b.value) >= 0; });
+  var showcmp = document.getElementById('showcmp');
+  if(cmpSaved){ showcmp.checked = true; cmpCollapse(true); }   // collapsed: open it first, so the options below land
   Object.keys(SHOW_IDS).forEach(function(k){
     var el = document.getElementById(SHOW_IDS[k]); if(el && typeof sh[k] === 'boolean') el.checked = sh[k];
   });
-  if(sh.comparison === false){ document.getElementById('showcmp').checked = false; cmpCollapse(false); }
+  if(sh.comparison === false){ showcmp.checked = false; cmpCollapse(false); }
   if(typeof v.excludePopulation === 'boolean') popExcluded = v.excludePopulation;
   Object.keys(GSCALE_OPTS).forEach(function(r){
     var x = (v.graphScale || {})[r];
@@ -2245,6 +2582,7 @@ function applySettings(s){                       // at start-up, before the firs
   if(typeof v.zoom === 'number') setTableZoom(v.zoom);
   if(typeof v.boxText === 'number') setBoxText(v.boxText);
   if(typeof v.namesWidth === 'number') setLabW(v.namesWidth);
+  else if(v.namesWidth === null) setLabW(null);    // saved at the default width
 }
 function settingsText(){
   return '// The saved settings of xriskb.html: its Author controls and what readers first see. Written by the\n' +
@@ -2312,9 +2650,159 @@ function saveToFile(text, pickAgain){
 }
 document.addEventListener('click', function(e){ if(e.target.closest('#acSave')) saveSettings(e.shiftKey); });
 
+// ── scenes ──
+// Author mode's Scenes group: numbered states of the whole page, for presenting it scene by scene. A scene keeps
+// the view (currentSettings().view: time scale, zoom, box text, names column, variables, Show elements, the
+// comparison's options, Scale menus, the rows' views and % switches) and the table's state (the values, the
+// comparison and its "previous" values, exclusions, the selected digit, the scenario names); not Author controls.
+// Each has notes (the Notes toggle), saved as they are typed. The menu lists the scenes by number (decimals sort
+// between: 1, 1.5, 2); choosing one, ◀ / ▶, or Page Up / Page Down (as a presenter's clicker sends) loads it.
+// Save scene stores the page under the Number field's number: the scene loaded, updated; another existing number
+// asks for a second click, as Delete does. app_xriskb/author.R keeps them in sandbox/xriskscenes/scenes.json,
+// outside the project (GET scenes, POST save-scenes); opened any other way, the group says so.
+var scenes = [], sceneCur = null, scenesOn = false;   // the scenes by number; the one loaded or saved last; served
+function sceneIdx(n){ for(var k = 0; k < scenes.length; k++) if(scenes[k].number === n) return k; return -1; }
+function byNumber(a, b){ return a.number - b.number; }
+function scStatus(msg){ document.getElementById('scStatus').textContent = msg; }
+function sceneState(){
+  var ex = Object.keys(rateExcluded).filter(function(k){ return rateExcluded[k]; }).map(Number);
+  return {view: currentSettings().view, data: {
+    rates: rates.slice(), pops: pops.slice(),
+    ref: {rates: refStatic.rates.slice(), pops: refStatic.pops.slice()},
+    prev: {rates: histPrev.rates.slice(), pops: histPrev.pops.slice()},   // the baseline in "previous value" mode
+    excluded: ex, sel: Object.assign({}, sel),
+    names: {A: document.getElementById('nameA').value, B: document.getElementById('nameB').value}}};
+}
+function applyScene(st){
+  var h0 = hscale, f0 = hfirst, d = st.data || {};
+  applyView(st.view || {});
+  function fit(x){ return x && Array.isArray(x.rates) && Array.isArray(x.pops) ? fitState(x, M) : null; }
+  var cur = fit(d), ref = fit(d.ref), prv = fit(d.prev);
+  if(cur){ rates = cur.rates; pops = cur.pops; }
+  refStatic = ref || snap(); histPrev = prv || snap(); histLast = snap();
+  rateExcluded = {};
+  (d.excluded || []).forEach(function(i){ if(i >= 0 && i < rates.length) rateExcluded[i] = true; });
+  var s = d.sel;
+  if(s && KIND_ROW[s.kind] && PART_ROW[s.part] && isFinite(s.i) && isFinite(s.place)){
+    sel = {kind: s.kind, i: Math.max(0, Math.min(s.i, (s.kind === 'pop' ? pops.length : rates.length) - 1)), place: s.place, part: s.part};
+  }
+  pendingSign = null;
+  var nm = d.names || {};
+  document.getElementById('nameA').value = nm.A || ''; document.getElementById('nameB').value = nm.B || '';
+  if(hscale !== h0 || hfirst !== f0){ histStack = [histSnap()]; histIdx = 0; }   // a new time scale: history restarts
+  else recordHistory();                                                          // else one undo step back
+  document.getElementById('hscale').value = hscale; document.getElementById('hfirst').value = hfirst; drawScale();
+  applyShowToggles(); fitNames(); updateHistBtns(); scheduleRender();
+}
+function drawSceneList(){
+  var list = document.getElementById('scList');
+  list.innerHTML = '';
+  function opt(value, text){ var o = document.createElement('option'); o.value = value; o.textContent = text; list.appendChild(o); }
+  opt('', scenes.length ? '— choose a scene —' : '— no scenes yet —');
+  scenes.forEach(function(sc){
+    var line = (sc.notes || '').split('\n')[0].trim();                     // the notes' first line names it
+    opt(String(sc.number), 'Scene ' + sc.number + (line ? ' · ' + (line.length > 48 ? line.slice(0, 47) + '…' : line) : ''));
+  });
+  list.value = sceneCur != null ? String(sceneCur) : '';
+}
+function nextSceneNumber(){ return scenes.length ? Math.floor(scenes[scenes.length - 1].number) + 1 : 1; }
+function scenesWrite(msg){
+  return fetch('save-scenes', {method: 'POST', body: JSON.stringify({version: 1, scenes: scenes}, null, 1),
+                               headers: {'Content-Type': 'application/json; charset=utf-8', 'X-Xriskb-Save': '1'}})
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); scStatus(msg + ' (' + new Date().toLocaleTimeString() + ')'); })
+    .catch(function(){ scStatus('Not saved: is app_xriskb/author.R still running?'); });
+}
+function scenesLoad(){
+  var off = function(){
+    scenesOn = false;
+    document.querySelectorAll('.scenebox .scrow > :not(#scStatus), #scNotes').forEach(function(el){
+      el.querySelectorAll('input').forEach(function(i){ i.disabled = true; });
+      if('disabled' in el) el.disabled = true;
+    });
+    scStatus('Scenes are kept by app_xriskb/author.R: run source("app_xriskb/author.R") and use the page it opens.');
+  };
+  if(!/^https?:$/.test(location.protocol)) return off();
+  fetch('scenes', {cache: 'no-store'})
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(j){
+      scenes = (j && Array.isArray(j.scenes) ? j.scenes : [])
+        .filter(function(sc){ return sc && sc.state && isFinite(parseFloat(sc.number)); })
+        .map(function(sc){ sc.number = parseFloat(sc.number); return sc; }).sort(byNumber);   // a hand-edited "2" too
+      scenesOn = true; drawSceneList();
+      document.getElementById('scNum').value = nextSceneNumber();
+      scStatus(scenes.length + (scenes.length === 1 ? ' scene' : ' scenes'));
+    })
+    .catch(off);
+}
+function loadScene(n){
+  var k = sceneIdx(n); if(k < 0) return;
+  applyScene(scenes[k].state);
+  sceneCur = n; drawSceneList();
+  document.getElementById('scNum').value = n;
+  document.getElementById('scNotes').value = scenes[k].notes || '';
+  scStatus('Scene ' + n + ' of ' + scenes.length);
+}
+function stepScene(d){                            // ◀ / ▶: the scene before / after the one loaded
+  if(!scenesOn || !scenes.length) return;
+  var k = sceneCur == null ? (d > 0 ? 0 : scenes.length - 1) : sceneIdx(sceneCur) + d;
+  if(k >= 0 && k < scenes.length) loadScene(scenes[k].number);
+}
+// a button that needs a second click: armed for 3 s with its question as its text
+function armed(btn, question){
+  if(btn.classList.contains('armed')) return true;
+  var text = btn.textContent; btn.classList.add('armed'); btn.textContent = question;
+  setTimeout(function(){ btn.classList.remove('armed'); btn.textContent = text; }, 3000);
+  return false;
+}
+function saveScene(){
+  var btn = document.getElementById('scSave'), n = parseFloat(document.getElementById('scNum').value);
+  if(!isFinite(n)) return scStatus('Give the scene a number first.');
+  var k = sceneIdx(n);
+  if(k >= 0 && n !== sceneCur && !armed(btn, 'Replace scene ' + n + '?')) return;
+  var sc = {number: n, notes: document.getElementById('scNotes').value, saved: new Date().toISOString(), state: sceneState()};
+  if(k >= 0) scenes[k] = sc; else { scenes.push(sc); scenes.sort(byNumber); }
+  sceneCur = n; drawSceneList();
+  scenesWrite('Scene ' + n + (k >= 0 ? ' updated' : ' saved'));
+}
+function deleteScene(){
+  var btn = document.getElementById('scDel');
+  if(sceneCur == null) return scStatus('Choose the scene to delete first.');
+  if(!armed(btn, 'Delete scene ' + sceneCur + '?')) return;
+  var n = sceneCur; scenes.splice(sceneIdx(n), 1); sceneCur = null;
+  drawSceneList();
+  document.getElementById('scNum').value = nextSceneNumber(); document.getElementById('scNotes').value = '';
+  scenesWrite('Scene ' + n + ' deleted');
+}
+var notesTimer = null;
+document.addEventListener('input', function(e){   // a scene's notes: kept as typed (after a pause), into the scene loaded
+  if(e.target.id !== 'scNotes' || sceneCur == null) return;
+  var k = sceneIdx(sceneCur); if(k < 0) return;
+  scenes[k].notes = e.target.value;
+  clearTimeout(notesTimer);
+  notesTimer = setTimeout(function(){ drawSceneList(); scenesWrite('Notes of scene ' + sceneCur + ' saved'); }, 800);
+});
+document.addEventListener('change', function(e){
+  var t = e.target, box = document.querySelector('.scenebox');
+  if(t.id === 'scList'){ if(t.value !== '') loadScene(+t.value); }
+  else if(t.id === 'showscenes') box.classList.toggle('on', t.checked);                // the group open / collapsed
+  else if(t.id === 'scShowNotes'){ box.classList.toggle('notes', t.checked); if(t.checked) document.getElementById('scNotes').focus(); }
+});
+document.addEventListener('click', function(e){
+  if(e.target.closest('#scPrev')) stepScene(-1);
+  else if(e.target.closest('#scNext')) stepScene(1);
+  else if(e.target.closest('#scSave')) saveScene();
+  else if(e.target.closest('#scDel')) deleteScene();
+});
+document.addEventListener('keydown', function(e){  // Page Up / Page Down: the scene before / after (not while typing)
+  if((e.key !== 'PageDown' && e.key !== 'PageUp') || !scenesOn || !scenes.length) return;
+  if(e.target.closest && e.target.closest('input, textarea, select')) return;
+  e.preventDefault(); stepScene(e.key === 'PageDown' ? 1 : -1);
+});
+
 // ── start-up ──
 if(/[?&]author\b/.test(location.search) || location.hash === '#author') document.body.classList.add('author');
 applySettings(window.XRISKB_SETTINGS);
+if(document.body.classList.contains('author')) scenesLoad();
 (function(){
   var s = document.getElementById('hscale'), s0 = document.getElementById('hfirst');
   [s, s0].forEach(function(x){ x.min = FIRST_MIN; x.max = SCALE_MAX; });   // one track; the handles' limits: the input handler

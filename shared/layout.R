@@ -634,6 +634,8 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
   }
   list(nodes=cy_nodes, edges=cy_edges, headers=headers, max_h1=max_h1,
        headerMargin=header_margin_total,
+       # the Theme / Skill heights as set: render.js keeps them as a floor when it re-measures titles
+       hTheme=h_theme, hSkill=h_skill,
        fontNode=font_node, fontProject=(font_project %||% font_node), fontPtype=font_ptype, fontSubs=font_subs, fontDesc=font_desc,
        fontHdr1=font_hdr1, fontHdr2=font_hdr2,
        watermarkText=watermark_text, watermarkSize=watermark_size,

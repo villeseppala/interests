@@ -7,26 +7,25 @@ window.XRISKB_SETTINGS = {
     "--g-bg": "#1e2933",
     "--g-line-col": "#000000",
     "--row-line-w": "1px",
-    "--row-line-col": "#030303"
+    "--row-line-col": "#030303",
+    "potInPop": true
   },
   "view": {
     "horizon": 2,
     "first": 1,
-    "zoom": 1,
-    "boxText": 1,
-    "namesWidth": 303,
+    "zoom": 0.769,
+    "boxText": 1.4,
+    "namesWidth": 298,
     "variables": [
       "rate",
       "surv",
-      "years",
-      "pop",
       "popexp",
       "lives"
     ],
     "show": {
       "graphs": true,
       "arrows": true,
-      "spin": false,
+      "spin": true,
       "formulas": true,
       "change": true,
       "b": true,
@@ -36,10 +35,11 @@ window.XRISKB_SETTINGS = {
     "comparePrevious": false,
     "excludePopulation": true,
     "graphScale": {
-      "surv": "per",
+      "surv": "all",
       "years": "potall",
       "popexp": "pot",
-      "lives": "potall"
+      "lives": "potall",
+      "pop": "all"
     },
     "views": {
       "rateComp": true,
@@ -49,6 +49,8 @@ window.XRISKB_SETTINGS = {
       "livesLy": false,
       "livesLoss": false
     },
-    "relative": {}
+    "relative": {
+      "rate": true
+    }
   }
 };
