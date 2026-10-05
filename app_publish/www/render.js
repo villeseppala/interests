@@ -276,6 +276,7 @@ var inlineColCenterOff = { Theme: 0, Project: 0, Skill: 0 };
 // Compact titles: while open nodes make the Theme or Skill column taller than the view (so it has to be
 // scrolled to read them all), that column's Theme/Skill title areas — collapsed nodes whole, open nodes'
 // headers — shrink to this share of their height, never below what the title itself needs (compactTitleH).
+// Author setting (Layout tab, title_compact_pct); 1 = no shrinking.
 var TITLE_COMPACT = 0.7;
 // True while a one-finger scroll or two-finger pinch is in progress. The node-overlay renderer skips
 // rebuilding node inner-HTML while set, so the element under the finger is never detached mid-gesture
@@ -355,6 +356,28 @@ var ptypePct = 10;
 var mobileData = null;
 var selectedNodeId = null;
 var hoveredNodeId = null;
+// Focused node (inline): the node the reader clicked LAST. It carries the lasting highlight while open,
+// and decides what a click on an open node's body does: on the focused node it closes it; on any other
+// open node it only moves the focus (highlight) there — so after clicking B, a click on A re-highlights
+// A instead of closing it, and a second click closes it. A click on the title area always closes.
+var _focusNodeId = null;
+function focusNode(id) { _focusNodeId = (id == null) ? null : String(id); applyHighlightState(); }
+// The node that keeps its highlight with nothing hovered: the focused node while it is open, else the
+// most recently opened one.
+function persistentHighlightId() {
+  if (_focusNodeId && inlineExpandedMap[_focusNodeId]) return _focusNodeId;
+  return topOpenNodeId();
+}
+// Did this Cytoscape tap land on the open node's title area (header)? Accounts for a sticky title that
+// has slid down to hang below the top bar (same shift as in the label renderer).
+function tapOnNodeHeader(node, evt) {
+  var ex = inlineExpandedMap[node.id()]; if (!ex || !evt || !evt.position) return true;
+  var zoom = cy.zoom(), pan = cy.pan(), h = node.data('h') || 46, top = node.position('y') - h / 2;
+  var oh = exHdrH(ex) || 0;
+  var shift = Math.max(0, Math.min((inlineContentTopPx() - top * zoom - pan.y) / zoom, h - oh));
+  var y = evt.position.y - top;
+  return y >= shift - 1 && y <= shift + oh + 1;
+}
 var pinnedHoverIds = [];   // node ids held in the hovered state from the author app (multi-select highlight)
 var _edgeHoverActive = false;   // true while the hover comes from pointing at an edge (not a node)
 // Touch devices have no hover, so there the highlight follows the last TAPPED node instead of the
@@ -686,7 +709,8 @@ function scaleHsv(hex, mult, vmult) {
           e.stopPropagation();
           if (window.getSelection && String(window.getSelection())) return;   // selecting text: leave as is
           var did = descEl.getAttribute('data-node-id');
-          if (!authorEditable) toggleNodeInline(did);                          // published: single click closes
+          if (_focusNodeId !== String(did)) { focusNode(did); if (!authorEditable) return; }   // another node had the focus: re-highlight this one first
+          if (!authorEditable) toggleNodeInline(did);                          // published: (second) click closes
           else startDescEdit(did);                                            // author: single click edits the text
           return;
         }
@@ -770,6 +794,17 @@ function scaleHsv(hex, mult, vmult) {
 
 /* ── Apply dynamic colors to DOM ──────────────────────────────────────────── */
 
+// The graph page's top bar — the nav bar, the header cluster laid over it (which can wrap onto a
+// second row) and the column-button strip — is ONE colour: the site's nav-bar blue (#081626; light
+// mode #e2eaf3, as in style.css / article.css), the same as on the article pages.
+var TOP_BAR_DARK = '#081626', TOP_BAR_LIGHT = '#e2eaf3';
+function applyTopBarColor() {
+  var c = lightMode ? TOP_BAR_LIGHT : TOP_BAR_DARK;
+  var nav = document.getElementById('site-nav'); if (nav) nav.style.background = c;
+  var hb = document.getElementById('inline-header-right'); if (hb) hb.style.background = c;
+  var st = document.getElementById('col-btn-strip'); if (st) st.style.background = c;
+}
+
 function applyColors() {
   var ga = document.getElementById('graph-area');
   var cy_el = document.getElementById('cy');
@@ -779,6 +814,7 @@ function applyColors() {
   if (sb) sb.style.background = colSidebarBg;
   var ph = document.getElementById('page-title');
   if (ph) ph.style.background = colBg;
+  applyTopBarColor();
   document.querySelectorAll('.col-spacer').forEach(function(el) { el.style.background = colBg; });
   document.body.style.background = colBg;
   // Accordion header uses graph background color
@@ -956,7 +992,7 @@ function applyInlineFill() {
   var hm = (lastData && lastData.headerMargin) || 70;
   // 3) Height-fit zoom (using the stable cached content height, not the live one) and horizontal slack.
   var bbH = (inlineFillBase.bboxH > 0) ? inlineFillBase.bboxH : bb.h;
-  var zh = (viewH - FIT_V_PX) / (bbH + hm);
+  var zh = (viewH - FIT_V_PX - topBarOverlapPx()) / (bbH + hm);
   if (zh <= 0) return;
   var slackPx = (W - 40) - bb.w * zh;
   if (slackPx <= 0) return; // already width-constrained → nothing to distribute
@@ -1011,7 +1047,7 @@ function syncInlineHeights() {
   arr.forEach(function (n) {
     var bh = hOf(n), by = yOf(n);
     var oldTop = by - bh / 2, oldBottom = by + bh / 2;
-    var newH = inlineExpandedMap[n.id()] ? bh : collapsedNodeHeight(n.data());
+    var newH = inlineExpandedMap[n.id()] ? bh : Math.max(collapsedNodeHeight(n.data()), authorNodeFloor('Project'));
     var nTop = (pnb == null) ? oldTop : pnb + (oldTop - pob);   // preserve the gap above this node
     var newY = nTop + newH / 2;
     if (useBase) { inlineBase[n.id()].y = newY; inlineBase[n.id()].h = newH; }
@@ -1037,17 +1073,15 @@ function layoutInlineScroll() {
   // Fit BOTH dimensions of the base layout so the no-description view shows every node, then apply
   // the user's magnification (uiZoom). Columns still scroll vertically per-column at any zoom.
   var fitW = (W - 2 * sideMargin) / baseBB.w;
-  var fitH = (viewH - FIT_V_PX) / (baseBB.h + hm);
+  var fitH = (viewH - FIT_V_PX - topBarOverlapPx()) / (baseBB.h + hm);
   // Desktop: fit the whole map (min of both). Narrow screens: fit to WIDTH only — the columns fill the
   // width (minimal side margins) and the content scrolls vertically. Width-only also keeps the zoom
   // independent of node heights, so the node-height multiplier makes nodes taller without shrinking text.
   var fitZoom = isNarrow() ? fitW : Math.min(fitW, fitH);
   var zoom = Math.max(cy.minZoom(), Math.min(cy.maxZoom(), fitZoom * (uiZoom || 1)));
-  var topPad = FIT_TOP_PX + hm * zoom;
-  // Keep the graph below the fixed header bar even when it wraps to 2–3 rows on a narrow screen,
-  // so the wrapped controls never cover the column headers.
-  var hdrBar = document.getElementById('inline-header-right');
-  if (hdrBar) { var hbH = hdrBar.getBoundingClientRect().height; if (hbH > 0) topPad = Math.max(topPad, hbH + 6); }
+  // Column headers + content start below the WHOLE top bar (nav bar, header cluster — however many rows
+  // it wraps to — and the column-button strip), wherever it reaches into the graph area.
+  var topPad = FIT_TOP_PX + hm * zoom + topBarOverlapPx();
   el.style.height = viewH + 'px';    // viewport-sized; columns scroll internally (per column)
   cy.resize();
   cy.zoomingEnabled(true);            // briefly allow the programmatic zoom below
@@ -1202,12 +1236,12 @@ function twoRowFloorFor(group) {
   return anyTwo ? Math.round(2 * fontNode * lh + vPad) : 0;
 }
 
-// The author's Theme / Skill height (Layout tab: Theme / Skill height, the tall values in a tall browser —
-// payload hTheme / hSkill), kept as a floor wherever the browser re-measures a title (narrow screens, a
+// The author's Theme / Project / Skill height (Layout tab: Theme / Project / Skill height, the tall values in a tall browser —
+// payload hTheme / hProject / hSkill), kept as a floor wherever the browser re-measures a title (narrow screens, a
 // language switch, the narrow multipliers); else those re-measures would drop it for the bare text height. Scaled
 // with the node fonts, as the text is. 0 for other groups, or a payload without it.
 function authorNodeFloor(g) {
-  var d = lastData || {}, h = (g === 'Theme') ? d.hTheme : (g === 'Skill') ? d.hSkill : null;
+  var d = lastData || {}, h = (g === 'Theme') ? d.hTheme : (g === 'Skill') ? d.hSkill : (g === 'Project') ? d.hProject : null;
   return (h > 0) ? h * (uiFontScale || 1) * (userFontScale || 1) : 0;
 }
 
@@ -1251,9 +1285,7 @@ function computeAutoFillScale() {
   var W = ga.clientWidth, viewH = ga.clientHeight || window.innerHeight;
   var hm = (lastData && lastData.headerMargin) || 70;
   var fitW = (W - 40) / bb.w;
-  var topPadPx = FIT_TOP_PX + hm * fitW;
-  var hdrBar = document.getElementById('inline-header-right');
-  if (hdrBar) { var hbH = hdrBar.getBoundingClientRect().height; if (hbH > 0) topPadPx = Math.max(topPadPx, hbH + 6); }
+  var topPadPx = FIT_TOP_PX + hm * fitW + topBarOverlapPx();
   var availCytoH = (viewH - topPadPx - 12) / fitW;
   // Fill to ~82% of the available height: leaves a comfortable bottom margin and absorbs the extra
   // growth from wrapping + the Theme/Skill two-row floor (which computeAutoFillScale can't see here).
@@ -1302,7 +1334,7 @@ function applyInitialFontScale() {
 // title's own measured height, so it can't clip). Measured once per base height / width / language / fonts.
 function compactTitleH(n) {
   var b = inlineBase[n.id()];
-  var key = b.h + '|' + (n.data('w') || 0) + '|' + currentLang + '|' + fontNode + '|' + fontSubs;
+  var key = b.h + '|' + (n.data('w') || 0) + '|' + currentLang + '|' + fontNode + '|' + fontSubs + '|' + TITLE_COMPACT;
   if (b._ck !== key) {
     b._ck = key;
     b._ch = Math.min(b.h, Math.max(Math.round(b.h * TITLE_COMPACT), Math.ceil(collapsedNodeHeight(n.data()))));
@@ -1817,6 +1849,7 @@ function gradientOverlay(id, pct, baseOnly) {
   // confined to a vertical slice via {top,height} (used to highlight one project band).
   function render(g, w, clip, recol) {
     if (!g) return;
+    if (g.multi) { g.multi.forEach(function (x) { render(x, w, clip, recol); }); return; }
     if (g.bands) { addBands('left', g.bands.left || [], w, clip, recol); addBands('right', g.bands.right || [], w, clip, recol); }
     else addDiv(g.side, g.color, w, g.top, g.height, clip, recol);
   }
@@ -1835,11 +1868,15 @@ function gradientOverlay(id, pct, baseOnly) {
       if (side === 'left'  || side === 'both') recol.left.push([a, b, col]);
       if (side === 'right' || side === 'both') recol.right.push([a, b, col]);
     };
-    if (hov.bands) ['left', 'right'].forEach(function (sd) {
-      var cs = hov.bands[sd] || [], gm = projectBandGeom(id, cs.length);
-      for (var i = 0; i < cs.length; i++) cover(sd, gm[i].top, gm[i].height, cs[i]);
-    });
-    else cover(hov.side, hov.top || 0, (hov.height == null ? 100 : hov.height), hov.color);
+    var coverOf = function (g) {
+      if (g.multi) { g.multi.forEach(coverOf); return; }
+      if (g.bands) ['left', 'right'].forEach(function (sd) {
+        var cs = g.bands[sd] || [], gm = projectBandGeom(id, cs.length);
+        for (var i = 0; i < cs.length; i++) cover(sd, gm[i].top, gm[i].height, cs[i]);
+      });
+      else cover(g.side, g.top || 0, (g.height == null ? 100 : g.height), g.color);
+    };
+    coverOf(hov);
   }
   // Base gradient at the resting extent (full node height).
   if (base) render(base, basePct, null, recol);
@@ -2031,26 +2068,40 @@ function toggleArticleInline(id) {
 
 // Expanded inline node = the unchanged normal node as a fixed-height header (click it to close)
 // + a selectable description below it (clicking the text selects/copies, doesn't collapse).
-// Top edge of the scrollable content area, in container px: just below the column headers and the
-// fixed header bar. Mirrors the topPad that layoutInlineScroll pans to, so a sticky node title comes
-// to rest exactly where the column's first node normally starts — never over the column headings.
-function inlineContentTopPx() {
-  var hm = (lastData && lastData.headerMargin) || 70;
-  var t = FIT_TOP_PX + hm * ((cy && cy.zoom()) || 1);
-  var hdrBar = document.getElementById('inline-header-right');
-  if (hdrBar) { var hbH = hdrBar.getBoundingClientRect().height; if (hbH > 0) t = Math.max(t, hbH + 6); }
-  return t;
+// How far (px) the top bar — the site nav bar, the header cluster laid over it (which can wrap onto more
+// rows) and the column-button strip below it — reaches down INTO the graph area. 0 when it ends at the
+// graph area's top edge. Everything in the graph area scrolls behind the bar, so this is where the
+// visible content starts.
+function topBarOverlapPx() {
+  var ga = document.getElementById('graph-area'); if (!ga) return 0;
+  var hdr0 = document.getElementById('inline-header-right'), st0 = document.getElementById('col-btn-strip');
+  if (hdr0 && st0) st0.style.top = (hdr0.offsetTop + hdr0.offsetHeight) + 'px';   // keep the strip under a re-wrapped cluster
+  var gTop = ga.getBoundingClientRect().top, b = gTop;
+  ['site-nav', 'inline-header-right', 'col-btn-strip'].forEach(function (id) {
+    var el = document.getElementById(id); if (!el) return;
+    var r = el.getBoundingClientRect(); if (r.height > 0 && r.top < gTop + 4) b = Math.max(b, r.bottom);
+  });
+  var st = document.getElementById('col-btn-strip');   // the strip hangs below the cluster: always counts
+  if (st) { var rs = st.getBoundingClientRect(); if (rs.height > 0) b = Math.max(b, rs.bottom); }
+  return Math.max(0, Math.round(b - gTop));
 }
+// Top edge of the visible content area, in container px: the bottom of the top bar. Column headers and
+// nodes scroll behind the bar, so this is where a sticky node title comes to rest — flush against the
+// bar (tucked 1px under it, which hides any sub-pixel seam), so no sliver of the text scrolling past
+// shows between the bar and the title.
+function inlineContentTopPx() { return Math.max(0, topBarOverlapPx() - 1); }
 
 function inlineExpandedNodeHtml(data, exEntry) {
   var origH = exHdrH(exEntry) || (data.h || 46);   // the header as shown (compact titles: exHdrH)
   var gpct = (data.group === 'Project') ? gradientExtent / 2 : gradientExtent;
   var descCol = lightMode ? 'rgba(0,0,0,0.86)' : 'rgba(255,255,255,0.9)';
   var lineCol = lightMode ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.5)';
+  // Description text follows its column's title alignment: Theme right-aligned, Project centred, Skill left.
+  var descAlign = (data.group === 'Theme') ? 'right' : ((data.group === 'Project') ? 'center' : 'left');
   var desc = '<div class="inline-node-desc" data-node-id="' + data.id + '" style="pointer-events:auto;user-select:text;-webkit-user-select:text;cursor:text;' +
     'border-top:1px solid ' + lineCol + ';' +   // thin line separating header from text
     'color:' + descCol + ';font-family:Arial,Helvetica,sans-serif;font-size:' + descFontSize + 'px;line-height:1.45;' +
-    'padding:' + descPadCss() + ';position:relative;z-index:7;text-align:left;word-wrap:break-word;overflow-wrap:break-word;">' +
+    'padding:' + descPadCss() + ';position:relative;z-index:7;text-align:' + descAlign + ';word-wrap:break-word;overflow-wrap:break-word;">' +
     exEntry.descHtml + '</div>';
   var copyBtn = '<div class="inline-copy-link" data-node-id="' + data.id + '" title="Copy link to this node" ' +
     'style="pointer-events:auto;cursor:pointer;position:absolute;top:3px;right:4px;z-index:8;font-size:13px;line-height:1;' +
@@ -2314,6 +2365,7 @@ function reflowInline() {
 
 // Toggle a node's inline expansion (same as tapping it): collapse if open, else request its content.
 function toggleNodeInline(id) {
+  _focusNodeId = String(id);   // a click on it: it becomes the focused node (see _focusNodeId)
   if (inlineExpandedMap[String(id)]) { collapseNodeInline(id); return; }
   if (window.Shiny) Shiny.setInputValue('clicked_node_id', id, { priority: 'event' });
 }
@@ -2352,7 +2404,7 @@ function autoFitOpenedNode(id) {
   var W = ga.clientWidth, viewH = ga.clientHeight || window.innerHeight;
   var baseBB = inlineBaseBBox(); if (!baseBB || baseBB.w === 0) return;
   var hm = (lastData && lastData.headerMargin) || 70;
-  var fitW = (W - 40) / baseBB.w, fitH = (viewH - FIT_V_PX) / (baseBB.h + hm);   // match layoutInlineScroll's fit
+  var fitW = (W - 40) / baseBB.w, fitH = (viewH - FIT_V_PX - topBarOverlapPx()) / (baseBB.h + hm);   // match layoutInlineScroll's fit
   var fitZoom = isNarrow() ? fitW : Math.min(fitW, fitH);
   if (!(fitZoom > 0)) return;
   var w = node.data('w') || 200;
@@ -2662,10 +2714,22 @@ function applyHighlightState() {
     return null;
   }
   function oppSide(s) { return s === 'left' ? 'right' : 'left'; }
+  // Several highlights can land on one node (the last-opened node + a hovered one + pinned ones), so
+  // entries COMBINE instead of the last one replacing the rest: a full {bands} highlight (the node
+  // itself highlighted) covers everything; otherwise partial ones collect in {multi:[...]}.
   function mergeHovGrad(map, id, side, color) {
     var cur = map[id];
     if (!cur) { map[id] = { side: side, color: color }; return; }
-    if (cur.side !== side) cur.side = 'both';
+    if (cur.bands) return;
+    if (cur.multi) { cur.multi.push({ side: side, color: color }); return; }
+    if (cur.top == null && cur.height == null) { if (cur.side !== side) cur.side = 'both'; return; }
+    map[id] = { multi: [cur, { side: side, color: color }] };
+  }
+  function addHovGrad(map, id, g) {
+    var cur = map[id];
+    if (!cur || g.bands) { if (!cur || !cur.bands) map[id] = g; return; }
+    if (cur.bands) return;
+    map[id] = { multi: (cur.multi || [cur]).concat([g]) };
   }
   if (selectedNodeId) {
     var sn = cy.getElementById(String(selectedNodeId));
@@ -2717,7 +2781,7 @@ function applyHighlightState() {
         var bi2 = projectBandIndex(on2, hovGrp, hid);
         if (bi2.count > 0 && bi2.index >= 0) {
           var bg2 = projectBandGeom(on2.id(), bi2.count)[bi2.index];
-          nodeHoverGradients[otherId] = { side: side2, color: edgeCol, top: bg2.top, height: bg2.height };
+          addHovGrad(nodeHoverGradients, otherId, { side: side2, color: edgeCol, top: bg2.top, height: bg2.height });
         } else {
           mergeHovGrad(nodeHoverGradients, otherId, side2, edgeCol);
         }
@@ -2732,10 +2796,14 @@ function applyHighlightState() {
     });
     // Hovered project lights up in its connecting edge colors (wider bands), not the orange group color
     if (hovGrp === 'Project')
-      nodeHoverGradients[String(hid)] = { bands: projectBandColors(hn, GRAD_ALPHA_BASE, hoverTint) };
+      addHovGrad(nodeHoverGradients, String(hid), { bands: projectBandColors(hn, GRAD_ALPHA_BASE, hoverTint) });
   }
   var _hovIds = pinnedHoverIds.slice();
-  if (hoveredNodeId && _hovIds.indexOf(String(hoveredNodeId)) < 0) _hovIds.push(String(hoveredNodeId));
+  // The last-opened (still open) node keeps its highlight at all times, so its links stay marked while
+  // the reader moves away to read it; hovering another node highlights that one TOO (two at once).
+  [persistentHighlightId(), hoveredNodeId].forEach(function (hid) {
+    if (hid != null && _hovIds.indexOf(String(hid)) < 0) _hovIds.push(String(hid));
+  });
   _hovIds.forEach(applyHoverFor);
   cy.forceRender();
   drawEdgeOverlay();
@@ -3196,16 +3264,64 @@ var _hdrMeasCache = null;
 // Inner HTML for a column header: title + subtitle on the left, Open all / Close all stacked on the
 // right. `btnFs` is the (already fitted) button font — see positionHeaders, which shrinks it so the two
 // stacked buttons never take more vertical space than the title + subtitle.
+// The per-column Open all / Close all pair shown in the top bar's strip (inline mode), above its column.
+function columnButtonsHtml(hgrp) {
+  return '<button type="button" class="col-hdr-btn" onclick="openAllInline(\'' + hgrp + '\')">' + dualLabel('Open all', 'Avaa kaikki') + '</button>' +
+         '<button type="button" class="col-hdr-btn" onclick="collapseAllInline(\'' + hgrp + '\')">' + dualLabel('Close all', 'Sulje kaikki') + '</button>';
+}
+// Column-button strip: a row of the top bar (in its colour, under the header cluster) holding each
+// column's Open all / Close all, centred over that column. Created with the header cluster; this keeps
+// it right under the cluster and re-centres the pairs whenever the headers are positioned.
+function ensureColumnButtonStrip() {
+  var hdr = document.getElementById('inline-header-right');
+  var st = document.getElementById('col-btn-strip');
+  if (!inlineMode || !hdr || useMobileLayout()) { if (st) st.remove(); document.body.classList.remove('col-strip-on'); return null; }
+  if (!st) {
+    st = document.createElement('div'); st.id = 'col-btn-strip';
+    st.innerHTML = ['Theme', 'Project', 'Skill'].map(function (g) {
+      return '<div class="col-btn-pair" data-g="' + g + '">' + columnButtonsHtml(g) + '</div>';
+    }).join('');
+  }
+  if (st.parentNode !== hdr.parentNode) hdr.parentNode.appendChild(st);
+  document.body.classList.add('col-strip-on');
+  st.style.top = (hdr.offsetTop + hdr.offsetHeight) + 'px';
+  applyTopBarColor();
+  return st;
+}
+function positionColumnButtons(data) {
+  var st = ensureColumnButtonStrip(); if (!st || !cy || !data || !data.headers) return;
+  var ga = document.getElementById('graph-area'); if (!ga) return;
+  var pan = cy.pan(), zoom = cy.zoom(), dx = ga.getBoundingClientRect().left - st.getBoundingClientRect().left;
+  var grp = ['Theme', 'Project', 'Skill'], k = 0, pairs = [], sc = 1;
+  data.headers.forEach(function (h) {
+    if (h.sub) return;
+    var g = grp[k], pair = st.querySelector('.col-btn-pair[data-g="' + g + '"]'); k++; if (!pair) return;
+    pair.style.left = Math.round(h.x * zoom + pan.x + dx) + 'px';
+    pair.style.color = g === 'Theme' ? colTheme : (g === 'Project' ? colProject : colSkill);   // the column's colour
+    // The scale that keeps this pair inside 96% of its own column's width (1 = full CSS size).
+    var n0 = cy.nodes('[group = "' + g + '"]').first();
+    var colW = (n0 && n0.length) ? (n0.data('w') || 0) * zoom : 0, natW = pair.offsetWidth;
+    if (colW > 0 && natW > 0) sc = Math.min(sc, colW * 0.96 / natW);
+    pairs.push(pair);
+  });
+  // ONE size for all three pairs: the smallest column decides, so they always match. Full size whenever
+  // every pair fits its column; never below 40% so they stay readable.
+  sc = Math.max(0.4, Math.min(1, sc));
+  pairs.forEach(function (pair) { pair.style.transform = 'translate(-50%, -50%) scale(' + sc.toFixed(3) + ')'; });
+}
+
 function columnHeaderInnerHtml(h, hgrp, btnFs, hdrGap) {
   return '<div class="col-hdr-inner" style="gap:' + hdrGap + 'px;">' +
       '<div class="col-hdr-text">' +
         '<b style="font-size:' + fontHdr1 + 'px;white-space:nowrap">' + dualLabel(h.line1, h.line1_fi) + '</b>' +
         '<span style="font-size:' + fontHdr2 + 'px;white-space:nowrap">' + dualLabel(h.line2, h.line2_fi) + '</span>' +
       '</div>' +
+      // (Open all / Close all for the column live in the top bar's column-button strip — columnButtonsHtml.)
+      (inlineMode ? '' :
       '<div class="col-hdr-btns" style="font-size:' + btnFs + 'px;">' +
         '<button type="button" class="col-hdr-btn" onclick="openAllInline(\'' + hgrp + '\')">' + (currentLang === 'fi' ? 'Avaa kaikki' : 'Open all') + '</button>' +
         '<button type="button" class="col-hdr-btn" onclick="collapseAllInline(\'' + hgrp + '\')">' + (currentLang === 'fi' ? 'Sulje kaikki' : 'Close all') + '</button>' +
-      '</div>' +
+      '</div>') +
     '</div>';
 }
 
@@ -3289,7 +3405,10 @@ function positionHeaders(data) {
     // DOWN by that column's centre offset so it sits just above the centred stack (same header→stack gap
     // as the Project column). Otherwise it stays at the top of the graph area (the default).
     var hOff = headersOnStack ? (inlineColCenterOff[hdrGroups[i]] || 0) : 0;
-    var sx = h.x * zoom + pan.x, sy = (h.y + hOff) * zoom + pan.y;
+    // Inline: the header scrolls WITH its column (part of the column's content) and passes behind the
+    // top bar, like the nodes.
+    var sOff = inlineMode ? (inlineColScroll[hdrGroups[i]] || 0) : 0;
+    var sx = h.x * zoom + pan.x, sy = (h.y + hOff - sOff) * zoom + pan.y;
     var div = document.createElement('div');
     var hcolor = i === 0 ? colTheme : (i === 1 ? colProject : colSkill);
     div.className = 'col-hdr'; div.id = 'colhdr-' + i; div.style.color = hcolor;
@@ -3336,7 +3455,9 @@ function positionHeaders(data) {
   // anything scrolled past that is hidden. z-index 10 sits above nodes (9) and below the headers (11).
   var mask = document.getElementById('colhdr-mask');
   var maskBottomPx = null;   // screen-Y where the mask ends (topmost node base top); used by the frame fill
-  if (inlineMode && cy) {
+  // Inline mode no longer uses it: headers scroll with their columns, and whatever scrolls up passes
+  // behind the top bar (see topBarOverlapPx). Kept for the non-inline layout only.
+  if (false && inlineMode && cy) {
     var topMost = Infinity;
     cy.nodes().forEach(function (n) {
       var g = n.data('group'); if (!isColNode(g)) return;
@@ -3353,6 +3474,8 @@ function positionHeaders(data) {
         Math.max(0, maskBottomPx) + 'px;background:' + colBg + ';z-index:10;pointer-events:auto;';
     } else if (mask) { mask.remove(); }
   } else if (mask) { mask.remove(); }
+
+  positionColumnButtons(data);   // the columns' Open all / Close all, in the top bar above each column
 
   // Hairline white line marking the TOP of each column's node stack (node-width wide), sitting a small
   // gap ABOVE the first node. It's drawn only while the column is at its topmost scroll position (can't
@@ -3455,7 +3578,7 @@ function positionHeaders(data) {
       // With "headers on stack" a centred column's title sits BELOW the top mask, where the title-strip
       // piece (bounded by the mask) cannot reach; then the node-region rect itself starts at the title
       // top, so the fill still covers the whole header instead of only its lower half.
-      var hdrBelowMask = maskBottomPx != null && (box.top - 4) >= maskBottomPx;
+      var hdrBelowMask = maskBottomPx == null || (box.top - 4) >= maskBottomPx;   // no mask (inline): always
       var fillTop = hdrBelowMask ? box.top - 4 : top;
       var rf = Math.min(frameCornerR * fz, (right - left) / 2, (bottom - fillTop) / 2);
       if (fillSvg) {
@@ -3879,7 +4002,7 @@ function autoFitProjectWidth(data) {
     var yC = pTop;
     projNodes.forEach(function (n) {
       n.data.w = targetW;
-      n.data.h = measureProjectNodeHeight(n.data, targetW);         // wrap-aware height at the cap
+      n.data.h = Math.max(measureProjectNodeHeight(n.data, targetW), data.hProject || 0);   // wrap-aware, Project height slider as floor
       n.position.y = yC + n.data.h / 2;                             // re-stack downward, no overlap
       yC += n.data.h + gapV;
     });
@@ -4330,7 +4453,14 @@ function initCyGraph(data) {
       if (isTouchInput()) { hoveredNodeId = String(id); applyHighlightState(); }
       // Inline mode: toggle this node independently; multiple can stay open at once. No click highlight.
       if (inlineMode) {
-        if (inlineExpandedMap[String(id)]) { collapseNodeInline(id); return; }
+        if (inlineExpandedMap[String(id)]) {
+          // Open node: the title area always closes it; elsewhere a click first focuses (highlights) it
+          // unless it already has the focus — see _focusNodeId.
+          if (_focusNodeId !== String(id) && !tapOnNodeHeader(evt.target, evt)) { focusNode(id); return; }
+          _focusNodeId = String(id);
+          collapseNodeInline(id); return;
+        }
+        _focusNodeId = String(id);   // opening it: it becomes the focused node
         if (window.Shiny) Shiny.setInputValue('clicked_node_id', id, { priority: 'event' });
         return;
       }
@@ -4593,6 +4723,7 @@ function setLanguage(lang) {
   applyDescPanelLang();
   var titleStr = (lang === 'fi' ? langData.page_title_fi : langData.page_title_en) || langData.page_title_en;
   if (titleStr) document.title = titleStr;
+  applyHeaderTexts();   // site-address label + projects-menu label follow the language too
   // Node heights are measured for the shown language, so re-measure + re-stack + re-fit on switch
   // (keeps open nodes + scroll). Otherwise fall back to just repositioning the headers.
   if (cy && inlineMode && !useMobileLayout()) applyNodeFontScaleLayout();
@@ -4607,15 +4738,35 @@ Shiny.addCustomMessageHandler('updateAccTitles', function(t) {
   applyAccTitles();
 });
 
+// Top-bar texts (author Column tab), EN + FI; an empty FI text falls back to EN. See applyHeaderTexts.
+var headerTexts = { page_title_en: '', page_title_fi: '', site_label_en: '', site_label_fi: '', nav_label_en: '', nav_label_fi: '' };
+function applyHeaderTexts() {
+  var H = headerTexts, fi = currentLang === 'fi';
+  var enEl = document.getElementById('page-title-en');
+  if (enEl && H.page_title_en) enEl.textContent = H.page_title_en;
+  var fiEl = document.getElementById('page-title-fi');
+  if (fiEl) fiEl.textContent = H.page_title_fi || H.page_title_en || fiEl.textContent;
+  var site = (fi && H.site_label_fi) ? H.site_label_fi : H.site_label_en;
+  var su = document.getElementById('site-url-label');
+  if (su && site) su.textContent = site;
+  var nav = (fi && H.nav_label_fi) ? H.nav_label_fi : H.nav_label_en;
+  if (nav) {   // site-nav.js reads SITE_NAV_LABEL when it builds the menu; update any copy already built
+    window.SITE_NAV_LABEL = nav;
+    document.querySelectorAll('.nav-label').forEach(function (el) { el.textContent = nav; });
+  }
+}
+
 Shiny.addCustomMessageHandler('setLanguageData', function(d) {
   langData.page_title_en       = d.page_title_en;
   langData.page_title_fi       = d.page_title_fi;
+  ['page_title_en', 'page_title_fi', 'site_label_en', 'site_label_fi', 'nav_label_en', 'nav_label_fi'].forEach(function (k) {
+    if (d[k] != null) headerTexts[k] = d[k];
+  });
   accTitleData.details_title_fi = d.details_title_fi;
   accTitleData.intro_title_fi   = d.intro_title_fi;
   accTitleData.vote_title_fi    = d.vote_title_fi;
   accTitleData.fund_title_fi    = d.fund_title_fi;
-  var titleFiEl = document.getElementById('page-title-fi');
-  if (titleFiEl) titleFiEl.textContent = d.page_title_fi || d.page_title_en || '';
+  applyHeaderTexts();
   var btnEn = document.getElementById('lang-btn-en');
   var btnFi = document.getElementById('lang-btn-fi');
   if (btnEn) btnEn.classList.toggle('lang-active', currentLang === 'en');
@@ -4957,6 +5108,14 @@ Shiny.addCustomMessageHandler('setProjectOutline', function (msg) {
 
 // Hover highlight colour: saturation / value multipliers on the edge colour (author sliders).
 // Hovered-edge outline thickness in px (author slider); null/undefined = follow the node outline.
+// Compact-title strength: the share (%) of their height that Theme/Skill title areas keep in a column
+// compacted by open nodes (see TITLE_COMPACT). 100 = no shrinking.
+Shiny.addCustomMessageHandler('setTitleCompact', function (msg) {
+  var p = (msg && msg.pct != null) ? +msg.pct : 70;
+  TITLE_COMPACT = Math.max(0.1, Math.min(1, p / 100));
+  if (cy && inlineBase) reflowInline();
+});
+
 Shiny.addCustomMessageHandler('setHoverEdgeOutline', function (msg) {
   hoverEdgeOutlineW = (msg && msg.px != null && msg.px !== '') ? +msg.px : null;
   if (cy) drawEdgeOverlay();
@@ -5016,6 +5175,7 @@ Shiny.addCustomMessageHandler('setForceMobile', function (msg) {
 Shiny.addCustomMessageHandler('setNodeBgSameAsGraph', function (val) {
   nodeBgSameAsGraph = !!val;
   if (cy) cy.style(buildStyle());
+  applyTopBarColor();
 });
 
 // Cytoscape swallows wheel events, so in inline mode we scroll the graph area ourselves.
@@ -5218,6 +5378,7 @@ function ensureInlineSidebarBtn() {
   var host = document.getElementById('site-frame') || document.body;
   if (!hdr) { hdr = document.createElement('div'); hdr.id = 'inline-header-right'; host.appendChild(hdr); }
   else if (hdr.parentNode !== host) host.appendChild(hdr);
+  applyTopBarColor();   // the cluster carries the top-bar colour (it may wrap below the bar)
   var sb = document.getElementById('info-sidebar');
   if (sb && sb.parentNode !== hdr) hdr.appendChild(sb);   // controls — left
   // "Draft/final projects" dropdown, next to the controls. This cluster covers the site nav bar, so it
@@ -5227,8 +5388,9 @@ function ensureInlineSidebarBtn() {
   hdr.appendChild(navSlot);
   if (window.siteNavFillSlot) window.siteNavFillSlot();
   hdr.appendChild(fc);                                    // description font size — pushed right
-  hdr.appendChild(zc);                                    // zoom — right of the font control
+  // (the zoom buttons −/100%/+/fit are no longer shown in the bar; Ctrl/⌘ + wheel and pinch still zoom)
   hdr.appendChild(wrap);                                  // Open/Collapse toolbar — right
+  ensureColumnButtonStrip();                              // per-column Open/Close all, under the cluster
 }
 
 Shiny.addCustomMessageHandler('setInlineMode', function (msg) {
@@ -5347,6 +5509,7 @@ window.initStaticApp = function(payload) {
   if (payload.outline_saturation != null) Shiny._handlers['setOutlineSaturation']({ value: payload.outline_saturation });
   if (payload.hover_sat != null || payload.hover_val != null) Shiny._handlers['setHoverHsv']({ sat: payload.hover_sat, val: payload.hover_val });
   if (payload.hover_edge_outline != null) Shiny._handlers['setHoverEdgeOutline']({ px: payload.hover_edge_outline });
+  if (payload.title_compact_pct != null) Shiny._handlers['setTitleCompact']({ pct: payload.title_compact_pct });
   if (payload.outline_transparency != null) Shiny._handlers['setOutlineTransparency']({ pct: payload.outline_transparency });
   if (payload.node_pad != null) Shiny._handlers['setNodePad']({ px: payload.node_pad });
   if (payload.project_max_width != null) Shiny._handlers['setProjectMaxWidth']({ px: payload.project_max_width });
@@ -5368,6 +5531,8 @@ window.initStaticApp = function(payload) {
     if (Shiny._handlers['setLanguageData'])
       Shiny._handlers['setLanguageData']({ page_title_en: sb.page_title_en,
         page_title_fi: sb.page_title_fi, details_title_fi: sb.details_title_fi,
+        site_label_en: sb.site_label_en, site_label_fi: sb.site_label_fi,
+        nav_label_en: sb.nav_label_en, nav_label_fi: sb.nav_label_fi,
         intro_title_fi: sb.intro_title_fi, vote_title_fi: sb.vote_title_fi,
         fund_title_fi: sb.fund_title_fi });
     var titleEnEl = document.getElementById('page-title-en');

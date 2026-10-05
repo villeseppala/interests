@@ -318,9 +318,7 @@ for (n in g$nodes) {
 # ── Sidebar content ───────────────────────────────────────────────────────────
 nl2br <- function(s) gsub("\n", "<br>", s %||% "", fixed = TRUE)
 
-sidebar <- list(
-  page_title_en    = ly$page_title_en %||% "My interests",
-  page_title_fi    = ly$fi_page_title      %||% "",
+sidebar <- c(header_texts(ly), list(   # page_title_en/_fi, site_label_en/_fi, nav_label_en/_fi
   details_title    = ly$details_title      %||% "Details",
   details_hint     = ly$details_hint       %||% "Click on an item to show description",
   details_hint_fi  = ly$fi_details_hint    %||% "",
@@ -331,7 +329,7 @@ sidebar <- list(
   vote_title_fi    = ly$fi_vote_title      %||% "",
   fund_title       = ly$funding_title      %||% "Funding",
   fund_title_fi    = ly$fi_funding_title   %||% ""
-)
+))
 
 vote_text    <- ly$vote_text %||% "Vote for themes, projects and skills."
 fi_vote_text <- if (nzchar(ly$fi_vote_text %||% "")) ly$fi_vote_text else vote_text
@@ -371,6 +369,7 @@ cd$gradient_hover_mult <- as.numeric(ly$gradient_hover_mult %||% 2)
 cd$gradient_hover_desc <- isTRUE(ly$gradient_hover_desc %||% FALSE)
 cd$hover_white_outline <- isTRUE(ly$hover_white_outline %||% FALSE)
 cd$hover_edge_outline  <- ly$hover_edge_outline   # NULL (absent) = follow the node outline thickness
+cd$title_compact_pct   <- as.numeric(ly$title_compact_pct %||% 70)   # compact-title strength (% kept)
 cd$node_outline <- as.numeric(ly$node_outline %||% 3)
 cd$project_outline <- as.numeric(ly$project_outline %||% ly$node_outline %||% 3)
 cd$outline_saturation <- as.numeric(ly$outline_saturation %||% 1)

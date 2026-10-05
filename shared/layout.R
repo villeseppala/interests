@@ -97,6 +97,24 @@ scan_articles <- function(articles_dir) {
   list(manifest = manifest, ids = ids, inline = inline_body, langs = langs)
 }
 
+# ── Page header (top bar) texts ──────────────────────────────────────────────
+# Editable in the author app's Column tab, English + Finnish (an empty Finnish text falls back to the
+# English one in the browser): the page title, the site-address label beside it, and the label of the
+# projects menu. Layout keys: page_title_en / fi_page_title, site_label / fi_site_label,
+# nav_label / fi_nav_label.
+HEADER_TEXT_DEFAULTS <- list(page_title = "My interests - Ville Seppälä",
+                             site_label = "villeseppala.github.io/interests",
+                             nav_label  = "Draft/final projects")
+header_texts <- function(ly) {
+  nz <- function(x) if (is.null(x) || !length(x) || !nzchar(trimws(as.character(x[[1]])))) NULL else as.character(x[[1]])
+  list(page_title_en = nz(ly$page_title_en) %||% HEADER_TEXT_DEFAULTS$page_title,
+       page_title_fi = nz(ly$fi_page_title) %||% "",
+       site_label_en = nz(ly$site_label)    %||% HEADER_TEXT_DEFAULTS$site_label,
+       site_label_fi = nz(ly$fi_site_label) %||% "",
+       nav_label_en  = nz(ly$nav_label)     %||% HEADER_TEXT_DEFAULTS$nav_label,
+       nav_label_fi  = nz(ly$fi_nav_label)  %||% "")
+}
+
 # ── Column background opacity ────────────────────────────────────────────────
 # frame_fill_opacity: 0-100 %, 0 = no column background, 100 = solid (the look before this setting).
 # Layouts saved before it existed only have the old frame_fill_pct, which had become a plain on/off
@@ -135,6 +153,7 @@ MOBILE_DEFAULTS <- list(
 ASPECT_BUILD_INPUTS <- c("w_node", "w_project", "h_theme", "h_project", "h_skill",
                          "gap_v", "gap_col",
                          "font_node", "font_project", "font_ptype", "font_subs",
+                         "font_hdr1", "font_hdr2",                 # column header title / subtitle
                          "center_cols", "headers_on_stack")
 ASPECT_CLIENT_INPUTS <- c("ptype_pct", "fill_nodew", "fill_projw", "fill_colgap", "fill_nodepad",
                           "narrow_gap_mult", "narrow_node_mult")
@@ -145,7 +164,7 @@ ASPECT_INPUTS <- c(ASPECT_BUILD_INPUTS, ASPECT_CLIENT_INPUTS)
 ASPECT_DEFAULTS <- list(
   w_project = NODE_W$Project, h_theme = 46, h_project = 66, h_skill = 46,
   gap_v = 18, gap_col = 400,
-  font_node = 12, font_ptype = 12, font_subs = 15,
+  font_node = 12, font_ptype = 12, font_subs = 15, font_hdr1 = 22, font_hdr2 = 15,
   center_cols = FALSE, headers_on_stack = FALSE,
   ptype_pct = 10, fill_nodew = 0, fill_projw = 0, fill_colgap = 0, fill_nodepad = 0,
   narrow_gap_mult = 1, narrow_node_mult = 1
@@ -634,8 +653,8 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
   }
   list(nodes=cy_nodes, edges=cy_edges, headers=headers, max_h1=max_h1,
        headerMargin=header_margin_total,
-       # the Theme / Skill heights as set: render.js keeps them as a floor when it re-measures titles
-       hTheme=h_theme, hSkill=h_skill,
+       # the Theme / Project / Skill heights as set: render.js keeps them as a floor when it re-measures titles
+       hTheme=h_theme, hProject=h_project, hSkill=h_skill,
        fontNode=font_node, fontProject=(font_project %||% font_node), fontPtype=font_ptype, fontSubs=font_subs, fontDesc=font_desc,
        fontHdr1=font_hdr1, fontHdr2=font_hdr2,
        watermarkText=watermark_text, watermarkSize=watermark_size,

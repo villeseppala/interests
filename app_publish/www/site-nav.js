@@ -36,7 +36,9 @@
     }
     dropdownHtml =
       '<div class="nav-dropdown">' +
-        '<a href="' + linkBase + 'articles.html">Draft/final projects<span class="nav-caret">&#9660;</span></a>' +
+        // Label: the graph page sets window.SITE_NAV_LABEL from the author's Column tab (per language).
+        '<a href="' + linkBase + 'articles.html"><span class="nav-label">' + esc(window.SITE_NAV_LABEL || 'Draft/final projects') +
+        '</span><span class="nav-caret">&#9660;</span></a>' +
         '<div class="nav-menu">' + items + '</div>' +
       '</div>';
     fillSlot();

@@ -279,6 +279,7 @@ server <- function(input, output, session) {
     session$sendCustomMessage("setGradientHoverMult", list(mult = ly$gradient_hover_mult %||% 2))
     session$sendCustomMessage("setGradientHoverDesc", list(value = isTRUE(ly$gradient_hover_desc %||% FALSE)))
     session$sendCustomMessage("setHoverWhiteOutline", list(value = isTRUE(ly$hover_white_outline %||% FALSE)))
+    session$sendCustomMessage("setTitleCompact", list(pct = ly$title_compact_pct %||% 70))
     if (!is.null(ly$hover_edge_outline))
       session$sendCustomMessage("setHoverEdgeOutline", list(px = ly$hover_edge_outline))
     session$sendCustomMessage("setNodeOutline", list(width = ly$node_outline %||% 3))
@@ -301,14 +302,12 @@ server <- function(input, output, session) {
       details_title = details_title, intro_title = col_intro_title,
       vote_title = vote_title, fund_title = fund_title
     ))
-    session$sendCustomMessage("setLanguageData", list(
-      page_title_en = "My interests - Ville Sepp\u00e4l\u00e4",
-      page_title_fi = fi_page_title,
+    session$sendCustomMessage("setLanguageData", c(header_texts(ly), list(   # page title / site label / menu label
       details_title_fi = fi_details_title,
       intro_title_fi   = fi_intro_title,
       vote_title_fi    = fi_vote_title,
       fund_title_fi    = fi_fund_title
-    ))
+    )))
   })
   
   # Column sidebar content from saved layout

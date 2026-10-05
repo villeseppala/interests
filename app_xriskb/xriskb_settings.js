@@ -6,16 +6,24 @@ window.XRISKB_SETTINGS = {
   "author": {
     "--g-bg": "#1e2933",
     "--g-line-col": "#000000",
-    "--row-line-w": "1px",
+    "--row-line-w": "2px",
     "--row-line-col": "#030303",
-    "potInPop": true
+    "--v-bg": "#152b3c",
+    "--v-edit-bg": "#02111c",
+    "--title-fs": "19px",
+    "--formula-fs": "17.2px",
+    "--ar-w": "1.6px",
+    "potInPop": true,
+    "graphYears": true
   },
   "view": {
-    "horizon": 2,
-    "first": 1,
-    "zoom": 0.769,
-    "boxText": 1.4,
-    "namesWidth": 298,
+    "points": [
+      2,
+      3
+    ],
+    "zoom": 1.022,
+    "boxText": 1.3,
+    "namesWidth": 385,
     "variables": [
       "rate",
       "surv",
@@ -25,17 +33,18 @@ window.XRISKB_SETTINGS = {
     "show": {
       "graphs": true,
       "arrows": true,
-      "spin": true,
+      "spin": false,
       "formulas": true,
       "change": true,
       "b": true,
       "names": false,
-      "comparison": true
+      "comparison": false
     },
     "comparePrevious": false,
     "excludePopulation": true,
     "graphScale": {
-      "surv": "all",
+      "rate": "cum",
+      "surv": "full",
       "years": "potall",
       "popexp": "pot",
       "lives": "potall",
@@ -43,7 +52,7 @@ window.XRISKB_SETTINGS = {
     },
     "views": {
       "rateComp": true,
-      "survComp": false,
+      "survComp": true,
       "yearsComp": true,
       "yearsGens": false,
       "livesLy": false,

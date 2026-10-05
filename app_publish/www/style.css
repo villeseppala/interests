@@ -84,6 +84,9 @@ body.light-mode .article-link { background:#1a7a7b; color:#eafcff; }
    then the unfolded article body (a capped, self-scrolling region so the node stays a sane height). */
 .inline-article-row { display:flex; flex-wrap:wrap; align-items:center; gap:12px 16px; margin-top:10px; }
 .inline-article-row .article-link { margin-top:0; }
+/* the "Read more" links line up with the description text they follow (render.js descAlign) */
+.inline-node-desc[style*="text-align:right"] .inline-article-row { justify-content:flex-end; }
+.inline-node-desc[style*="text-align:center"] .inline-article-row { justify-content:center; }
 .inline-article-expand { position:relative; z-index:7; pointer-events:auto !important; cursor:pointer;
   user-select:none; -webkit-user-select:none; font-weight:600; text-decoration:underline;
   opacity:0.9; white-space:nowrap; }
@@ -419,9 +422,26 @@ body.inline-mode #info-sidebar #page-title {
 body.inline-mode #info-sidebar #page-title-text { font-size:15px; }
 /* Header cluster spanning the bar: title/controls on the LEFT, zoom + Open/Collapse on the RIGHT. */
 body.inline-mode #inline-header-right {
-  position:fixed; top:0; left:10px; right:10px; min-height:46px; z-index:1001;
+  position:fixed; top:0; left:0; right:0; min-height:46px; z-index:1001;
   display:flex; align-items:center; flex-wrap:wrap; column-gap:16px; row-gap:4px;
-  align-content:center; padding:3px 0; box-sizing:border-box; }
+  align-content:center; padding:3px 10px; box-sizing:border-box;
+  /* full width with the bar's own colour (render.js applyTopBarColor), so when the cluster wraps onto a
+     second row the top bar visibly extends down with it instead of the second row floating on the map */
+  border-bottom:1px solid rgba(255,255,255,0.12); }
+body.light-mode.inline-mode #inline-header-right { border-bottom-color:rgba(0,0,0,0.12); }
+/* Column-button strip: the last row of the top bar (render.js ensureColumnButtonStrip), holding each
+   column's Open all / Close all centred over the column. It carries the bar's bottom line instead. */
+body.inline-mode #col-btn-strip {
+  position:fixed; left:0; right:0; z-index:1001; height:36px; box-sizing:border-box;
+  border-bottom:1px solid rgba(255,255,255,0.12); }
+body.light-mode.inline-mode #col-btn-strip { border-bottom-color:rgba(0,0,0,0.12); }
+body.inline-mode.col-strip-on #inline-header-right { border-bottom-color:transparent; }
+#col-btn-strip .col-btn-pair { position:absolute; top:50%; transform:translate(-50%, -50%); display:flex; gap:8px; white-space:nowrap; }
+/* 1.5x the old 11px buttons; outline as on the bar's own Open all / Close all (.inline-allbtn), text
+   still in the column's colour */
+#col-btn-strip .col-hdr-btn { font-size:16.5px; padding:1px 9px; line-height:1.5;
+  border:1px solid rgba(255,255,255,0.25); border-radius:5px; }
+body.light-mode #col-btn-strip .col-hdr-btn { border-color:rgba(0,0,0,0.25); }
 /* Right cluster starts at the description-size control (leftmost right-aligned item), so the font
    control and zoom sit together, next to each other, pushed to the right of the bar. */
 body.inline-mode #inline-header-right #inline-descfont { margin-left:auto; }
@@ -434,6 +454,12 @@ body.inline-mode:has(#graph-area) #site-nav .nav-dropdown { display:none !import
 body:not(.inline-mode) #site-nav-slot { display:none !important; }
 body.inline-mode #inline-header-right #inline-allbtns {
   position:static; transform:none; top:auto; left:auto; right:auto; height:auto; gap:2px; }
+/* Open all / Close all side by side when the bar has room, stacked when it doesn't: the toolbar is a
+   wrapping row that starts at its narrowest (one button wide), may grow into free space up to both
+   buttons' width, and wraps the second button below the first whenever it can't get that width. */
+body.inline-mode #inline-header-right #inline-allbtns {
+  flex-direction:row; flex-wrap:wrap; justify-content:flex-end; align-items:center;
+  flex:1 1 min-content; max-width:max-content; gap:2px 4px; }
 body.inline-mode #inline-header-right #info-sidebar {
   position:static !important; top:auto !important; right:auto !important; left:auto !important;
   height:auto !important; max-width:none !important; box-shadow:none !important; border-radius:0 !important; }
@@ -488,7 +514,7 @@ body.light-mode.inline-mode .inline-allbtn {
 @media (max-width: 768px), (max-height: 500px) and (max-width: 1100px) {
   body.unified-ui #site-url-label { display:none !important; }
   body.unified-ui #inline-header-right {
-    flex-wrap:nowrap; overflow-x:auto; column-gap:6px; left:6px; right:6px;
+    flex-wrap:nowrap; overflow-x:auto; column-gap:6px; left:0; right:0; padding-left:6px; padding-right:6px;
     -ms-overflow-style:none; scrollbar-width:none; }
   body.unified-ui #inline-header-right::-webkit-scrollbar { display:none; }
   body.unified-ui #inline-header-right > * { flex:none; }
@@ -503,6 +529,8 @@ body.light-mode.inline-mode .inline-allbtn {
   body.unified-ui #inline-header-right .inline-allbtn { font-size:12px; padding:6px 9px; }
   /* Open all / Close all side by side (not stacked) so they don't eat vertical header space. */
   body.unified-ui #inline-allbtns { flex-direction:row; gap:4px; }
+  /* the one-row mobile bar scrolls sideways instead, so keep the pair side by side there */
+  body.unified-ui #inline-header-right #inline-allbtns { flex:none; flex-wrap:nowrap; max-width:none; }
 }
 /* Zoom control (−  100%  +  ⤢) — sits in the header cluster; pinch / Ctrl+wheel also zoom */
 #inline-zoom { display:none; }
