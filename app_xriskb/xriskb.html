@@ -40,8 +40,14 @@ h1{font-size:21px;font-weight:700;margin:0 0 4px;}
   padding:6px 13px;font-size:13px;cursor:pointer;}
 .controls .btn:hover{background:#175981;}
 .controls .btn:disabled{opacity:0.35;cursor:default;background:#12405f;box-shadow:none;}
-/* the Variables and Comparison sections: side by side (wrapping on a narrow page), each an outline with its title
-   in the border, round its own options */
+/* "Reset comparison": lit while a click would change the comparison (B differs from A somewhere), grey while
+   it wouldn't (B is A already, or "Comparison = previous value" is on) */
+.controls .btn#setref.hot{background:#1f77a8;border-color:#8fd6f2;color:#fff;box-shadow:0 0 0 2px rgba(143,214,242,.25);}
+.controls .btn#setref.hot:hover{background:#2a8ac0;}
+.controls .btn#setref:disabled{opacity:1;background:#26323c;border-color:#3c4a56;color:#7d8a96;}
+/* the control groups (Show elements, Show variables, Time scale, Controls, Comparison): one flow, as many to a line as
+   fit, each whole (a group moves to the next line rather than wrap its own contents; it wraps them only when alone
+   on a line too narrow for it), each an outline with its title in the border, round its own options */
 .boxrow{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch;margin:12px 0 20px;}
 .boxrow > .controls{margin:0;}
 .controls.ctlbox{border:1px solid #2a6a8f;border-radius:8px;padding:6px 12px 10px;min-width:0;}
@@ -95,8 +101,10 @@ body:not(.author) .scenebox{display:none;}
 .varbox .vall a{color:#8fd6f2;text-decoration:none;}
 .varbox .vall a:hover{color:#ffd27f;}
 .cmpbox:not(.on) .cmpopt{display:none;}   /* "Show comparison scenario" unticked: the box collapses to its title */
+body.potin .vbtn-pop{display:none;}   /* the potential set in the population boxes: no row of its own to show (setPotIn) */
+.cmpbox:not(.withb) .namesopt{display:none;}   /* "Show B" unticked: no B to name, so no "Name the scenarios" (unticked when Show B is ticked again) */
 /* collapsed: a flat bar (the title on the outline, no empty inside), kept at the width it had open (cmpCollapse),
-   so it stays where it was instead of jumping up beside Show variables */
+   so it stays where it was instead of jumping up beside the boxes before it */
 .cmpbox:not(.on){padding-top:0;padding-bottom:0;max-width:100%;}
 .ctlbox > legend .lgchk{display:inline-flex;align-items:center;gap:5px;cursor:pointer;}
 .ctlbox > legend .lgchk input{margin:0;cursor:pointer;}
@@ -236,14 +244,11 @@ body.dragging, body.dragging *{cursor:grabbing !important;user-select:none !impo
    at its natural width, from the track's start and shifted onto its column's centre (left, set per cell) */
 .grid-wrap.packed .grow{grid-template-columns:var(--labw) var(--gtpl);width:calc(var(--labw) + var(--gsum));max-width:none;min-width:0;}
 .grid-wrap.packed .grow > :not(.rlabel){grid-column-end:span 1 !important;justify-self:start;width:max-content;position:relative;}
-/* time points: the present, then a dot for each checkpoint the table can show (10 / 100 / … / 1 000 000 years ahead),
-   on one line; a click shows or hides one (drawScale). The line is filled up to the last one shown, the horizon */
-.scalectl{display:flex;align-items:center;gap:10px;}
-/* table zoom: − / the percentage (a click: back to 100%) / + */
-.zoomctl{display:flex;align-items:center;gap:4px;margin-left:24px;}
-.zoomctl .khint{margin-right:6px;}
+/* small square buttons (the scenes' ◀ / ▶) */
 .controls .btn.zbtn{padding:3px 10px;min-width:30px;font-size:14px;line-height:1.3;}
-.controls .btn.zpct{min-width:58px;font-size:12.5px;}
+/* time points: the present, then a dot for each checkpoint the table can show (10 / 100 / … / 1 000 000 years ahead),
+   on one line, in the Time scale group; a click shows or hides one (drawScale). The line is filled up to the last one
+   shown, the horizon */
 /* each point a column of the same width, its dot over its label; the line in two halves on either side of the dot
    (::before, ::after), each filled while inside the horizon (lin, rin) */
 .tpts{display:grid;grid-template-columns:repeat(7, 56px);}
@@ -349,8 +354,8 @@ body.nospin .ar, body.nospin .arsp{display:none;}   /* "▲ and ▼ controls" un
    where the value is. The rate box's odds ("1 in …") then move from above the value to beside it, the baseline's
    beside the baseline, in the box's side column (.vside, below).
    Top to bottom: the value, the delta, the baseline. With the baseline shown, each line is labelled in a column at
-   the box's left: A: value (the reader's scenario, the new one), A−B: delta, B: baseline (the comparison, the reference).
-   The column is as wide as the widest label ("A−B:", about 2.4em in Arial bold) and right-justified, so the colons
+   the box's left: A: value (the reader's scenario, the baseline), B−A: delta, B: the comparison (the new scenario).
+   The column is as wide as the widest label ("B−A:", about 2.4em in Arial bold) and right-justified, so the colons
    line up. */
 .vbase{font-size:13px;line-height:1.2;margin-top:3px;font-variant-numeric:tabular-nums;text-align:right;}
 .vbase .dch{opacity:.8;}
@@ -365,14 +370,14 @@ body.nospin .ar, body.nospin .arsp{display:none;}   /* "▲ and ▼ controls" un
 .vpotl{font-size:11px;line-height:1.2;font-style:italic;color:#8496a4;text-align:right;}   /* "potential", under it */
 .vlab{flex:none;box-sizing:content-box;width:2.6em;text-align:right;align-self:center;margin-right:auto;padding-right:5px;
   font-size:11px;font-weight:600;color:#9fb0bf;white-space:nowrap;}
-/* the delta as a percentage of the baseline: its label is the fraction (A−B over B) */
+/* the delta as a percentage of A, the baseline: its label is the fraction (B−A over A) */
 .vlab .frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;font-size:10px;line-height:1.05;}
 .vlab .frac > span:first-child{border-bottom:1px solid currentColor;padding:0 1px 1px;}
 .vlab .frac > span + span{padding-top:1px;}
 .vdelta:has(> .vlab .frac){align-items:center;}
 /* With graphs shown: a key just before the A and B letters, the graphs' own line for each (A solid, B dashed 3/3
    and fainter, as .ga), in the value's colour (vkey). It sits in the label column's own room (the column is sized
-   for "A−B:"), so the boxes are no wider. Not in the x-risk row: its lines are drawn in the survival row's graphs. */
+   for "B−A:"), so the boxes are no wider. Not in the x-risk row: its lines are drawn in the survival row's graphs. */
 .vkey{display:none;}
 body.graphs .grow:not([data-row="rate"]) .vkey{display:inline-block;width:9px;height:2px;margin-right:2px;vertical-align:middle;
   background:var(--kc);}
@@ -381,6 +386,12 @@ body.graphs .grow:not([data-row="rate"]) .vkey.vkey-b{background:repeating-linea
 /* scenario names over the table (see the markup) */
 .scnames{display:none;flex-wrap:wrap;gap:10px 24px;margin:0 0 14px;}
 body.names .scnames{display:flex;}
+/* the note over the table (Controls: Note), as the names' fields: one line, growing with its text (fitName) */
+#note{display:none;width:100%;box-sizing:border-box;margin:0 0 14px;font:inherit;font-size:15px;line-height:1.35;color:#fff;
+  background:#0a2438;border:1px solid #2a6a8f;border-radius:6px;padding:5px 10px;resize:none;overflow:hidden;}
+body.note #note{display:block;}
+#note:focus{outline:none;border-color:#8fd6f2;}
+#note::placeholder{color:#6f8595;}
 /* the two share the page's width; a name too long for its field wraps, and the field grows a line (fitName) */
 .scn{flex:1 1 0;min-width:240px;display:flex;align-items:flex-start;gap:8px;}
 .scl{font-size:15px;font-weight:700;color:#cdd9e3;padding-top:6px;}   /* level with the first line */
@@ -430,7 +441,7 @@ body:not(.nospin) .vstack:has(> .arsp:first-child){padding-bottom:13px;}
 .dig.digsel .dch{color:#ffd27f !important;}
 .dig.digsel .ar{color:#e8b96a;}
 /* ▲ / ▼ in the delta's colours: green the way that makes the value better, red the way that makes it worse (data-good:
-   which way is better). The same on all three lines: raising A, or A − B, is the same move. Hover: gold */
+   which way is better). The same on all three lines: raising B, or B − A, is the same move. Hover: gold */
 .xedit[data-good="more_good"] .ar.up, .xedit[data-good="more_bad"] .ar.dn{color:#7fd18f;}
 .xedit[data-good="more_bad"] .ar.up, .xedit[data-good="more_good"] .ar.dn{color:#ee4d4d;}
 .xedit[data-good] .ar:hover{color:#ffd27f;}
@@ -458,7 +469,7 @@ body:not(.nospin) .vstack:has(> .arsp:first-child){padding-bottom:13px;}
     <span class='kbd'>&larr;</span><span class='kbd'>&rarr;</span><span class='kbd'>&uarr;</span><span class='kbd'>&darr;</span>
     or the mouse wheel, or type <span class='kbd'>0</span>&ndash;<span class='kbd'>9</span> to set the digit
     (or turn on <span class='kbd'>&#9650;</span>/<span class='kbd'>&#9660;</span> buttons under Show elements).
-    On a change (A&minus;B) line, <span class='kbd'>+</span> or <span class='kbd'>&minus;</span> sets its sign.
+    On a change (B&minus;A) line, <span class='kbd'>+</span> or <span class='kbd'>&minus;</span> sets its sign.
     Survival edits backtrace into the earlier extinction rates.</p>
   <!-- Author controls: settings for the page's look (CSS variables on the root; see "author controls" in the script) -->
   <fieldset class="controls ctlbox authbox">
@@ -477,6 +488,7 @@ body:not(.nospin) .vstack:has(> .arsp:first-child){padding-bottom:13px;}
     <label class="acin" title="How much the ▲ / ▼ fade except on the line being edited: 0 not at all, 100 out of sight">Inactive ▲▼ fade <input id="acArFade" type="number" min="0" max="100" step="5" value="60"> %</label>
     <label class="acin" title="The variables' names in the names column, their view switches included">Title font <input id="acTfs" type="number" min="8" max="30" step="0.5" value="15"> px</label>
     <label class="acin" title="The formulas in the names column">Formula font <input id="acFfs" type="number" min="8" max="30" step="0.4" value="14.4"> px</label>
+    <label class="acin" title="The numbers in the value boxes; everything else inside a box (not its caption) scales with them">Box text <input id="acBoxt" type="number" min="8" max="26" step="0.5" value="13"> px</label>
     <label class="acin" title="Set the population potential in the annual population's boxes, over its value; its own row keeps only its graphs and growth rates. Unticked: in its own row"><input id="acPotIn" type="checkbox" autocomplete="off">Population potential in the population boxes</label>
     <label class="acin" title="The first and last year of each graph's period, under its two ends"><input id="acGyears" type="checkbox" autocomplete="off">Years under graphs</label>
     <div class="acsave">
@@ -503,64 +515,8 @@ body:not(.nospin) .vstack:has(> .arsp:first-child){padding-bottom:13px;}
     </div>
     <textarea id="scNotes" rows="1" spellcheck="false" placeholder="Notes for this scene (saved with it)" aria-label="Scene notes"></textarea>
   </fieldset>
-  <div class="controls">
-    <button id="undoBtn" type="button" class="btn" title="Undo (Ctrl+Z)" disabled>&#8630;&nbsp;Undo</button>
-    <button id="redoBtn" type="button" class="btn" title="Redo (Ctrl+Y)" disabled>Redo&nbsp;&#8631;</button>
-    <button id="surv100" type="button" class="btn">100% survival</button>
-    <button id="reset" type="button" class="btn">Reset to defaults</button>
-  </div>
-  <!-- second row: the time scale -->
-  <div class="controls">
-    <!-- The time points the table shows: the present, then one dot per ten-fold step ahead (10 / 100 / ... /
-         1 000 000 years), each shown or hidden by a click; filled by the script (drawScale; SCALE_MIN / SCALE_MAX /
-         DEF_POINTS) -->
-    <div class="scalectl">
-      <span class="khint">Time points<br>(years ahead)</span>
-      <div class="tpts" id="tpts" role="group" aria-label="Time points shown in the table"></div>
-    </div>
-    <!-- Table zoom (setTableZoom): smaller shows more years and variables at once. Ctrl (⌘) + wheel or a pinch over
-         the table zooms too, about the pointer. -->
-    <div class="zoomctl" title="Zoom the table; Ctrl (⌘) + mouse wheel or a pinch over the table zooms too">
-      <span class="khint">Table zoom</span>
-      <button id="zoomOut" type="button" class="btn zbtn" aria-label="Zoom out">&minus;</button>
-      <button id="zoomReset" type="button" class="btn zbtn zpct" title="Back to 100%">100%</button>
-      <button id="zoomIn" type="button" class="btn zbtn" aria-label="Zoom in">+</button>
-    </div>
-    <!-- Box text size (setBoxText): scales what is inside the value boxes, nothing else -->
-    <div class="zoomctl" title="The size of the text inside the value boxes">
-      <span class="khint">Box text</span>
-      <button id="boxtOut" type="button" class="btn zbtn" aria-label="Smaller box text">&minus;</button>
-      <button id="boxtReset" type="button" class="btn zbtn zpct" title="Back to 100%">100%</button>
-      <button id="boxtIn" type="button" class="btn zbtn" aria-label="Larger box text">+</button>
-    </div>
-  </div>
-  <!-- Comparison: what the values are compared against, and what of it the table shows (scenario B;
-       "comparison" is called the baseline in the script). The checkbox in its title collapses it (.cmpopt hidden) and
-       unticks the options inside, which come back as they were when it is ticked again (see the change handler). -->
+  <!-- The control groups, one flow: as many to a line as fit, each whole, in this order (wrapping on a narrow page) -->
   <div class="boxrow">
-  <!-- Variables: which metric rows are rendered (values = the rows' ids, as ROWS in the script). Each is a toggle
-       button: a visually hidden checkbox inside a label, drawn pressed in while on. A hidden row isn't built at
-       all, so its cells can't be clicked, arrowed into or wheel-edited. -->
-  <fieldset class="controls ctlbox varbox">
-    <legend>Show variables</legend>
-    <div id="vars">
-      <label class="vbtn c-rate" title="Annual extinction probability"><input type="checkbox" value="rate" checked autocomplete="off"><span>Extinction probability</span></label>
-      <label class="vbtn c-surv" title="Cumulative survival probability"><input type="checkbox" value="surv" checked autocomplete="off"><span>Survival probability</span></label>
-      <label class="vbtn c-surv" title="Cumulative years or generations, survived or lost"><input type="checkbox" value="years" checked autocomplete="off"><span>Years</span></label>
-      <label class="vbtn c-pop" title="Annual population"><input type="checkbox" value="popexp" checked autocomplete="off"><span>Population</span></label>
-      <label class="vbtn c-pop" title="Cumulative lives or life-years, lived or lost"><input type="checkbox" value="lives" checked autocomplete="off"><span>Lives</span></label>
-      <label class="vbtn c-pop" title="Annual population potential"><input type="checkbox" value="pop" checked autocomplete="off"><span>Population potential</span></label>
-    </div>
-    <span class="vall"><a href="#" data-vars="all">All</a> · <a href="#" data-vars="none">None</a></span>
-  </fieldset>
-  <fieldset class="controls ctlbox cmpbox on">
-    <legend><label class="lgchk"><input id="showcmp" type="checkbox" checked autocomplete="off"><span>Show comparison scenario</span></label></legend>
-    <button id="setref" type="button" class="btn cmpopt" title="Freeze the current values as the comparison">Set comparison = current</button>
-    <div class="checkbox cmpopt"><label><input id="cmpprev" type="checkbox" autocomplete="off"><span>Comparison = previous value</span></label></div>
-    <div class="checkbox cmpopt"><label><input id="showchg" type="checkbox" checked autocomplete="off"><span>Show change</span></label></div>
-    <div class="checkbox cmpopt"><label><input id="showref" type="checkbox" checked autocomplete="off"><span>Show B</span></label></div>
-    <div class="checkbox cmpopt"><label><input id="shownames" type="checkbox" autocomplete="off"><span>Name the scenarios</span></label></div>
-  </fieldset>
   <!-- Show elements: parts of the table that can be switched off, toggle buttons as in Show variables. With graphs,
        the arrows go round them (drawArrows); the ▲/▼ buttons start off (keys and wheel still edit). -->
   <fieldset class="controls ctlbox elbox">
@@ -572,10 +528,55 @@ body:not(.nospin) .vstack:has(> .arsp:first-child){padding-bottom:13px;}
       <label class="vbtn c-plain"><input id="showfx" type="checkbox" checked autocomplete="off"><span>Formulas</span></label>
     </div>
   </fieldset>
+  <!-- Variables: which metric rows are rendered (values = the rows' ids, as ROWS in the script). Each is a toggle
+       button: a visually hidden checkbox inside a label, drawn pressed in while on. A hidden row isn't built at
+       all, so its cells can't be clicked, arrowed into or wheel-edited. -->
+  <fieldset class="controls ctlbox varbox">
+    <legend>Show variables</legend>
+    <div id="vars">
+      <label class="vbtn c-rate" title="Annual extinction probability"><input type="checkbox" value="rate" checked autocomplete="off"><span>Extinction probability</span></label>
+      <label class="vbtn c-surv" title="Cumulative survival probability"><input type="checkbox" value="surv" checked autocomplete="off"><span>Survival probability</span></label>
+      <label class="vbtn c-surv" title="Cumulative years or generations, survived or lost"><input type="checkbox" value="years" checked autocomplete="off"><span>Years</span></label>
+      <label class="vbtn c-pop" title="Annual population"><input type="checkbox" value="popexp" checked autocomplete="off"><span>Population</span></label>
+      <label class="vbtn c-pop" title="Cumulative lives or life-years, lived or lost"><input type="checkbox" value="lives" checked autocomplete="off"><span>Lives</span></label>
+      <label class="vbtn c-pop vbtn-pop" title="Annual population potential"><input type="checkbox" value="pop" checked autocomplete="off"><span>Population potential</span></label>
+    </div>
+    <span class="vall"><a href="#" data-vars="all">All</a> · <a href="#" data-vars="none">None</a></span>
+  </fieldset>
+  <!-- The time points the table shows: the present, then one dot per ten-fold step ahead (10 / 100 / ... /
+       1 000 000 years), each shown or hidden by a click; filled by the script (drawScale; SCALE_MIN / SCALE_MAX /
+       DEF_POINTS) -->
+  <fieldset class="controls ctlbox scalebox">
+    <legend>Time scale</legend>
+    <div class="tpts" id="tpts" role="group" aria-label="Time points shown in the table, in years ahead"></div>
+  </fieldset>
+  <fieldset class="controls ctlbox ctrlbox">
+    <legend>Controls</legend>
+    <button id="undoBtn" type="button" class="btn" title="Undo (Ctrl+Z)" disabled>&#8630;&nbsp;Undo</button>
+    <button id="redoBtn" type="button" class="btn" title="Redo (Ctrl+Y)" disabled>Redo&nbsp;&#8631;</button>
+    <button id="surv100" type="button" class="btn">100% survival</button>
+    <button id="reset" type="button" class="btn">Reset to defaults</button>
+    <!-- Note: a free-text field over the table (#note), shown while this is on -->
+    <label class="vbtn c-plain" title="A note over the table"><input id="shownote" type="checkbox" autocomplete="off"><span>Note</span></label>
+  </fieldset>
+  <!-- Comparison: what the values are compared against, and what of it the table shows (scenario B;
+       "comparison" is called the baseline in the script). The checkbox in its title collapses it (.cmpopt hidden) and
+       unticks the options inside, which come back as they were when it is ticked again (see the change handler). -->
+  <fieldset class="controls ctlbox cmpbox on">
+    <legend><label class="lgchk"><input id="showcmp" type="checkbox" checked autocomplete="off"><span>Show comparison scenario</span></label></legend>
+    <button id="setref" type="button" class="btn cmpopt" title="Reset the comparison (B) to the current values (A)">Reset comparison</button>
+    <div class="checkbox cmpopt"><label><input id="cmpprev" type="checkbox" autocomplete="off"><span>Comparison = previous value</span></label></div>
+    <div class="checkbox cmpopt"><label><input id="showchg" type="checkbox" checked autocomplete="off"><span>Show change</span></label></div>
+    <div class="checkbox cmpopt"><label><input id="showref" type="checkbox" checked autocomplete="off"><span>Show B</span></label></div>
+    <div class="checkbox cmpopt namesopt"><label><input id="shownames" type="checkbox" autocomplete="off"><span>Name the scenarios</span></label></div>
+  </fieldset>
   </div>
+  <!-- The note (Controls: Note): free text over the table, for whoever sees the page in a screenshot or a recording;
+       nothing else reads it. Saved with a scene. -->
+  <textarea id="note" rows="1" spellcheck="false" placeholder="Note" aria-label="Note"></textarea>
   <!-- Scenario names ("Name the scenarios", in the comparison box): two free-text fields over the table, so whoever
        sees the page in a screenshot or a recording can tell what A and B stand for. Nothing else reads them. Shown
-       while that box is ticked and the comparison is (applyShowToggles). -->
+       while that box is ticked and B is shown (applyShowToggles). -->
   <div class="scnames">
     <label class="scn"><span class="scl">A:</span><textarea id="nameA" rows="1" placeholder="Name scenario A" autocomplete="off" spellcheck="false"></textarea></label>
     <label class="scn"><span class="scl">B:</span><textarea id="nameB" rows="1" placeholder="Name scenario B" autocomplete="off" spellcheck="false"></textarea></label>
@@ -775,7 +776,7 @@ function gcellFixed(col, v, toDisp, decimals, suffix, color, pad, node, cap, sym
   return vcellHtml(col, capHtml(cap, sym) + '<div class="vstack"><div class="arsp"></div><div class="vmain digits"' + sty(color) + '>' +
     buildSlots(v, toDisp, decimals, suffix, {pad: pad, editable: false, lit: lit}) + '</div></div>', 'vcell', nodeAttr(node));
 }
-// a line's label when the baseline is shown (B: the baseline, i.e. the comparison; A−B: the delta; A: the value);
+// a line's label when B is shown (B: the comparison, the new scenario; B−A: the delta; A: the value, the baseline);
 // nothing otherwise
 function vlab(on, txt){ return on ? '<span class="vlab">' + txt + '</span>' : ''; }
 // the graphs' line for scenario A (solid) or B (b: dashed), in the value's colour, before that line's label; shown
@@ -785,8 +786,8 @@ function vkey(b, color){ return '<span class="vkey' + (b ? ' vkey-b' : '') + '" 
 // in percentage points (said in its tooltip)
 function dtogHtml(row, rel, pct){
   return '<button type="button" class="dtog" data-row="' + row + '" title="' +
-    (rel ? 'Change as a percentage of B. Click for the difference' + (pct ? ' in percentage points' : '')
-         : 'Difference' + (pct ? ' in percentage points' : '') + '. Click for the change as a percentage of B') + '">' +
+    (rel ? 'Change as a percentage of A. Click for the difference' + (pct ? ' in percentage points' : '')
+         : 'Difference' + (pct ? ' in percentage points' : '') + '. Click for the change as a percentage of A') + '">' +
     '<span' + (rel ? '' : ' class="on"') + '>&Delta;</span><span' + (rel ? ' class="on"' : '') + '>%</span></button>';
 }
 // Decimals that give x (>= 0) n digits in all, the integer part's included ("0.0123" is 5). Fewer when its
@@ -796,18 +797,18 @@ function fitDecimals(x, n){
   var ip = fmtF(x, dec).split('.')[0].length;       // rounding may carry into a new digit (9.99996 -> 10.0000)
   return Math.min(dec, Math.max(0, n - ip));
 }
-// A cell's delta row: the value against the baseline, A − B, measured from B, the reference (A is the new one),
-// coloured by whether A is the better (app_xrisk's too). With o.dmode set (this page's cells), 'abs': that
-// difference, but for a percentage the "%" is left out (it is in percentage points) and only held as an invisible
-// placeholder so the digits stay under the value's; 'rel': the change as a percentage of B, (A − B) / B, with as
-// many digits as the value shows (its padding included), by fitDecimals. (With o.dmode set the cell puts the
-// switch between the two beside this row.) pad: the value's integer width; good, eps: as deltaLook; edit: ▲/▼ on
-// the digits (an editable cell's delta: a step moves A by that place).
+// A cell's delta row. o.dmode unset: app_xrisk's, value − baseline. With o.dmode set (this page's cells) it is
+// measured from A, the value, as the baseline: B − A, the new scenario less the baseline, coloured by whether B is
+// the better. 'abs': that difference, but for a percentage the "%" is left out (it is in percentage points) and
+// only held as an invisible placeholder so the digits stay under the value's; 'rel': the change as a percentage
+// of A, (B − A) / A, with as many digits as the value shows (its padding included), by fitDecimals. (With
+// o.dmode set the cell puts the switch between the two beside this row.) pad: the value's integer width; good,
+// eps: as deltaLook; edit: ▲/▼ on the digits (an editable cell's delta: a step moves B by that place).
 function deltaRow(o, pad, good, eps, edit){
   var rel = o.dmode === 'rel', pct = o.suffix === '%', body;
-  var from = o.ref, to = o.cur;                     // the delta is to − from
-  var lab = !o.base ? '' : rel ? '<span class="vlab"><span class="frac"><span>A&minus;B</span><span>B</span></span>:</span>'
-                              : vlab(true, 'A&minus;B:');
+  var from = o.dmode ? o.cur : o.ref, to = o.dmode ? o.ref : o.cur;   // the delta is to − from
+  var lab = !o.base ? '' : rel ? '<span class="vlab"><span class="frac"><span>B&minus;A</span><span>A</span></span>:</span>'
+                              : vlab(true, 'B&minus;A:');
   if(rel){
     if(!(from > 0)) body = '<span class="dch nrel">&mdash;</span>';   // nothing to divide by
     else {
@@ -837,8 +838,8 @@ function sideCol(on){
 // o.top (the rate's odds) sits over the value (under it on this page's cells, o.dmode); with the baseline shown, or
 // o.oddsSide, it moves beside the value instead, and o.topBase (the baseline's odds) beside the baseline. o.dmode puts
 // the delta switch beside the delta.
-// Top to bottom: the value, A (the reader's, main, scenario: the new one); the delta, A − B; the baseline, B
-// (the comparison: the reference).
+// Top to bottom: the value, A (the reader's, main, scenario: the baseline); the delta, B − A; the comparison, B
+// (the new scenario).
 // With the comparison off only A remains.
 // With o.base, o.oddsSide and o.dmode unset the markup is app_xrisk's: the value, then the delta under it (and
 // app_xrisk shows the baseline beside the value).
@@ -1130,11 +1131,16 @@ function showsBase(){ return showsCmp() && isChecked('showref'); }
 function showsGraphs(){ return isChecked('showgraphs'); }   // the graphs between the checkpoints
 function visibleRows(){
   var on = varBoxes().filter(function(x){ return x.checked; }).map(function(x){ return x.value; });
+  if(potInPop) on = on.filter(function(r){ return r !== 'pop'; });   // its row and button gone (setPotIn)
   return ROWS.filter(function(r){ return on.indexOf(r) >= 0; });
 }
 // The population potential set in the annual population's boxes, over the value (potInPop, Author controls), not
-// in a row of its own: its row then keeps only its graphs and growth rates. Only while annual population is shown.
+// in a row of its own: its row is then gone (visibleRows), its "Exclude from comparison" in the annual population's
+// row. Only while annual population is shown.
 function potInBoxes(){ return potInPop && visibleRows().indexOf('popexp') >= 0; }
+// The Author option: the potential in those boxes, or (unticked) in its own row as before, with its Population potential
+// button under Show variables back (the button and row are gone while it is ticked: body.potin, CSS; visibleRows)
+function setPotIn(on){ potInPop = !!on; document.body.classList.toggle('potin', potInPop); }
 function range1(n){ var a = []; for(var k = 1; k <= n; k++) a.push(k); return a; }
 
 // The table. j = checkpoint and i = period, both 1-based as in the R version; arrays are 0-based.
@@ -1214,7 +1220,9 @@ function panelHtml(cur, ref){
       var expr = sc ? '(<span class="vpota">1</span> &minus; ' + num(1 - sv, COL_RATE) + ')' : num(sv, COL_SURV, 'vpota');
       return '<div class="vpotmul vctr"><span>' + (k ? '<span class="vpotk">' + k + '</span>' : '') + '&times; ' + expr + ' =</span></div>';
     }
-    var ab = cmp && j > 1;                          // the first checkpoint's 1 is both scenarios'
+    // A's and B's, labelled, while B is shown (as the value's lines below); else A's alone, unlabelled. The first
+    // checkpoint's 1 is both scenarios'
+    var ab = sr && j > 1;
     var muls = mul(cur.surv[j - 1], ab ? 'A:' : '') + (ab ? mul(ref.surv[j - 1], 'B:') : '');
     return '<div class="vpot xedit"' + editAttrs(o) + '>' +
              '<div class="vpotlab vctr"><span>Population if survived' +
@@ -1405,7 +1413,7 @@ function footHtml(){
 
 // ── state, baselines and history ──
 // rates / pops: the current state. The comparison baseline is either a frozen state (refStatic, mode
-// 'current': "Set comparison = current", or any edit to a baseline value) or the state before the most
+// 'current': "Reset comparison", or any edit to a baseline value) or the state before the most
 // recent change (mode 'previous') — the rules app_xrisk's server applied, plus the baseline edits.
 // The page starts, and "Reset to defaults" returns, with the defaults frozen as the baseline ('current').
 var tpoints = DEF_POINTS.slice(), M = modelAt(tpoints);   // the time points shown (exponents, ascending; drawScale)
@@ -1497,7 +1505,7 @@ function render(){
   var K = showsGraphs() ? GRAPH_K : 0;             // graphs: sample each period (compute)
   var rs = refState(), cur = compute(rates, pops, M, K), ref = compute(rs.rates, rs.pops, M, K);
   // drawArrows (below, and on every resize) colours by this; no colours while the comparison is hidden
-  arrowTone = showsCmp() ? arrowTones({rates: rates, pops: pops}, rs, M.n) : {};   // A judged against B, as the change lines
+  arrowTone = showsCmp() ? arrowTones(rs, {rates: rates, pops: pops}, M.n) : {};   // B judged against A, as the change lines
   if(potInBoxes()) for(var j = 1; j <= M.n; j++)   // the potential in the annual population's box: a change of it colours that box's arrows
     if(arrowTone['pop:' + j]) arrowTone['popexp:' + j] = arrowTone['pop:' + j];
   var sc0 = document.querySelector('.grid-scroll'), scrollX = sc0 ? sc0.scrollLeft : 0;
@@ -1506,7 +1514,15 @@ function render(){
   document.getElementById('foot').innerHTML = footHtml();
   // the Comparison controls follow the mode (an undo, a comparison edit or a reset can change it)
   var br = document.getElementById('setref'), bp = document.getElementById('cmpprev');
-  if(br) br.disabled = (mode === 'previous');    // "previous value" on: nothing to freeze
+  // "Reset comparison": lit while a click would change B (it differs from A somewhere, as the change lines
+  // and arrows count it, excluded values aside); grey and off while it is A already, or "previous value" is on
+  var same = !Object.keys(arrowTones({rates: rates, pops: pops}, rs, M.n)).length;
+  if(br){
+    br.disabled = (mode === 'previous') || same;
+    br.classList.toggle('hot', !br.disabled);
+    br.title = mode === 'previous' ? 'Off while the comparison is the previous value'
+             : same ? 'The comparison already equals the current values' : 'Reset the comparison (B) to the current values (A)';
+  }
   if(bp) bp.checked = (mode === 'previous');
   var selCell = cellOf(sel);                      // a ⇄ toggle renamed the selected cell's kind: follow it
   // that line is hidden, or the value has none (excluded from the comparison): don't edit it blind
@@ -1518,7 +1534,7 @@ function render(){
 }
 
 // the controls that reset or rebase the state (each an undo step, since the baseline is in the history).
-// "Set comparison = current" freezes the values as they are; "Comparison = previous value" switches to the
+// "Reset comparison" freezes the values as they are; "Comparison = previous value" switches to the
 // moving baseline, and unticking it returns to the frozen one as it was.
 function setBaselineCurrent(){ refStatic = snap(); mode = 'current'; recordHistory(); scheduleRender(); }
 function setBaselinePrevious(on){ mode = on ? 'previous' : 'current'; recordHistory(); scheduleRender(); }
@@ -1592,7 +1608,7 @@ function applyHighlight(){
   var sg = pendingSign && deltaSignEl();          // a zero change waiting for its sign shows that sign, not ±
   if(sg && sg.textContent === '±') sg.textContent = pendingSign.s > 0 ? '+' : '−';
 }
-// + / − typed on a change line (A − B): a nonzero change takes that sign (A moves to B ± |change|); a
+// + / − typed on a change line (B − A): a nonzero change takes that sign (B moves to A ± |change|); a
 // zero one (shown ±) remembers it for the next digit typed there (typeDigit). Kept per line (selKey), and
 // dropped once any edit lands or the selection moves elsewhere.
 var pendingSign = null;                           // {key: selKey(), s: +1 | -1}
@@ -1624,7 +1640,6 @@ function survFix(arr, i, T, locked){
     arr[m] = 0;                                   // maxed this interval, keep backtracing
   }
 }
-function setSurv(i, T){ survFix(rates, i, T); pushState(); }
 function valOf(kind, i, rArr, pArr){
   if(kind === 'surv')   return survOf(rArr, i);
   if(kind === 'surv_c') return 1 - survOf(rArr, i);      // cumulative extinction probability
@@ -1633,11 +1648,11 @@ function valOf(kind, i, rArr, pArr){
 }
 function curVal(){  return valOf(sel.kind, sel.i, rates, pops); }
 function baseVal(){ var b = refState(); return valOf(sel.kind, sel.i, b.rates, b.pops); }
-function setValAbs(v){                            // write the actual value (backtrace for surv)
-  if(sel.kind === 'surv'){ setSurv(sel.i, v); }
-  else if(sel.kind === 'surv_c'){ setSurv(sel.i, 1 - v); }
-  else if(sel.kind === 'rate_c'){ rates[sel.i] = Math.min(1, Math.max(0, +(1 - v).toFixed(12))); pushState(); }
-  else { var arr = (sel.kind === 'rate') ? rates : pops; arr[sel.i] = Math.max(0, +v.toFixed(12)); pushState(); }
+function writeVal(kind, i, v){                    // write A's actual value (backtrace for surv); no history step
+  if(kind === 'surv') survFix(rates, i, v);
+  else if(kind === 'surv_c') survFix(rates, i, 1 - v);
+  else if(kind === 'rate_c') rates[i] = Math.min(1, Math.max(0, +(1 - v).toFixed(12)));
+  else { var arr = (kind === 'rate') ? rates : pops; arr[i] = Math.max(0, +v.toFixed(12)); }
 }
 // Write a baseline value, by the same rules. An edited baseline is a fixed one: a "previous value" baseline
 // is frozen as it stands (mode 'current') before the edit lands in it. The values don't change; the deltas do.
@@ -1649,32 +1664,52 @@ function baseSurvFix(i, T){                      // the comparison's survival at
   survFix(eff, i, T, isRateExcluded);
   eff.forEach(function(r, k){ if(!isRateExcluded(k)) refStatic.rates[k] = r; });
 }
-function setBaseAbs(v){
-  freezeBase();
+function writeBase(kind, i, v){                   // B's (after freezeBase); no history step
   var b = refStatic;
-  if(sel.kind === 'surv' || sel.kind === 'surv_c') baseSurvFix(sel.i, sel.kind === 'surv' ? v : 1 - v);
-  else if(sel.kind === 'rate_c') b.rates[sel.i] = Math.min(1, Math.max(0, +(1 - v).toFixed(12)));
-  else { var arr = (sel.kind === 'rate') ? b.rates : b.pops; arr[sel.i] = Math.max(0, +v.toFixed(12)); }
-  recordHistory(); scheduleRender();
+  if(kind === 'surv' || kind === 'surv_c') baseSurvFix(i, kind === 'surv' ? v : 1 - v);
+  else if(kind === 'rate_c') b.rates[i] = Math.min(1, Math.max(0, +(1 - v).toFixed(12)));
+  else { var arr = (kind === 'rate') ? b.rates : b.pops; arr[i] = Math.max(0, +v.toFixed(12)); }
 }
-// The selected row decides what an edit changes: the value (A), the change, or the baseline (B) itself. The
-// change is measured from B, the reference: A − B, or (A − B) / B where the row's switch is on %; so editing it
-// moves A, the new one, and leaves B where it is (a "previous value" B is frozen first: it would follow A away).
+function setBaseAbs(v){ freezeBase(); writeBase(sel.kind, sel.i, v); recordHistory(); scheduleRender(); }
+// A is the baseline and B the new scenario: an edit of A leaves the change as it was. B moves with A, by the same
+// difference, or where the row's switch is on %, the same percentage of A. That is the edited value's own change
+// only: the values downstream follow the model, so their changes may move. Not while the comparison is the previous
+// value (B is then A as it was), nor for a value excluded from the comparison (B is A there anyway). One undo step.
+// write(): the edit of A itself.
+function excludedVal(kind, i){
+  if(kind === 'pop') return popExcluded || i === 0;
+  if(kind === 'rate' || kind === 'rate_c') return isRateExcluded(i);
+  return false;                                   // a survival: its periods' exclusions are kept by baseSurvFix
+}
+function editA(kind, i, write){
+  var keep = mode === 'current' && !excludedVal(kind, i);
+  var a0 = valOf(kind, i, rates, pops), r = refState(), b0 = valOf(kind, i, r.rates, r.pops);
+  write();
+  if(keep){
+    var a1 = valOf(kind, i, rates, pops);
+    writeBase(kind, i, relRows[KIND_ROW[kind]] && a0 > 0 ? a1 * b0 / a0 : a1 + (b0 - a0));
+  }
+  pushState();
+}
+function setValAbs(v){ var k = sel.kind, i = sel.i; editA(k, i, function(){ writeVal(k, i, v); }); }
+// The selected row decides what an edit changes: the value (A), the change, or the comparison (B) itself. The
+// change is measured from A, the baseline: B − A, or (B − A) / A where the row's switch is on %; so editing it
+// moves B and leaves A where it is (and editing A leaves it as it is: editA).
 var KIND_ROW = {rate:'rate', rate_c:'rate', surv:'surv', surv_c:'surv', pop:'pop'};
 function relDelta(){ return !!relRows[KIND_ROW[sel.kind]]; }
 function editVal(){
   if(sel.part === 'base') return baseVal();
   if(sel.part !== 'delta') return curVal();
-  var b = baseVal();
-  return relDelta() ? (b > 0 ? curVal() / b - 1 : 0) : curVal() - b;
+  var a = curVal();
+  return relDelta() ? (a > 0 ? baseVal() / a - 1 : 0) : baseVal() - a;
 }
 function applyEdit(nv){
   pendingSign = null;                              // any edit uses up a waiting sign (see setDeltaSign)
   if(sel.part === 'base') return setBaseAbs(nv);
   if(sel.part !== 'delta') return setValAbs(nv);
-  var b = baseVal();
-  if(!relDelta()){ freezeBase(); setValAbs(b + nv); }
-  else if(b > 0){ freezeBase(); setValAbs(b * (1 + nv)); }   // a B of 0 has no relative change to set
+  var a = curVal();
+  if(!relDelta()) setBaseAbs(a + nv);
+  else if(a > 0) setBaseAbs(a * (1 + nv));          // an A of 0 has no relative change to set
 }
 function change(dir){                             // ▼ always lowers, ▲ always raises (monotonic)
   applyEdit(editVal() + dir * sel.place);         // crosses zero once, never flip-flops
@@ -1754,8 +1789,7 @@ function setOdds(which, i, x, kind){
     if(surv) baseSurvFix(i, 1 - 1 / x); else refStatic.rates[i] = 1 / x;
     recordHistory(); scheduleRender();
   }
-  else if(surv) setSurv(i, 1 - 1 / x);
-  else { rates[i] = 1 / x; pushState(); }
+  else editA(kind, i, function(){ if(surv) survFix(rates, i, 1 - 1 / x); else rates[i] = 1 / x; });   // B keeps its change
 }
 document.addEventListener('click', function(e){
   var od = e.target.closest('.odds'); if(!od || od.querySelector('input')) return;
@@ -2182,7 +2216,7 @@ function stackUnit(s){
   return u;
 }
 // From the third variable on (not the x-risk or survival rows), each box's value — its A line's number, from its first
-// digit to its unit — stands in the middle of the box: what sits beside it (the A / A−B / B labels on its left, the
+// digit to its unit — stands in the middle of the box: what sits beside it (the A / B−A / B labels on its left, the
 // Δ|% switch on its right) rarely balances, so the box's stack of lines gets the difference as padding on the side with
 // less; the stack sits centred in the box, so then the number does. Measured afresh each time (the padding cleared
 // first), and only inside the stack, in its own px (u: stackUnit).
@@ -2326,7 +2360,7 @@ function fitColumns(){
 // comparison's lines) don't stretch every graph with them. The plot stretches both ways (the SVG scales its axes,
 // preserveAspectRatio none; strokes keep their width).
 // Beside a graph a box keeps GRAPH_TOUCH px clear, or with the arrows on too ARROW_LANE: the arrows' lanes.
-var GRAPH_TOUCH = 3, GRAPH_MIN_H = 90, GRAPH_MAX_H = 130, ARROW_LANE = 26;
+var GRAPH_TOUCH = 3, GRAPH_MIN_H = 90, GRAPH_MAX_H = 104, ARROW_LANE = 26;
 // side-by-side arrows: centre to centre, the arrows' width (Author controls: --ar-w, 1.3 px) and 2 px between
 function arrowStep(){ var w = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ar-w')); return (w > 0 ? w : 1.3) + 2; }
 function stretchGraphs(){
@@ -2398,14 +2432,23 @@ function applyShowToggles(){
   document.body.classList.toggle('graphs', showsGraphs());         // the A / B line key in the boxes (CSS)
   document.body.classList.toggle('nospin', !isChecked('showspin'));
   var cb = document.querySelector('.cmpbox'); if(cb) cb.classList.toggle('on', showsCmp());   // its other options
-  document.body.classList.toggle('names', isChecked('shownames') && showsCmp());   // the scenario names over the table
+  if(cb) cb.classList.toggle('withb', showsBase());   // "Name the scenarios": only while B is shown (CSS)
+  document.body.classList.toggle('names', isChecked('shownames') && showsBase());   // the scenario names over the table
+  document.body.classList.toggle('note', isChecked('shownote'));   // the note over the table (Controls: Note)
 }
 document.addEventListener('change', function(e){
   var t = e.target;
   if(t.id === 'showarrows'){ applyShowToggles(); requestAnimationFrame(watchArrows); }   // with graphs: the lanes open or close
   else if(t.id === 'showfx' || t.id === 'showspin'){ applyShowToggles(); requestAnimationFrame(watchArrows); }   // box heights change: re-fit the graphs
   else if(t.id === 'showcmp'){ cmpCollapse(t.checked); applyShowToggles(); fitNames(); scheduleRender(); }
-  else if(t.id === 'showref' || t.id === 'showchg') scheduleRender();
+  else if(t.id === 'showref'){                             // B: the names go with it, and start unticked when it is back
+    if(t.checked) document.getElementById('shownames').checked = false;
+    applyShowToggles(); fitNames(); scheduleRender();
+  }
+  else if(t.id === 'showchg') scheduleRender();
+  else if(t.id === 'shownote'){                              // ticked: straight into the note
+    applyShowToggles(); var nt = document.getElementById('note'); fitName(nt); if(t.checked) nt.focus();
+  }
   else if(t.id === 'shownames'){                             // ticked: straight to A's name, if it has none yet
     applyShowToggles(); fitNames();
     var na = document.getElementById('nameA'); if(t.checked && !na.value) na.focus();
@@ -2466,8 +2509,8 @@ function fitName(t){
   t.style.height = 'auto';
   t.style.height = (t.scrollHeight + t.offsetHeight - t.clientHeight) + 'px';   // the text, plus the borders
 }
-function fitNames(){ document.querySelectorAll('.scn textarea, #scNotes').forEach(fitName); }
-document.addEventListener('input', function(e){ if(e.target.closest('.scn textarea, #scNotes')) fitName(e.target); });
+function fitNames(){ document.querySelectorAll('.scn textarea, #scNotes, #note').forEach(fitName); }
+document.addEventListener('input', function(e){ if(e.target.closest('.scn textarea, #scNotes, #note')) fitName(e.target); });
 window.addEventListener('resize', fitNames);                    // a narrower page wraps more lines
 // the red × at the top left of each row's label: hides that variable (unticks its Show variables button)
 document.addEventListener('click', function(e){
@@ -2516,12 +2559,11 @@ document.addEventListener('click', function(e){
 
 // ── table zoom ──
 // CSS zoom on the table (--tzoom on #panel, read by .grid-wrap): the table lays out at that scale, so zooming out
-// fits more years across and shows more rows; the controls above keep their size. From the − / + buttons (the
-// steps below), the percentage (back to 100%), or Ctrl (⌘) + wheel or a pinch over the table, which zooms about
-// the pointer: the point under it stays roughly there (roughly: the columns re-fit at the new width). Measuring
-// code converts screen px to the table's own with gridScale.
+// fits more years across and shows more rows; the controls above keep their size. No control of its own on the page:
+// the saved settings' (view.zoom), or Ctrl (⌘) + wheel or a pinch over the table, which zooms about the pointer: the
+// point under it stays roughly there (roughly: the columns re-fit at the new width). Measuring code converts screen
+// px to the table's own with gridScale.
 var tableZoom = 1, ZOOM_MIN = 0.3, ZOOM_MAX = 1.5;
-var ZOOM_STEPS = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.5];
 var zoomQueued = false;
 function setTableZoom(z, at){                     // at: {x, y}, the pointer (client px) to zoom about
   z = Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)) * 1000) / 1000;
@@ -2535,22 +2577,12 @@ function setTableZoom(z, at){                     // at: {x, y}, the pointer (cl
   }
   tableZoom = z;
   document.getElementById('panel').style.setProperty('--tzoom', String(z));
-  var pct = document.getElementById('zoomReset'); if(pct) pct.textContent = Math.round(z * 100) + '%';
   if(sr){ sc.scrollLeft = ax * z - (at.x - sr.left); scrollPageBy(ay * (z - old)); }
   if(!zoomQueued){                                // re-fit the columns and graphs, redraw the arrows: once a frame
     zoomQueued = true;
     requestAnimationFrame(function(){ zoomQueued = false; watchArrows(); });
   }
 }
-function zoomStep(dir){                           // the next step up (dir 1) or down (-1) from the current zoom
-  var s = ZOOM_STEPS.filter(function(v){ return dir > 0 ? v > tableZoom + 1e-6 : v < tableZoom - 1e-6; });
-  return s.length ? (dir > 0 ? s[0] : s[s.length - 1]) : tableZoom;
-}
-document.addEventListener('click', function(e){
-  if(e.target.closest('#zoomIn')) setTableZoom(zoomStep(1));
-  else if(e.target.closest('#zoomOut')) setTableZoom(zoomStep(-1));
-  else if(e.target.closest('#zoomReset')) setTableZoom(1);
-});
 document.addEventListener('wheel', function(e){  // Ctrl / ⌘ + wheel, and a touchpad pinch (sent as one), over the table
   if(!(e.ctrlKey || e.metaKey) || !e.target.closest || !e.target.closest('.grid-scroll')) return;
   e.preventDefault();                             // instead of the browser's page zoom
@@ -2612,26 +2644,27 @@ document.addEventListener('input', function(e){
 });
 // ...and one that changes the table: where the population potential is set (potInBoxes); saved as author.potInPop
 document.addEventListener('change', function(e){
-  if(e.target.id === 'acPotIn'){ potInPop = e.target.checked; scheduleRender(); }
+  if(e.target.id === 'acPotIn'){ setPotIn(e.target.checked); scheduleRender(); }
   else if(e.target.id === 'acGyears'){ document.body.classList.toggle('graph-years', e.target.checked); requestAnimationFrame(watchArrows); }   // rows taller: re-fit
 });
 
 // ── box text size ──
-// The "Box text" − / 100% / + buttons: CSS zoom on each value box's contents (--boxt on #panel), in 10% steps
-// from 60% to 200%; the columns re-fit to the new box widths.
-var boxText = 1, boxtQueued = false;
+// The Author controls' "Box text": the size of the value boxes' numbers in px (BOXT_BASE, .vmain's, at 1), as CSS
+// zoom on each box's contents (--boxt on #panel; boxText the factor), BOXT_MIN to BOXT_MAX px; the columns re-fit to
+// the new box widths. Saved as author.boxTextPx.
+var BOXT_BASE = 13, BOXT_MIN = 8, BOXT_MAX = 26, boxText = 1, boxtQueued = false;
 function setBoxText(z){
-  z = Math.round(Math.min(2, Math.max(0.6, z)) * 10) / 10;
-  if(z === boxText) return;
+  if(!isFinite(z)) return;
+  z = Math.min(BOXT_MAX / BOXT_BASE, Math.max(BOXT_MIN / BOXT_BASE, z));
+  if(Math.abs(z - boxText) < 1e-9) return;
   boxText = z;
   document.getElementById('panel').style.setProperty('--boxt', String(z));
-  var pct = document.getElementById('boxtReset'); if(pct) pct.textContent = Math.round(z * 100) + '%';
+  var el = document.getElementById('acBoxt');      // the input follows, unless it is being typed in
+  if(el && el !== document.activeElement) el.value = Math.round(z * BOXT_BASE * 10) / 10;
   if(!boxtQueued){ boxtQueued = true; requestAnimationFrame(function(){ boxtQueued = false; watchArrows(); }); }
 }
-document.addEventListener('click', function(e){
-  if(e.target.closest('#boxtIn')) setBoxText(boxText + 0.1);
-  else if(e.target.closest('#boxtOut')) setBoxText(boxText - 0.1);
-  else if(e.target.closest('#boxtReset')) setBoxText(1);
+document.addEventListener('input', function(e){
+  if(e.target.id === 'acBoxt'){ var px = parseFloat(e.target.value); if(px > 0) setBoxText(px / BOXT_BASE); }
 });
 
 // ── drag to scroll ──
@@ -2688,7 +2721,7 @@ function scrollPageBy(dy){
 // overwrite it; Shift-click asks again); else the file's text is shown to copy into it. Without the file, or
 // for anything it leaves out, the page keeps its own defaults.
 var SHOW_IDS = {graphs: 'showgraphs', arrows: 'showarrows', spin: 'showspin', formulas: 'showfx',
-                change: 'showchg', b: 'showref', names: 'shownames'};
+                change: 'showchg', b: 'showref', names: 'shownames', note: 'shownote'};
 function currentSettings(){
   var author = {}, root = document.documentElement.style;
   Object.keys(AUTHOR_VARS).forEach(function(id){
@@ -2696,6 +2729,7 @@ function currentSettings(){
   });
   if(potInPop) author.potInPop = true;
   if(document.body.classList.contains('graph-years')) author.graphYears = true;
+  if(Math.abs(boxText - 1) > 1e-9) author.boxTextPx = Math.round(boxText * BOXT_BASE * 10) / 10;
   var show = {};
   Object.keys(SHOW_IDS).forEach(function(k){
     var id = SHOW_IDS[k]; show[k] = (cmpSaved && id in cmpSaved) ? cmpSaved[id] : isChecked(id);   // as before a collapse
@@ -2704,7 +2738,7 @@ function currentSettings(){
   var rel = {}; Object.keys(relRows).forEach(function(r){ if(relRows[r]) rel[r] = true; });
   var labw = parseFloat(document.getElementById('panel').style.getPropertyValue('--labw-user'));
   return {author: author, view: {
-    points: tpoints.slice(), zoom: tableZoom, boxText: boxText, namesWidth: isFinite(labw) ? labw : null,
+    points: tpoints.slice(), zoom: tableZoom, namesWidth: isFinite(labw) ? labw : null,
     variables: varBoxes().filter(function(b){ return b.checked; }).map(function(b){ return b.value; }),
     show: show, comparePrevious: mode === 'previous', excludePopulation: popExcluded,
     graphScale: Object.assign({}, graphScale),
@@ -2721,10 +2755,13 @@ function applySettings(s){                       // at start-up, before the firs
     document.documentElement.style.setProperty(v[0], x);
     var el = document.getElementById(id); if(el) el.value = v[1] === 'px' ? parseFloat(x) : v[1] === 'fade' ? Math.round(100 - parseFloat(x) * 100) : x;
   });
-  potInPop = a.potInPop === true;
+  setPotIn(a.potInPop === true);
   var pc = document.getElementById('acPotIn'); if(pc) pc.checked = potInPop;
   var gy = a.graphYears === true; document.body.classList.toggle('graph-years', gy);
   var gc = document.getElementById('acGyears'); if(gc) gc.checked = gy;
+  // the box text, in px; settings saved before it was an Author control have it as the reader's factor (view.boxText)
+  var bt = a.boxTextPx > 0 ? a.boxTextPx : (s.view && s.view.boxText > 0 ? s.view.boxText * BOXT_BASE : 0);
+  if(bt) setBoxText(bt / BOXT_BASE);
   applyView(s.view || {});
   histStack = [histSnap()]; histIdx = 0;
 }
@@ -2767,7 +2804,6 @@ function applyView(v){
   livesLy = !!w.livesLy; livesLoss = !!w.livesLoss;
   relRows = {}; Object.keys(v.relative || {}).forEach(function(r){ if(v.relative[r] === true) relRows[r] = true; });
   if(typeof v.zoom === 'number') setTableZoom(v.zoom);
-  if(typeof v.boxText === 'number') setBoxText(v.boxText);
   if(typeof v.namesWidth === 'number') setLabW(v.namesWidth);
   else if(v.namesWidth === null) setLabW(null);    // saved at the default width
 }
@@ -2839,7 +2875,7 @@ document.addEventListener('click', function(e){ if(e.target.closest('#acSave')) 
 
 // ── scenes ──
 // Author mode's Scenes group: numbered states of the whole page, for presenting it scene by scene. A scene keeps
-// the view (currentSettings().view: time points, zoom, box text, names column, variables, Show elements, the
+// the view (currentSettings().view: time points, zoom, names column, variables, Show elements, the
 // comparison's options, Scale menus, the rows' views and % switches) and the table's state (the values, the
 // comparison and its "previous" values, exclusions, the selected digit, the scenario names); not Author controls.
 // Each has notes (the Notes toggle), saved as they are typed. The menu lists the scenes by number (decimals sort
@@ -2858,7 +2894,8 @@ function sceneState(){
     ref: {rates: refStatic.rates.slice(), pops: refStatic.pops.slice()},
     prev: {rates: histPrev.rates.slice(), pops: histPrev.pops.slice()},   // the baseline in "previous value" mode
     excluded: ex, sel: Object.assign({}, sel),
-    names: {A: document.getElementById('nameA').value, B: document.getElementById('nameB').value}}};
+    names: {A: document.getElementById('nameA').value, B: document.getElementById('nameB').value},
+    note: document.getElementById('note').value}};
 }
 function applyScene(st){
   var p0 = tpoints.slice(), d = st.data || {};
@@ -2876,6 +2913,7 @@ function applyScene(st){
   pendingSign = null;
   var nm = d.names || {};
   document.getElementById('nameA').value = nm.A || ''; document.getElementById('nameB').value = nm.B || '';
+  document.getElementById('note').value = typeof d.note === 'string' ? d.note : '';
   if(!sameArr(tpoints, p0)){ histStack = [histSnap()]; histIdx = 0; }   // new time points: history restarts
   else recordHistory();                                                          // else one undo step back
   drawScale();
@@ -3010,7 +3048,7 @@ drawScale();
 // hidden, the window narrowing), so the article can size the frame to fit and
 // the app never scrolls inside it. The article's side is written by tools/build_static.R (inject_frame).
 if(window.parent !== window){
-  var postedH = 0;
+  var postedH = 0, frameH0 = window.innerHeight;
   var postHeight = function(){
     var h = document.querySelector('.page').getBoundingClientRect().height;
     h = Math.ceil(h);
@@ -3019,6 +3057,15 @@ if(window.parent !== window){
   if(window.ResizeObserver) new ResizeObserver(postHeight).observe(document.querySelector('.page'));
   window.addEventListener('load', postHeight);
   postHeight();
+  // Once the article fits the frame (it has resized it to a height posted here), the page shows no vertical scrollbar
+  // of its own. In Chrome and Edge a scrollbar takes room: it narrows the page, which at some widths makes it taller
+  // (the table then needing its sideways scrollbar), the frame follows, the scrollbar goes, the page widens and
+  // shortens again, and round: the page jitters. (A scaled display can leave the page a fraction of a px past the
+  // frame, which shows one too.) Not before the fit: in a frame nothing fits (Positron's viewer) the page still scrolls.
+  window.addEventListener('resize', function(){
+    if(postedH && postedH !== frameH0 && Math.abs(window.innerHeight - postedH) <= 1)
+      document.documentElement.style.overflowY = 'hidden';
+  });
 }
 </script>
 </body>

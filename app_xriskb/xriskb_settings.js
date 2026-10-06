@@ -14,15 +14,15 @@ window.XRISKB_SETTINGS = {
     "--formula-fs": "17.2px",
     "--ar-w": "1.6px",
     "potInPop": true,
-    "graphYears": true
+    "graphYears": true,
+    "boxTextPx": 16.9
   },
   "view": {
     "points": [
-      2,
-      3
+      1,
+      2
     ],
     "zoom": 1.022,
-    "boxText": 1.3,
     "namesWidth": 385,
     "variables": [
       "rate",
@@ -38,7 +38,8 @@ window.XRISKB_SETTINGS = {
       "change": true,
       "b": true,
       "names": false,
-      "comparison": false
+      "note": false,
+      "comparison": true
     },
     "comparePrevious": false,
     "excludePopulation": true,
@@ -51,15 +52,13 @@ window.XRISKB_SETTINGS = {
       "pop": "all"
     },
     "views": {
-      "rateComp": true,
-      "survComp": true,
+      "rateComp": false,
+      "survComp": false,
       "yearsComp": true,
       "yearsGens": false,
       "livesLy": false,
       "livesLoss": false
     },
-    "relative": {
-      "rate": true
-    }
+    "relative": {}
   }
 };
