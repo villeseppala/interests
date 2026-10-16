@@ -559,7 +559,11 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
   }
 
   header_margin_total <- HEADER_MARGIN + round((h_project + gap_v) / 2)
-  gap_to_top <- proj_top + header_margin_total
+  # Headers sit header_margin_total above the columns' tops. Inline: every column starts at proj_top (top-aligned
+  # above), so measure from there; a Project column shorter than Theme/Skill (proj_top > 0, e.g. after hiding projects)
+  # otherwise lifted every header by proj_top, past the top-bar clearance render.js reserves (hm). Non-inline: the
+  # columns are centred and the headers share the frame top (0).
+  gap_to_top <- if (inline) header_margin_total else proj_top + header_margin_total
   headers <- list(
     list(x=col_x[["Theme"]],   y=round(theme_top - gap_to_top), color=col_theme,   line1=hdr_theme_line1,   line1_fi=fi_hdr_theme_line1,   line2=hdr_theme_line2,   line2_fi=fi_hdr_theme_line2),
     list(x=col_x[["Project"]], y=round(proj_top  - gap_to_top), color=col_project, line1=hdr_project_line1, line1_fi=fi_hdr_project_line1, line2=hdr_project_line2, line2_fi=fi_hdr_project_line2),

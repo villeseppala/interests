@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-10-06">
+<meta name="dcterms.date" content="2026-10-16">
 
 <title>Extinction risk calculator</title>
 <style>
@@ -62,7 +62,7 @@ ul.task-list li input[type="checkbox"] {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">October 6, 2026</p>
+      <p class="date">October 16, 2026</p>
     </div>
   </div>
   
@@ -77,8 +77,8 @@ ul.task-list li input[type="checkbox"] {
 <p>A prototype that turns annual extinction probabilities into the expected longevity of humanity. Click any extinction probability, survival probability or potential-population digit and adjust it with the arrows, arrow keys, or by typing a number — the whole cascade recomputes live.</p>
 <p>It runs entirely in your browser. <a href="xriskb-app.html" target="_blank">Open the app full-screen in a new tab ↗</a></p>
 <!-- XRISK-APP:START -->
-<div class="app-frame-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-<iframe class="app-frame" src="apps/xriskb.html?v=1791294825" title="Extinction risk calculator" loading="lazy" style="display:block;width:100%;border:0;height:1100px;"></iframe>
+<div class="app-frame-wrap" id="xrisk-app" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+<iframe class="app-frame" src="https://villeseppala.github.io/xrisk/" title="Extinction risk calculator" loading="lazy" style="display:block;width:100%;border:0;height:1100px;"></iframe>
 </div>
 <script>
 /* Fit each app frame to its page: the app posts {appHeight} whenever its height changes. A mouse drag
@@ -94,6 +94,13 @@ if (!window.appFrameFit) {
     });
   });
 }
+/* A tour in this page's address (?tour=<name>, #tour=...): the app reads it from here; load it now and go to it */
+(function () {
+  var wrap = document.getElementById('xrisk-app');
+  if (!wrap || !(/[?&]tour=/.test(location.search) || /[#&]tour=/.test(location.hash))) return;
+  var f = wrap.querySelector('iframe'); if (f) f.loading = 'eager';
+  window.addEventListener('load', function () { wrap.scrollIntoView(); });
+})();
 </script>
 <!-- XRISK-APP:END -->
 <p>This prototype is also discussed, alongside the curve-based one, in <a href="201.qmd">Website for demonstrating existential risk</a>.</p>

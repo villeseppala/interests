@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-10-06">
+<meta name="dcterms.date" content="2026-10-16">
 
 <title>Website for demonstrating existential risk</title>
 <style>
@@ -73,7 +73,7 @@ ul.task-list li input[type="checkbox"] {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">October 6, 2026</p>
+      <p class="date">October 16, 2026</p>
     </div>
   </div>
   
@@ -103,8 +103,8 @@ ul.task-list li input[type="checkbox"] {
 <p>The first one focuses on presenting a lot of variables (inputs/outputs). Click any extinction probability, survival probability or potential-population digit and adjust it with the arrows, arrow keys, or by typing a number. For example, decreasing the annual extinction probability over just the next ten years from 0.05% to 0.049% would save over 10 million lives in expectation over the next 1000 years, with all else equal.</p>
 <p><a href="https://villeseppala.github.io/interests/articles/xriskb-app.html" target="_blank">Open the app full-screen in a new tab ↗</a></p>
 <!-- XRISK-APP:START -->
-<div class="app-frame-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-<iframe class="app-frame" src="apps/xriskb.html?v=1791294825" title="Extinction risk calculator" loading="lazy" style="display:block;width:100%;border:0;height:1100px;"></iframe>
+<div class="app-frame-wrap" id="xrisk-app" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+<iframe class="app-frame" src="https://villeseppala.github.io/xrisk/" title="Extinction risk calculator" loading="lazy" style="display:block;width:100%;border:0;height:1100px;"></iframe>
 </div>
 <script>
 /* Fit each app frame to its page: the app posts {appHeight} whenever its height changes. A mouse drag
@@ -120,6 +120,13 @@ if (!window.appFrameFit) {
     });
   });
 }
+/* A tour in this page's address (?tour=<name>, #tour=...): the app reads it from here; load it now and go to it */
+(function () {
+  var wrap = document.getElementById('xrisk-app');
+  if (!wrap || !(/[?&]tour=/.test(location.search) || /[#&]tour=/.test(location.hash))) return;
+  var f = wrap.querySelector('iframe'); if (f) f.loading = 'eager';
+  window.addEventListener('load', function () { wrap.scrollIntoView(); });
+})();
 </script>
 <!-- XRISK-APP:END -->
 </section>
@@ -128,8 +135,8 @@ if (!window.appFrameFit) {
 <p>Below is an alternative prototype where you sketch the whole risk profile as a curve rather than typing numbers. Drag the red <strong>extinction-probability-per-year</strong> handles or the blue population handles across the timeline (years 0–1110 over three log-spaced spans). This allows more customizability on what x-risk probabilities the user sets for which time period.</p>
 <p><a href="https://villeseppala.github.io/interests/articles/hazard-app.html" target="_blank">Open the app full-screen in a new tab ↗</a></p>
 <!-- HAZARD-APP:START -->
-<div class="app-frame-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-<iframe class="app-frame" src="apps/hazard.html?v=1791294825" title="Threshold curve editor" loading="lazy" style="display:block;width:100%;border:0;height:1100px;min-width:800px;"></iframe>
+<div class="app-frame-wrap" id="hazard-app" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+<iframe class="app-frame" src="apps/hazard.html?v=1792150043" title="Threshold curve editor" loading="lazy" style="display:block;width:100%;border:0;height:1100px;min-width:800px;"></iframe>
 </div>
 <script>
 /* Fit each app frame to its page: the app posts {appHeight} whenever its height changes. A mouse drag

@@ -127,21 +127,25 @@ inject_shinylive <- function(qmd_path, app_path, marker, height = "clamp(900px, 
 }
 
 # ── Apps that are plain web pages (no R runtime): shown in an iframe ─────────
-# The x-risk calculator (app_xriskb/xriskb.html) and the threshold curve editor (app_hazard/hazard.html)
-# are single self-contained pages: everything runs in JavaScript, so they open instantly, with no R
-# runtime to download. (Each folder's app.R is the Shiny version it came from, kept for reference and
-# not used here.) The build copies them to site/articles/apps/ (APP_PAGES, after Quarto below) and writes
-# the iframe that shows them between the article's markers. Never hand-edit those cells either.
+# The threshold curve editor (app_hazard/hazard.html) is a single self-contained page: everything runs in
+# JavaScript, so it opens instantly, with no R runtime to download. (Its folder's app.R is the Shiny version it
+# came from, kept for reference and not used here.) The build copies it to site/articles/apps/ (APP_PAGES, after
+# Quarto below) and writes the iframe that shows it between the article's markers. Never hand-edit those cells.
+# The x-risk calculator is such a page too, but in its own repository (sandbox/xrisk, github.com/villeseppala/xrisk,
+# since 2026-10-14): framed from its GitHub Pages site (XRISK below), so a change there shows here without a
+# rebuild. Same origin as this site (villeseppala.github.io), so it still reads the article's address (?tour=,
+# ?lang=, #tour=) and fits its frame as before. (Its old copy here, app_xriskb/, is no longer used.)
 # The frame takes the app's own height: the page posts its height whenever it changes and the listener
 # written with the frame applies it, so the app never scrolls inside the frame; the article does. The same
-# listener scrolls the article for a mouse drag in the app ({appScrollBy}; xriskb.html's "drag to scroll").
+# listener scrolls the article for a mouse drag in the app ({appScrollBy}; the x-risk page's "drag to scroll").
 # `min_width` (px) keeps an app that has no narrow-screen layout at that width on a small screen: the
 # frame's wrapper then scrolls sideways, so only the app pans, not the article (the hazard app, 800px,
 # as its shinylive embed was). On a bare full-window page (full = TRUE) the frame starts a window tall
-# and loads at once instead of when scrolled near.
-APP_PAGES <- c("apps/xriskb.html" = file.path("app_xriskb", "xriskb.html"),    # published path -> source
-               "apps/hazard.html" = file.path("app_hazard", "hazard.html"))
-inject_frame <- function(qmd_path, src, marker, title, full = FALSE, min_width = NULL) {
+# and loads at once instead of when scrolled near. `tours` (the x-risk app): a tour in the article's address
+# (?tour=<name>, or #tour=… from a reader's link; the app reads it from there) loads the frame at once and
+# scrolls the article to it, as a lazy frame below the fold would otherwise never start the tour.
+APP_PAGES <- c("apps/hazard.html" = file.path("app_hazard", "hazard.html"))    # published path -> source
+inject_frame <- function(qmd_path, src, marker, title, full = FALSE, min_width = NULL, tours = FALSE) {
   if (!file.exists(qmd_path)) return(invisible())
   qmd <- readLines(qmd_path, warn = FALSE)
   s   <- grep(sprintf("<!-- %s:START -->", marker), qmd, fixed = TRUE)
@@ -151,8 +155,9 @@ inject_frame <- function(qmd_path, src, marker, title, full = FALSE, min_width =
   }
   style <- paste0("display:block;width:100%;border:0;height:", if (full) "100vh" else "1100px", ";",
                   if (!is.null(min_width)) sprintf("min-width:%dpx;", as.integer(min_width)) else "")
+  # the wrapper's id (the marker in lower case: xrisk-app, hazard-app) lets a link land on the app: 201.html#xrisk-app
   frame <- c(
-    '<div class="app-frame-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">',
+    sprintf('<div class="app-frame-wrap" id="%s" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">', tolower(marker)),
     sprintf('<iframe class="app-frame" src="%s" title="%s"%s style="%s"></iframe>',
             src, title, if (full) "" else ' loading="lazy"', style),
     "</div>",
@@ -170,6 +175,14 @@ inject_frame <- function(qmd_path, src, marker, title, full = FALSE, min_width =
     "    });",
     "  });",
     "}",
+    if (tours && !full) c(
+      "/* A tour in this page's address (?tour=<name>, #tour=...): the app reads it from here; load it now and go to it */",
+      "(function () {",
+      sprintf("  var wrap = document.getElementById('%s');", tolower(marker)),
+      "  if (!wrap || !(/[?&]tour=/.test(location.search) || /[#&]tour=/.test(location.hash))) return;",
+      "  var f = wrap.querySelector('iframe'); if (f) f.loading = 'eager';",
+      "  window.addEventListener('load', function () { wrap.scrollIntoView(); });",
+      "})();"),
     "</script>")
   cell <- c(sprintf("<!-- %s:START -->", marker), "```{=html}", frame, "```", sprintf("<!-- %s:END -->", marker))
   tail <- if (e < length(qmd)) qmd[(e + 1):length(qmd)] else character(0)
@@ -179,10 +192,11 @@ inject_frame <- function(qmd_path, src, marker, title, full = FALSE, min_width =
 # Each app is in article 201 and on its own listed article (xrisk.qmd / hazard.qmd), and has a bare
 # full-window page (app-page: true, no nav/article chrome - see articles/app-page.css) that the articles
 # link to as "open full-screen".
-XRISK  <- "apps/xriskb.html"; XRISK_TITLE  <- "Extinction risk calculator"
+# the x-risk calculator's own site (not ?v= stamped below: GitHub Pages serves it with a short cache of its own)
+XRISK  <- "https://villeseppala.github.io/xrisk/"; XRISK_TITLE  <- "Extinction risk calculator"
 HAZARD <- "apps/hazard.html"; HAZARD_TITLE <- "Threshold curve editor"
-inject_frame(file.path(ARTICLES_DIR, "201.qmd"),        XRISK,  "XRISK-APP",  XRISK_TITLE)
-inject_frame(file.path(ARTICLES_DIR, "xrisk.qmd"),      XRISK,  "XRISK-APP",  XRISK_TITLE)
+inject_frame(file.path(ARTICLES_DIR, "201.qmd"),        XRISK,  "XRISK-APP",  XRISK_TITLE, tours = TRUE)
+inject_frame(file.path(ARTICLES_DIR, "xrisk.qmd"),      XRISK,  "XRISK-APP",  XRISK_TITLE, tours = TRUE)
 inject_frame(file.path(ARTICLES_DIR, "xriskb-app.qmd"), XRISK,  "XRISK-APP",  XRISK_TITLE, full = TRUE)
 inject_frame(file.path(ARTICLES_DIR, "201.qmd"),        HAZARD, "HAZARD-APP", HAZARD_TITLE, min_width = 800)
 inject_frame(file.path(ARTICLES_DIR, "hazard.qmd"),     HAZARD, "HAZARD-APP", HAZARD_TITLE, min_width = 800)
@@ -206,8 +220,8 @@ if (dir.exists(ARTICLES_DIR) && length(list.files(ARTICLES_DIR, pattern = "\\.qm
 
 # The plain-page apps go next to the articles that frame them. Their iframe src gets a ?v= stamp at the
 # end of the build, so the browser never keeps serving an old copy after a rebuild. A script the page loads
-# from its own folder (a line <script src="x.js"></script>: xriskb.html's saved settings, xriskb_settings.js)
-# goes into the copy, so the site has the one file and the ?v= stamp covers it too.
+# from its own folder (a line <script src="x.js"></script>) goes into the copy, so the site has the one file
+# and the ?v= stamp covers it too.
 for (nm in names(APP_PAGES)) {
   src <- APP_PAGES[[nm]]; dst <- file.path(OUT_DIR, "articles", nm)
   dir.create(dirname(dst), showWarnings = FALSE, recursive = TRUE)
@@ -222,6 +236,16 @@ for (nm in names(APP_PAGES)) {
   writeLines(html, dst, useBytes = TRUE)
   cat(sprintf("  app page %s -> %s/articles/%s\n", src, OUT_DIR, nm))
 }
+# The x-risk calculator's old place here (apps/xriskb.html, its tours in apps/tours/; until 2026-10-14): a page
+# that sends whoever still opens it on to the calculator's own site, with the address's ?… and #… (a tour) along.
+# Its tours are that site's now (sandbox/xrisk/tours/).
+unlink(file.path(OUT_DIR, "articles", "apps", "tours"), recursive = TRUE)
+dir.create(file.path(OUT_DIR, "articles", "apps"), showWarnings = FALSE, recursive = TRUE)
+writeLines(c('<!DOCTYPE html>', '<meta charset="utf-8">', sprintf('<title>%s</title>', XRISK_TITLE),
+             sprintf('<script>location.replace("%s" + location.search + location.hash);</script>', XRISK),
+             sprintf('<p>The calculator has moved: <a href="%s">%s</a></p>', XRISK, XRISK)),
+           file.path(OUT_DIR, "articles", "apps", "xriskb.html"))
+cat(sprintf("  apps/xriskb.html: forwards to %s\n", XRISK))
 
 # ── Share one shinylive/webR runtime between every app page ──────────────────
 # Quarto (project type "default") gives EVERY page that embeds a shinylive app its own full copy of

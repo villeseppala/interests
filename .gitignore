@@ -52,3 +52,6 @@ site/articles/**/quarto-contrib/shinylive-*/**/tests/
 # site/articles/shinylive-libs/ (committed) and deletes the rest; stray copies from a bare
 # `quarto render` stay out of git.
 site/articles/*_files/libs/quarto-contrib/
+
+# local safety copies (descriptions.qmd holds private drafts)
+tools/backup/

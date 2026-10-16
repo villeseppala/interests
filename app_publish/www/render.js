@@ -2096,8 +2096,8 @@ function inlineExpandedNodeHtml(data, exEntry) {
   var gpct = (data.group === 'Project') ? gradientExtent / 2 : gradientExtent;
   var descCol = lightMode ? 'rgba(0,0,0,0.86)' : 'rgba(255,255,255,0.9)';
   var lineCol = lightMode ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.5)';
-  // Description text follows its column's title alignment: Theme right-aligned, Project centred, Skill left.
-  var descAlign = (data.group === 'Theme') ? 'right' : ((data.group === 'Project') ? 'center' : 'left');
+  // Description text per column: Theme right-aligned, Project justified (last line left), Skill left.
+  var descAlign = (data.group === 'Theme') ? 'right' : ((data.group === 'Project') ? 'justify' : 'left');
   var desc = '<div class="inline-node-desc" data-node-id="' + data.id + '" style="pointer-events:auto;user-select:text;-webkit-user-select:text;cursor:text;' +
     'border-top:1px solid ' + lineCol + ';' +   // thin line separating header from text
     'color:' + descCol + ';font-family:Arial,Helvetica,sans-serif;font-size:' + descFontSize + 'px;line-height:1.45;' +

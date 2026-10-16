@@ -6,7 +6,7 @@
       "title": "Russia/Ukraine",
       "edgeColor": "#339B88",
       "title_fi": "Venäjä/Ukraina",
-      "lightEdgeColor": "#B9EF95"
+      "lightEdgeColor": "#DA7B5E"
     },
     {
       "id": 101,
@@ -14,7 +14,7 @@
       "title": "Existential risks and longtermism",
       "edgeColor": "#31959D",
       "title_fi": "Eksistentiaaliset riskit ja longtermismi",
-      "lightEdgeColor": "#78D585"
+      "lightEdgeColor": "#B9A04A"
     },
     {
       "id": 104,
@@ -22,7 +22,7 @@
       "title": "Climate Change",
       "edgeColor": "#32789B",
       "title_fi": "Ilmastonmuutos",
-      "lightEdgeColor": "#81CFB7"
+      "lightEdgeColor": "#AFD167"
     },
     {
       "id": 105,
@@ -30,7 +30,7 @@
       "title": "Electricity markets",
       "edgeColor": "#9C3165",
       "title_fi": "Sähkömarkkinat",
-      "lightEdgeColor": "#7EBDD1"
+      "lightEdgeColor": "#56B748"
     },
     {
       "id": 103,
@@ -38,7 +38,7 @@
       "title": "European Union",
       "edgeColor": "#A63850",
       "title_fi": "Euroopan Unioni",
-      "lightEdgeColor": "#DB888C"
+      "lightEdgeColor": "#58CB88"
     },
     {
       "id": 102,
@@ -46,13 +46,13 @@
       "title": "Global harmony",
       "edgeColor": "#A33A35",
       "title_fi": "Globaali harmonia",
-      "lightEdgeColor": "#E2B88E",
+      "lightEdgeColor": "#B753AA",
       "hidden": true
     },
     {
       "id": 202,
       "group": "Project",
-      "title": "Optimal ways to evaluate individual existential threats",
+      "title": "Mitigation effect as a risk estimate of an existential threat",
       "ptype": "Text",
       "pnum": 202,
       "title_fi": "Miten vertailla eksistentiaalisten riskien suuruutta"
@@ -71,7 +71,8 @@
       "title": "Circle graph creator",
       "ptype": "Website",
       "pnum": 209,
-      "title_fi": "Sivu ympyrägraafien luomiseen"
+      "title_fi": "Sivu ympyrägraafien luomiseen",
+      "hidden": true
     },
     {
       "id": 206,
@@ -103,7 +104,8 @@
       "title": "Homepage",
       "ptype": "Website",
       "pnum": 210,
-      "title_fi": "Kotisivu"
+      "title_fi": "Kotisivu",
+      "hidden": true
     },
     {
       "id": 204,
@@ -128,7 +130,7 @@
       "subs": [],
       "edgeColor": "#9D3033",
       "title_fi": "Tekoäly",
-      "lightEdgeColor": "#ACD977"
+      "lightEdgeColor": "#6BCD55"
     },
     {
       "id": 301,
@@ -137,7 +139,7 @@
       "subs": [],
       "edgeColor": "#9C4828",
       "title_fi": "Datavisualisointi ja graafinen suunnittelu",
-      "lightEdgeColor": "#88FD98"
+      "lightEdgeColor": "#50D08B"
     },
     {
       "id": 302,
@@ -146,7 +148,7 @@
       "subs": [],
       "edgeColor": "#309E8C",
       "title_fi": "Dashboardit ja nettisivut",
-      "lightEdgeColor": "#7ADDCB"
+      "lightEdgeColor": "#C049A0"
     },
     {
       "id": 303,
@@ -155,7 +157,7 @@
       "subs": [],
       "edgeColor": "#2A8C9C",
       "title_fi": "Videot ja striimaus",
-      "lightEdgeColor": "#84BCF4"
+      "lightEdgeColor": "#D95763"
     },
     {
       "id": 305,
@@ -164,7 +166,7 @@
       "edgeColor": "#2D71A8",
       "title_fi": "Sosiaalinen media",
       "subs": [],
-      "lightEdgeColor": "#FA988E"
+      "lightEdgeColor": "#E2AD6C"
     },
     {
       "id": 205.5,
@@ -180,7 +182,8 @@
       "title": "Reducing polarization in politics",
       "ptype": "Text",
       "pnum": 999,
-      "title_fi": "Politiikan polarisaation vähentäminen"
+      "title_fi": "Politiikan polarisaation vähentäminen",
+      "hidden": true
     },
     {
       "id": 211,
@@ -188,7 +191,8 @@
       "title": "My interests -website",
       "ptype": "Website",
       "pnum": 999,
-      "title_fi": "Kiinnostukseni -nettisivu"
+      "title_fi": "Kiinnostukseni -nettisivu",
+      "hidden": true
     },
     {
       "id": 206.5,
@@ -204,7 +208,8 @@
       "title": "Graph bank",
       "ptype": "Website",
       "pnum": 999,
-      "title_fi": "Graafipankki"
+      "title_fi": "Graafipankki",
+      "hidden": true
     },
     {
       "id": 106.1,
@@ -212,7 +217,7 @@
       "title": "Finnish economy",
       "title_fi": "Suomen talous",
       "edgeColor": "#A45330",
-      "lightEdgeColor": "#DDE27D"
+      "lightEdgeColor": "#C9567B"
     },
     {
       "id": 209.6,
@@ -226,7 +231,7 @@
       "id": 209.55,
       "group": "Project",
       "title": "Russia's economic situation",
-      "ptype": "Website",
+      "ptype": "Text",
       "pnum": 209,
       "title_fi": "Venäjän taloustilanne"
     },
@@ -235,7 +240,7 @@
       "group": "Skill",
       "title": "Economics",
       "edgeColor": "#9E2E53",
-      "lightEdgeColor": "#DFC879",
+      "lightEdgeColor": "#A7B85C",
       "title_fi": "Taloustiede",
       "subs": []
     },
@@ -271,7 +276,8 @@
       "group": "Project",
       "title": "Ethical use of AI",
       "ptype": "Text",
-      "pnum": 205
+      "pnum": 205,
+      "title_fi": "Tekoälyn eettinen käyttö"
     },
     {
       "id": 201.5,
@@ -279,6 +285,30 @@
       "title": "A review on existential risk estimates",
       "ptype": "Text",
       "pnum": 201,
+      "title_fi": "Katsaus arvioihin eksistentiaalisten uhkien todennäköisyyksistä"
+    },
+    {
+      "id": 201.7,
+      "group": "Project",
+      "title": "How could AI destroy humanity",
+      "ptype": "Text",
+      "pnum": 201,
+      "title_fi": "Miten tekoäly voisi tuhota ihmiskunnan"
+    },
+    {
+      "id": 208.5,
+      "group": "Project",
+      "title": "Datacenters - Are they bad?",
+      "ptype": "Text",
+      "pnum": 208,
+      "title_fi": "Datakeskukset - ovatko ne haitallisia?"
+    },
+    {
+      "id": 205.8,
+      "group": "Project",
+      "title": "Global carbon price and dividend -calculator",
+      "ptype": "Website",
+      "pnum": 999,
       "title_fi": ""
     }
   ],
@@ -625,6 +655,48 @@
       "color": "#d17bb7",
       "dashes": false,
       "hidden": false
+    },
+    {
+      "from": 104,
+      "to": 202,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 101,
+      "to": 201.7,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 104,
+      "to": 205.8,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 205.8,
+      "to": 301,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 104,
+      "to": 208.5,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
+    },
+    {
+      "from": 105,
+      "to": 208.5,
+      "color": "#d17bb7",
+      "dashes": false,
+      "hidden": false
     }
   ],
   "order": {
@@ -640,16 +712,19 @@
     "Project": [
       201,
       201.5,
+      201.7,
       202,
       204,
       204.1,
       204.3,
       205.5,
       205.7,
+      205.8,
       206,
       206.5,
       207,
       208,
+      208.5,
       209,
       209.5,
       209.55,
@@ -682,9 +757,9 @@
     "font_desc": 19,
     "font_hdr1": 30,
     "font_hdr2": 24,
-    "h_theme": 126,
+    "h_theme": 118,
     "h_project": 40,
-    "h_skill": 126,
+    "h_skill": 118,
     "w_project": 476,
     "w_node": 340,
     "ptype_pct": 19,
@@ -745,13 +820,13 @@
     "col_theme": "#e4e2e2",
     "col_project": "#e4e2e2",
     "col_skill": "#e4e2e2",
-    "light_col_bg": "#f5f5f5",
+    "light_col_bg": "#dedede",
     "light_col_sidebar_bg": "#ffffff",
-    "light_col_node_bg": "#c2b2b2",
+    "light_col_node_bg": "#ffffff",
     "light_col_column_bg": "#dbdbdb",
-    "light_col_theme": "#f20202",
-    "light_col_project": "#f20202",
-    "light_col_skill": "#f20202",
+    "light_col_theme": "#242424",
+    "light_col_project": "#242424",
+    "light_col_skill": "#242424",
     "light_edge_color": "#4f4f4f",
     "mob_font_mult": 2.5,
     "mob_h_theme_mult": 1,
@@ -840,16 +915,16 @@
     },
     "lec_hsv": {
       "lec_h_theme": [
-        215,
-        345
+        170,
+        300
       ],
       "lec_s_theme": [
-        38,
-        48
+        44,
+        63
       ],
       "lec_v_theme": [
-        78,
-        94
+        70,
+        89
       ],
       "inv_lec_h_theme": true,
       "lec_h_theme_2on": false,

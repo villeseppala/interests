@@ -13,22 +13,36 @@ window.XRISKB_SETTINGS = {
     "--title-fs": "19px",
     "--formula-fs": "17.2px",
     "--ar-w": "1.6px",
-    "potInPop": true,
+    "--col-rate": "#ec9988",
+    "--col-surv": "#96d2e4",
+    "--col-rate-c": "#e86d54",
+    "--col-surv-c": "#19b9e6",
+    "--col-out": "#f08abb",
+    "--col-cum": "#f353a1",
     "graphYears": true,
     "boxTextPx": 16.9
   },
   "view": {
+    "start": 2026,
     "points": [
       1,
       2
     ],
-    "zoom": 1.022,
-    "namesWidth": 385,
+    "scale": [
+      10,
+      100,
+      1000,
+      10000,
+      100000,
+      1000000
+    ],
+    "zoom": 0.837,
+    "namesWidth": 353,
     "variables": [
       "rate",
       "surv",
-      "popexp",
-      "lives"
+      "outann",
+      "outcum"
     ],
     "show": {
       "graphs": true,
@@ -39,23 +53,32 @@ window.XRISKB_SETTINGS = {
       "b": true,
       "names": false,
       "note": false,
-      "comparison": true
+      "groupElements": false,
+      "groupVariables": false,
+      "groupTimeScale": false,
+      "groupControls": false,
+      "comparison": false
     },
     "comparePrevious": false,
     "excludePopulation": true,
+    "excludeValue": true,
     "graphScale": {
       "rate": "cum",
       "surv": "full",
+      "yrexp": "full",
       "years": "potall",
       "popexp": "pot",
       "lives": "potall",
+      "valexp": "pot",
+      "valcum": "potall",
       "pop": "all"
     },
+    "outcome": "years",
+    "lang": "en",
     "views": {
-      "rateComp": false,
+      "rateComp": true,
       "survComp": false,
-      "yearsComp": true,
-      "yearsGens": false,
+      "yearsComp": false,
       "livesLy": false,
       "livesLoss": false
     },

@@ -8,6 +8,8 @@
 # without the baseline shown.
 # Padding zeros too (2026-09-26): xriskb draws them fainter (FAINT), app_xrisk in the arrows' grey (ZERO).
 # So the JavaScript is run with FAINT = ZERO.
+# Interpolation (2026-10-07): xriskb changes the population potential linearly between checkpoints, app_xrisk
+# geometrically. compute() keeps the geometric way as an option (geom), and the model is compared with it on.
 #
 # Needs the V8 package (install.packages("V8")). Run from the project root:
 #   source("app_xriskb/check_parity.R")
@@ -70,7 +72,7 @@ fields <- c(surv = "surv", pop_pot = "popPot", pop_exp = "popExp", cum_years = "
             cum_ly_pot = "cumLyPot", lives = "lives", gens = "gens", lives_pot = "livesPot", growth = "growth")
 for (cs in cases) {
   r <- app$compute(cs$rates, cs$pops, app$model_for(cs$e))
-  j <- jsonlite::fromJSON(js_str(sprintf("JSON.stringify(compute(%s, %s, modelFor(%d)))",
+  j <- jsonlite::fromJSON(js_str(sprintf("JSON.stringify(compute(%s, %s, modelFor(%d), 0, {geom: true}))",
                                          js_val(cs$rates), js_val(cs$pops), cs$e)))
   rel <- vapply(names(fields), function(f) {
     a <- r[[f]]; b <- as.numeric(j[[fields[[f]]]])

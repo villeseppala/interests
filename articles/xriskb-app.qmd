@@ -8,12 +8,12 @@ format:
     css: [article.css, app-page.css]
 ---
 
-<!-- The cell between these markers (an iframe showing app_xriskb/xriskb.html) is written by
-     tools/build_static.R on every build. Never hand-edit it: edit app_xriskb/xriskb.html and rebuild. -->
+<!-- The cell between these markers (an iframe showing the calculator's own site, https://villeseppala.github.io/xrisk/,
+     from its repository sandbox/xrisk) is written by tools/build_static.R on every build. Never hand-edit it. -->
 <!-- XRISK-APP:START -->
 ```{=html}
-<div class="app-frame-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-<iframe class="app-frame" src="apps/xriskb.html" title="Extinction risk calculator" style="display:block;width:100%;border:0;height:100vh;"></iframe>
+<div class="app-frame-wrap" id="xrisk-app" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+<iframe class="app-frame" src="https://villeseppala.github.io/xrisk/" title="Extinction risk calculator" style="display:block;width:100%;border:0;height:100vh;"></iframe>
 </div>
 <script>
 /* Fit each app frame to its page: the app posts {appHeight} whenever its height changes. A mouse drag

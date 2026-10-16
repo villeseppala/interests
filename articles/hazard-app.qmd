@@ -10,7 +10,7 @@ format:
 
 <!-- HAZARD-APP:START -->
 ```{=html}
-<div class="app-frame-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+<div class="app-frame-wrap" id="hazard-app" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
 <iframe class="app-frame" src="apps/hazard.html" title="Threshold curve editor" style="display:block;width:100%;border:0;height:100vh;min-width:800px;"></iframe>
 </div>
 <script>

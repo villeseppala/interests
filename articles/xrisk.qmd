@@ -11,8 +11,8 @@ It runs entirely in your browser. [Open the app full-screen in a new tab &#8599;
 
 <!-- XRISK-APP:START -->
 ```{=html}
-<div class="app-frame-wrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
-<iframe class="app-frame" src="apps/xriskb.html" title="Extinction risk calculator" loading="lazy" style="display:block;width:100%;border:0;height:1100px;"></iframe>
+<div class="app-frame-wrap" id="xrisk-app" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+<iframe class="app-frame" src="https://villeseppala.github.io/xrisk/" title="Extinction risk calculator" loading="lazy" style="display:block;width:100%;border:0;height:1100px;"></iframe>
 </div>
 <script>
 /* Fit each app frame to its page: the app posts {appHeight} whenever its height changes. A mouse drag
@@ -28,6 +28,13 @@ if (!window.appFrameFit) {
     });
   });
 }
+/* A tour in this page's address (?tour=<name>, #tour=...): the app reads it from here; load it now and go to it */
+(function () {
+  var wrap = document.getElementById('xrisk-app');
+  if (!wrap || !(/[?&]tour=/.test(location.search) || /[#&]tour=/.test(location.hash))) return;
+  var f = wrap.querySelector('iframe'); if (f) f.loading = 'eager';
+  window.addEventListener('load', function () { wrap.scrollIntoView(); });
+})();
 </script>
 ```
 <!-- XRISK-APP:END -->
