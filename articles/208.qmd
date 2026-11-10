@@ -6,7 +6,7 @@ inline: true
 lang: fi
 ---
 
-Muutama eri taho suunnittelee Kemijärvelle [pumppuvoimalaitosta](#hankkeet). Pumppuvoima on vesivoiman muoto, jossa käytetään halvan sähkön aikana sähköä pumppaamaan vettä ylös vesistöstä yläaltaaseen, josta sitä juoksutetaan voimalaitoksen kautta takaisin ala-altaaseen (joki tai järvi) kalliin sähkön aikana sähkön tuottamiseksi.
+Muutama eri taho suunnittelee Kemijärvelle [pumppuvoimalaitosta](#hankkeet). Pumppuvoima on vesivoiman muoto, jossa käytetään halvan sähkön aikana sähköä pumppaamaan vettä ylös vesistöstä yläaltaaseen, josta sitä juoksutetaan voimalaitoksen kautta takaisin ala-altaaseen (joki tai järvi) kalliin sähkön aikana sähkön tuottamiseksi. Pumppuvoimaa on globaalisti rakennettu n. 150 GW:n [edestä](https://ember-energy.org/latest-insights/storage-target-ambition-is-rising-but-not-fast-enough-to-reach-the-goal/).
 
 Nähdäkseni pumppuvoima voi olla hyvin hyödyllinen Suomen sähköverkolle niin sähkön keskihinnan laskemisen ja sähköverkon tasapainon kuin luonto- ja ilmastohyötyjenkin näkökulmasta. Teksti on vielä keskeneräistä ajattelua, kuulen mielelläni palautetta.
 

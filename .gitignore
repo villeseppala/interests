@@ -55,3 +55,5 @@ site/articles/*_files/libs/quarto-contrib/
 
 # local safety copies (descriptions.qmd holds private drafts)
 tools/backup/
+tools/author_console.txt
+tools/author_js_errors.txt

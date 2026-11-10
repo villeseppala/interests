@@ -29,7 +29,9 @@
     var items;
     if (articles && articles.length) {
       items = articles.map(function (a) {
-        return '<a href="' + linkBase + esc(a.url) + '">' + esc(a.title) + '</a>';
+        // an article with a `link:` elsewhere has a full address: no site prefix, and a new tab
+        var ext = /^https?:\/\//i.test(a.url);
+        return '<a href="' + (ext ? '' : linkBase) + esc(a.url) + '"' + (ext ? ' target="_blank" rel="noopener noreferrer"' : '') + '>' + esc(a.title) + '</a>';
       }).join('');
     } else {
       items = '<span class="nav-menu-empty">No articles yet</span>';

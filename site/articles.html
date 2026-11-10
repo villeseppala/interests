@@ -66,7 +66,8 @@
         var host = document.getElementById('article-list');
         if (!list.length) { host.innerHTML = '<p class="empty">No articles published yet.</p>'; return; }
         host.innerHTML = list.map(function (a) {
-          return '<a class="card" href="' + esc(a.url) + '">' +
+          var ext = /^https?:\/\//i.test(a.url);   // an article with a `link:` elsewhere: open it in a new tab
+          return '<a class="card" href="' + esc(a.url) + '"' + (ext ? ' target="_blank" rel="noopener noreferrer"' : '') + '>' +
             '<h2>' + esc(a.title) + '</h2>' +
             (a.preview ? '<p>' + esc(a.preview) + '</p>' : '') +
             '<span class="more">Read full article &rarr;</span></a>';

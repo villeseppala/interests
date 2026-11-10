@@ -23,7 +23,7 @@ ABOUT_HEADER_GAP <- 64L
 # Pull the YAML `title:` and the first body paragraph (preview) from a .qmd source.
 parse_qmd_meta <- function(path) {
   lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
-  title <- ""; preview <- ""; inline <- FALSE; app_page <- FALSE; listed <- TRUE; lang <- "en"
+  title <- ""; preview <- ""; inline <- FALSE; app_page <- FALSE; listed <- TRUE; lang <- "en"; link <- ""
   fences <- which(grepl("^---\\s*$", lines))   # YAML front matter = first two `---` lines
   body_start <- 1L
   if (length(fences) >= 2) {
@@ -50,6 +50,10 @@ parse_qmd_meta <- function(path) {
     # node's "Read more" then says so when the page is viewed in the other language. Default: English.
     lm <- grep("^lang\\s*:", yaml_lines, value = TRUE)
     if (length(lm)) { lv <- tolower(trimws(gsub("[\"']", "", sub("^lang\\s*:\\s*", "", lm[1])))); if (grepl("^fi", lv)) lang <- "fi" }
+    # `link: <url>` sends every link to the article (node icon, "Read more", nav dropdown, articles page)
+    # to that address instead of articles/<id>.html; the article itself is still rendered and kept.
+    lk <- grep("^link\\s*:", yaml_lines, value = TRUE)
+    if (length(lk)) link <- trimws(gsub("[\"']", "", sub("\\s+#.*$", "", sub("^link\\s*:\\s*", "", lk[1]))))   # a trailing # comment is allowed
     im <- grep("^inline\\s*:", yaml_lines, value = TRUE)
     if (length(im)) {
       iv <- tolower(trimws(sub("^inline\\s*:\\s*", "", im[1])))
@@ -66,15 +70,16 @@ parse_qmd_meta <- function(path) {
     preview <- t; break
   }
   if (nchar(preview) > 220) preview <- paste0(substr(preview, 1, 217), "...")
-  list(title = title, preview = preview, inline = inline, app_page = app_page, listed = listed, lang = lang,
+  list(title = title, preview = preview, inline = inline, app_page = app_page, listed = listed, lang = lang, link = link,
        body = paste(body, collapse = "\n"))   # full body markdown (for the inline quick-read)
 }
 
 # Scan an articles/ folder of <id>.qmd files ->
-#   list(manifest = [{id,title,preview,url,inline}], ids = chr, inline = named list id->body markdown).
+#   list(manifest = [{id,title,preview,url,inline}], ids = chr, inline = named list id->body markdown,
+#        urls = named list id -> link target: articles/<id>.html, or the front matter's `link:`).
 # `inline` holds the body markdown only for articles that opted in via `inline: true` front matter.
 scan_articles <- function(articles_dir) {
-  manifest <- list(); ids <- character(0); inline_body <- list(); langs <- list()
+  manifest <- list(); ids <- character(0); inline_body <- list(); langs <- list(); urls <- list()
   if (dir.exists(articles_dir)) {
     for (qf in list.files(articles_dir, pattern = "\\.qmd$", full.names = TRUE)) {
       id <- sub("\\.qmd$", "", basename(qf))
@@ -82,11 +87,12 @@ scan_articles <- function(articles_dir) {
       meta <- parse_qmd_meta(qf)
       if (isTRUE(meta$app_page)) next            # bare app pages are not articles
       ids <- c(ids, id)
+      urls[[id]] <- if (nzchar(meta$link)) meta$link else paste0("articles/", id, ".html")
       if (!isFALSE(meta$listed)) manifest[[length(manifest) + 1]] <- list(   # `listed: false`: no list/nav entry
         id      = id,
         title   = if (nzchar(meta$title)) meta$title else paste("Article", id),
         preview = meta$preview,
-        url     = paste0("articles/", id, ".html"),
+        url     = urls[[id]],
         inline  = isTRUE(meta$inline),
         lang    = meta$lang
       )
@@ -94,7 +100,7 @@ scan_articles <- function(articles_dir) {
       if (isTRUE(meta$inline)) inline_body[[id]] <- meta$body
     }
   }
-  list(manifest = manifest, ids = ids, inline = inline_body, langs = langs)
+  list(manifest = manifest, ids = ids, inline = inline_body, langs = langs, urls = urls)
 }
 
 # ── Page header (top bar) texts ──────────────────────────────────────────────
@@ -151,7 +157,7 @@ MOBILE_DEFAULTS <- list(
 #                          differing tall value produces a second full layout at payload$tall.
 #   ASPECT_CLIENT_INPUTS — applied in the browser (render.js globals); shipped as payload$aspectVars.
 ASPECT_BUILD_INPUTS <- c("w_node", "w_project", "h_theme", "h_project", "h_skill",
-                         "gap_v", "gap_col",
+                         "gap_v", "gap_v_ts", "gap_col",          # gap_v: Projects; gap_v_ts: Themes/Skills
                          "font_node", "font_project", "font_ptype", "font_subs",
                          "font_hdr1", "font_hdr2",                 # column header title / subtitle
                          "center_cols", "headers_on_stack")
@@ -160,7 +166,7 @@ ASPECT_CLIENT_INPUTS <- c("ptype_pct", "fill_nodew", "fill_projw", "fill_colgap"
 ASPECT_INPUTS <- c(ASPECT_BUILD_INPUTS, ASPECT_CLIENT_INPUTS)
 
 # Last-resort fallback, used only when neither the live input nor the saved layout has a value.
-# w_node and font_project are deliberately absent: they fall back to w_project / font_node instead.
+# w_node, font_project and gap_v_ts are deliberately absent: they fall back to w_project / font_node / gap_v.
 ASPECT_DEFAULTS <- list(
   w_project = NODE_W$Project, h_theme = 46, h_project = 66, h_skill = 46,
   gap_v = 18, gap_col = 400,
@@ -186,6 +192,16 @@ aspect_values <- function(ly, get_input = function(k) NULL, names = ASPECT_INPUT
   wide <- list(); tall <- list()
   for (k in names) {
     w <- get_input(k) %||% ly[[k]] %||% ASPECT_DEFAULTS[[k]]
+    if (k == "gap_v_ts") {
+      # Themes/Skills vertical gap: never set -> the (Projects) vertical gap, wide to wide and tall to tall,
+      # so a graph.json written before it existed lays out exactly as it did.
+      own <- get_input(k) %||% ly[[k]]
+      gw  <- get_input("gap_v") %||% ly$gap_v %||% ASPECT_DEFAULTS$gap_v
+      wide[[k]] <- own %||% gw
+      tall[[k]] <- get_input("tall_gap_v_ts") %||% ly$tall_gap_v_ts %||% own %||%
+                   get_input("tall_gap_v") %||% ly$tall_gap_v %||% gw
+      next
+    }
     if (k == "w_node")       w <- w %||% (get_input("w_project") %||% ly$w_project %||% NODE_W$Project)
     if (k == "font_project") w <- w %||% (get_input("font_node") %||% ly$font_node %||% 12)
     wide[[k]] <- w
@@ -454,7 +470,22 @@ stack_extent <- function(y_map, seq_list) {
 
 shift_y <- function(y_map, delta) lapply(y_map, function(v) v + delta)
 
-build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
+# "Info" dropdown items (top bar, beside the projects menu): the nodes flagged `info: true` in graph.json
+# (About nodes taken off the map with `hidden: true`), in their column order, with their descriptions.
+info_items <- function(g, desc_map) {
+  nodes <- Filter(function(n) isTRUE(n$info), g$nodes %||% list())
+  if (!length(nodes)) return(list())
+  ord <- unlist(lapply(c("About", "Theme", "Project", "Skill"), function(grp)
+    make_ordered_ids(g$order %||% list(), g$nodes, grp)))
+  nodes <- nodes[order(match(vapply(nodes, function(n) as.numeric(n$id), numeric(1)), ord))]
+  lapply(nodes, function(n) {
+    pre <- GROUP_PREFIX[[n$group %||% "About"]] %||% "a"
+    list(id = as.character(n$id), title = n$title %||% "", title_fi = n$title_fi %||% "",
+         text = desc_map[[paste0(pre, n$id)]] %||% "", text_fi = desc_map[[paste0("fi_", pre, n$id)]] %||% "")
+  })
+}
+
+build_cyto_data <- function(g, gap_v = 18, gap_col = 400, gap_v_ts = NULL,
                             font_node = 12, font_project = NULL, font_ptype = 12, font_subs = 15, font_desc = 18,
                             font_hdr1 = 22, font_hdr2 = 15,
                             h_theme = 46, h_project = 66, h_skill = 46,
@@ -530,9 +561,11 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
   })
   about_seq <- lapply(about_ids, function(id) list(id = id, group = "About", h = h_about))
 
-  theme_y_raw <- y_positions(theme_seq, gap_v)
+  # gap_v between Project nodes; gap_v_ts between Theme / Skill / About nodes (unset: the same as gap_v)
+  gap_ts <- gap_v_ts %||% gap_v
+  theme_y_raw <- y_positions(theme_seq, gap_ts)
   proj_y_raw  <- y_positions(proj_seq,  gap_v)
-  skill_y_raw <- y_positions(skill_seq, gap_v)
+  skill_y_raw <- y_positions(skill_seq, gap_ts)
   theme_ext <- stack_extent(theme_y_raw, theme_seq)
   proj_ext  <- stack_extent(proj_y_raw,  proj_seq)
   skill_ext <- stack_extent(skill_y_raw, skill_seq)
@@ -552,9 +585,9 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
   about_y <- list()
   if (length(about_seq) > 0) {
     skill_bottom <- if (length(skill_seq) > 0) (skill_top + (skill_ext[2] - skill_ext[1])) else skill_top
-    about_y_raw  <- y_positions(about_seq, gap_v)
+    about_y_raw  <- y_positions(about_seq, gap_ts)
     about_ext    <- stack_extent(about_y_raw, about_seq)
-    about_top    <- skill_bottom + gap_v + ABOUT_HEADER_GAP
+    about_top    <- skill_bottom + gap_ts + ABOUT_HEADER_GAP
     about_y      <- shift_y(about_y_raw, about_top - about_ext[1])
   }
 
@@ -677,7 +710,7 @@ build_cyto_data <- function(g, gap_v = 18, gap_col = 400,
 
 # ── Dual layout builder (desktop + mobile) ───────────────────────────────────
 
-build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
+build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400, gap_v_ts = NULL,
                                  font_node = 12, font_project = NULL, font_ptype = 12, font_subs = 15, font_desc = 18,
                                  font_hdr1 = 22, font_hdr2 = 15,
                                  h_theme = 46, h_project = 66, h_skill = 46,
@@ -713,7 +746,7 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
                    fi_hdr_project_line1=fi_hdr_project_line1, fi_hdr_project_line2=fi_hdr_project_line2,
                    fi_hdr_skill_line1=fi_hdr_skill_line1, fi_hdr_skill_line2=fi_hdr_skill_line2)
   # Desktop build (unchanged) — kept as a named list so the tall variant can be derived from it.
-  desk_args <- c(list(g=g, gap_v=gap_v, gap_col=gap_col,
+  desk_args <- c(list(g=g, gap_v=gap_v, gap_v_ts=gap_v_ts, gap_col=gap_col,
                              font_node=font_node, font_project=font_project, font_ptype=font_ptype,
                              font_subs=font_subs, font_desc=font_desc,
                              font_hdr1=font_hdr1, font_hdr2=font_hdr2,
@@ -734,6 +767,7 @@ build_dual_cyto_data <- function(g, gap_v = 18, gap_col = 400,
   desktop <- do.call(build_cyto_data, desk_args)
   # Mobile build (multiplied fonts, heights, gaps)
   mobile <- do.call(build_cyto_data, c(list(g=g, gap_v=gap_v*mob_gap_v_mult,
+                            gap_v_ts=(gap_v_ts %||% gap_v)*mob_gap_v_mult,
                             gap_col=gap_col*mob_gap_col_mult,
                             font_node =round(font_node *mob_font_mult,1),
                             font_project=round((font_project %||% font_node)*mob_font_mult,1),

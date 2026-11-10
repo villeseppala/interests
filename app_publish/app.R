@@ -188,7 +188,7 @@ server <- function(input, output, session) {
   # Wide/tall values for the aspect-aware settings; av$tall builds the second layout (see layout.R).
   av <- aspect_values(ly); aw <- av$wide
   cd <- build_dual_cyto_data(g,
-                             gap_v = aw$gap_v, gap_col = aw$gap_col,
+                             gap_v = aw$gap_v, gap_v_ts = aw$gap_v_ts, gap_col = aw$gap_col,
                              font_node = aw$font_node, font_project = aw$font_project,
                              font_ptype = aw$font_ptype,
                              font_subs = aw$font_subs, font_desc = ly$font_desc %||% 18,
@@ -279,19 +279,20 @@ server <- function(input, output, session) {
     session$sendCustomMessage("setGradientHoverMult", list(mult = ly$gradient_hover_mult %||% 2))
     session$sendCustomMessage("setGradientHoverDesc", list(value = isTRUE(ly$gradient_hover_desc %||% FALSE)))
     session$sendCustomMessage("setHoverWhiteOutline", list(value = isTRUE(ly$hover_white_outline %||% FALSE)))
-    session$sendCustomMessage("setTitleCompact", list(pct = ly$title_compact_pct %||% 70))
     if (!is.null(ly$hover_edge_outline))
       session$sendCustomMessage("setHoverEdgeOutline", list(px = ly$hover_edge_outline))
     session$sendCustomMessage("setNodeOutline", list(width = ly$node_outline %||% 3))
     session$sendCustomMessage("setProjectOutline", list(width = ly$project_outline %||% ly$node_outline %||% 3))
     session$sendCustomMessage("setOutlineSaturation", list(value = ly$outline_saturation %||% 1))
-    session$sendCustomMessage("setHoverHsv", list(sat = ly$hover_sat %||% 1, val = ly$hover_val %||% 1))
+    session$sendCustomMessage("setHoverHsv", list(sat = ly$hover_sat %||% 1, val = ly$hover_val %||% 1,
+      light_sat = ly$light_hover_sat %||% ly$hover_sat %||% 1, light_val = ly$light_hover_val %||% ly$hover_val %||% 1))
     session$sendCustomMessage("setOutlineTransparency", list(pct = ly$outline_transparency %||% 0))
     session$sendCustomMessage("setNodePad", list(px = ly$node_pad %||% 0))
     session$sendCustomMessage("setProjectMaxWidth", list(px = ly$project_max_width %||% 0))
     session$sendCustomMessage("setDescPad", list(px = ly$desc_pad %||% 10))
     session$sendCustomMessage("setInlineMode", list(value = isTRUE(ly$inline_mode %||% TRUE)))
-    session$sendCustomMessage("setArticlesEnabled", list(value = isTRUE(ly$articles_enabled %||% FALSE)))
+    session$sendCustomMessage("setArticlesEnabled", list(value = isTRUE(ly$articles_enabled %||% FALSE),
+                                                     ids = as.list(ART_SCAN$ids), urls = ART_SCAN$urls))   # ids: project article icons
     session$sendCustomMessage("setAutoFitOpen", list(value = isTRUE(ly$auto_fit_open %||% FALSE)))
     session$sendCustomMessage("setAccordionIcon", list(style = ly$accordion_icon %||% "triangle"))
     session$sendCustomMessage("setAccordionIconSize", list(size = ly$accordion_icon_size %||% 14))
@@ -302,6 +303,7 @@ server <- function(input, output, session) {
       details_title = details_title, intro_title = col_intro_title,
       vote_title = vote_title, fund_title = fund_title
     ))
+    session$sendCustomMessage("setInfoItems", list(items = info_items(g, desc_map)))   # the Info dropdown
     session$sendCustomMessage("setLanguageData", c(header_texts(ly), list(   # page title / site label / menu label
       details_title_fi = fi_details_title,
       intro_title_fi   = fi_intro_title,
@@ -409,7 +411,7 @@ server <- function(input, output, session) {
       nodeId   = id,
       group    = grp,
       hasArticle = file.exists(here("articles", paste0(id, ".qmd"))),
-      articleUrl = paste0("articles/", id, ".html"),
+      articleUrl = ART_SCAN$urls[[as.character(id)]] %||% paste0("articles/", id, ".html"),
       articleInline = ART_SCAN$inline[[as.character(id)]] %||% "",
       articleLang = ART_SCAN$langs[[as.character(id)]] %||% "en"
     ))
@@ -429,7 +431,7 @@ server <- function(input, output, session) {
         nodeId = id, group = grp,
         text = desc_map[[paste0(pre, id)]] %||% "", text_fi = desc_map[[paste0("fi_", pre, id)]] %||% "",
         hasArticle = file.exists(here("articles", paste0(id, ".qmd"))),
-        articleUrl = paste0("articles/", id, ".html"),
+        articleUrl = ART_SCAN$urls[[as.character(id)]] %||% paste0("articles/", id, ".html"),
         articleInline = ART_SCAN$inline[[as.character(id)]] %||% "",
         articleLang = ART_SCAN$langs[[as.character(id)]] %||% "en"
       )

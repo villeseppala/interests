@@ -1,0 +1,27 @@
+```{=html}
+<div class="app-frame-wrap" id="xrisk-app" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+<iframe class="app-frame" src="https://villeseppala.github.io/xrisk/" title="Extinction risk calculator" loading="lazy" style="display:block;width:100%;border:0;height:1100px;"></iframe>
+</div>
+<script>
+/* Fit each app frame to its page: the app posts {appHeight} whenever its height changes. A mouse drag
+   in the app scrolls this page: it posts {appScrollBy} when it can't scroll it directly. */
+if (!window.appFrameFit) {
+  window.appFrameFit = true;
+  window.addEventListener('message', function (e) {
+    if (!e.data) return;
+    document.querySelectorAll('iframe.app-frame').forEach(function (f) {
+      if (f.contentWindow !== e.source) return;
+      if (typeof e.data.appHeight === 'number') f.style.height = Math.ceil(e.data.appHeight) + 'px';
+      if (typeof e.data.appScrollBy === 'number') window.scrollBy(0, e.data.appScrollBy);
+    });
+  });
+}
+/* A tour in this page's address (?tour=<name>, #tour=...): the app reads it from here; load it now and go to it */
+(function () {
+  var wrap = document.getElementById('xrisk-app');
+  if (!wrap || !(/[?&]tour=/.test(location.search) || /[#&]tour=/.test(location.hash))) return;
+  var f = wrap.querySelector('iframe'); if (f) f.loading = 'eager';
+  window.addEventListener('load', function () { wrap.scrollIntoView(); });
+})();
+</script>
+```

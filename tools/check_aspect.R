@@ -65,7 +65,7 @@ local({
       aw <- av$wide
       cd <- build_dual_cyto_data(
         g,
-        gap_v = aw$gap_v, gap_col = aw$gap_col,
+        gap_v = aw$gap_v, gap_v_ts = aw$gap_v_ts, gap_col = aw$gap_col,
         font_node = aw$font_node, font_project = aw$font_project,
         font_ptype = aw$font_ptype, font_subs = aw$font_subs,
         font_desc = ly$font_desc %||% 18, font_hdr1 = aw$font_hdr1, font_hdr2 = aw$font_hdr2,

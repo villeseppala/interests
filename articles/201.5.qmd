@@ -10,12 +10,27 @@ Below are the main existential risk estimate studies I've found so far.
 By: Forecasting Research Institute, 2023. Data from: 2022
 Link: https://forecastingresearch.org/research/existential-risk-persuasion-tournament
 Group: Superforecasters (N=88) and experts (N=66) on various fields (see page x)
-Existential risk definition: Exctinction if defined as a drop in the global population to below 5,000 people
+
+####
+Existential risk definition: Exctinction if defined as a drop in the global population to below 5,000 people, by year 2100.
 
 Main estimates (95% confidence intervals):
 Superforecasters: Median: 1% [0.55, 1.23]%
 Mean: 3.73% [2.09,6.16]%, density-trimmed mean: 1.68% [1.06, 2.49]%, median:
-Experts: Median: 6% [3.41, 10.00]%, mean: 12.92% [8.78, 17.94]%, density-trimmed mean: 7.78% [5.37, 12.67]%
+Experts on various domains: Median: 6% [3.41, 10.00]%, mean: 12.92% [8.78, 17.94]%, density-trimmed mean: 7.78% [5.37, 12.67]%
+General x-risk expers: Median: 6.6% [3.001, 13.750]%
+Public survey: Median: 5% [3, 5]%
+
+####
+By what year will humans go extinct or first have a population less than 5,000?
+
+
+Superforecasters: Median: 15 000
+Domain experts: Median 6261
+General X-risk experts: Median 3450
+Public Survey: Median 2500
+
+(page 338)
 
 ### Expert Survey on Progress in AI (ESPAI)
 Note: This focuses only on AI

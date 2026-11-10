@@ -37,6 +37,30 @@ body.light-mode #site-nav { background:#e2eaf3; border-bottom-color:rgba(0,0,0,0
 body.light-mode #site-nav a, body.light-mode #site-nav-slot a { color:#0b2740; }
 body.light-mode #site-nav .nav-menu, body.light-mode #site-nav-slot .nav-menu { background:#eef2f8; border-color:rgba(0,0,0,0.14); }
 body.light-mode #site-nav .nav-menu a:hover, body.light-mode #site-nav-slot .nav-menu a:hover { background:rgba(0,0,0,0.06); }
+/* "Info" dropdown (render.js renderInfoMenu): beside the projects dropdown in the header cluster; one panel
+   with each info item's title and description, opening on hover */
+#site-info-slot { font-family:Arial,Helvetica,sans-serif; white-space:nowrap; margin-left:14px; }
+#site-info-slot .nav-dropdown { position:relative; }
+#site-info-slot .nav-dropdown > a { color:#e8eef4; text-decoration:none; font-size:14px; opacity:0.92; cursor:default; }
+#site-info-slot .nav-caret { font-size:10px; margin-left:4px; opacity:0.7; }
+#site-info-slot .info-menu { position:absolute; top:100%; left:0; width:min(440px, 90vw); z-index:50; display:none;
+  background:#081626; border:1px solid rgba(255,255,255,0.14); border-radius:6px; box-shadow:0 8px 24px rgba(0,0,0,0.35);
+  padding:10px 16px; max-height:75vh; overflow-y:auto; white-space:normal; color:#e8eef4; font-size:13.5px; line-height:1.45; }
+#site-info-slot .nav-dropdown:hover .info-menu, #site-info-slot .info-menu:hover { display:block; }
+#site-info-slot .info-item + .info-item { margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.12); }
+#site-info-slot .info-title { font-weight:700; font-size:14.5px; margin-bottom:4px; }
+#site-info-slot .info-text p { margin:0 0 8px; }
+#site-info-slot .info-text a { color:#8fd6f2; }
+body.light-mode #site-info-slot .nav-dropdown > a, body.light-mode #site-info-slot .info-menu { color:#0b2740; }
+body.light-mode #site-info-slot .info-menu { background:#eef2f8; border-color:rgba(0,0,0,0.14); }
+body.light-mode #site-info-slot .info-item + .info-item { border-top-color:rgba(0,0,0,0.12); }
+body.light-mode #site-info-slot .info-text a { color:#1a5f8a; }
+
+/* Project node's article icon (render.js projArticleIconHtml): links to the project's full-text article */
+.proj-article-link { display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:4px;
+  opacity:0.75; cursor:pointer; text-decoration:none; transition:opacity .12s, background-color .12s; }
+.proj-article-link:hover, .proj-article-link:focus-visible { opacity:1; background:rgba(255,255,255,0.14); outline:none; }
+body.light-mode .proj-article-link:hover, body.light-mode .proj-article-link:focus-visible { background:rgba(0,0,0,0.09); }
 
 /* ── Editable node titles + descriptions (author app inline UI) ── */
 body.author-editable .node-title-edit { cursor:text; }

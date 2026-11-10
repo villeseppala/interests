@@ -1,0 +1,5 @@
+```{=html}
+<div class="app-frame-wrap" id="hazard-app" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+<iframe class="app-frame" src="apps/hazard.html" title="Threshold curve editor" loading="lazy" style="display:block;width:100%;border:0;height:1100px;min-width:800px;"></iframe>
+</div>
+```

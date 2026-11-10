@@ -21,6 +21,7 @@ ly       <- g$layout
 av <- aspect_values(ly); aw <- av$wide
 cd <- build_dual_cyto_data(g,
   gap_v            = aw$gap_v,
+  gap_v_ts         = aw$gap_v_ts,
   gap_col          = aw$gap_col,
   font_node        = aw$font_node,
   font_project     = aw$font_project,
@@ -331,7 +332,7 @@ for (n in g$nodes) {
   )
   if (nid %in% article_ids) {
     entry$hasArticle <- TRUE
-    entry$articleUrl <- paste0("articles/", nid, ".html")
+    entry$articleUrl <- .art$urls[[nid]] %||% paste0("articles/", nid, ".html")   # `link:` front matter: elsewhere
     # Opt-in inline quick-read: carry the article body markdown so the node can expand it in place.
     if (!is.null(.art$inline[[nid]])) entry$articleInline <- .art$inline[[nid]]
     entry$articleLang <- .art$langs[[nid]] %||% "en"   # "fi" when the article is written in Finnish
@@ -378,6 +379,9 @@ funding_html  <- list(
 
 # ── Assemble and write payload ────────────────────────────────────────────────
 cd$descriptions  <- descriptions
+cd$info          <- info_items(g, desc_map)   # the Info dropdown (top bar)
+cd$article_ids   <- as.list(article_ids)        # project nodes with an article get a page icon (render.js)
+cd$article_urls  <- .art$urls[article_ids]        # where each icon links (articles/<id>.html, or the article's `link:`)
 cd$sidebar       <- sidebar
 cd$vote_html     <- vote_html
 cd$intro_html    <- intro_html
@@ -393,12 +397,13 @@ cd$gradient_hover_mult <- as.numeric(ly$gradient_hover_mult %||% 2)
 cd$gradient_hover_desc <- isTRUE(ly$gradient_hover_desc %||% FALSE)
 cd$hover_white_outline <- isTRUE(ly$hover_white_outline %||% FALSE)
 cd$hover_edge_outline  <- ly$hover_edge_outline   # NULL (absent) = follow the node outline thickness
-cd$title_compact_pct   <- as.numeric(ly$title_compact_pct %||% 70)   # compact-title strength (% kept)
 cd$node_outline <- as.numeric(ly$node_outline %||% 3)
 cd$project_outline <- as.numeric(ly$project_outline %||% ly$node_outline %||% 3)
 cd$outline_saturation <- as.numeric(ly$outline_saturation %||% 1)
 cd$hover_sat <- as.numeric(ly$hover_sat %||% 1)   # hover highlight colour multipliers (HSV S / V)
 cd$hover_val <- as.numeric(ly$hover_val %||% 1)
+cd$light_hover_sat <- as.numeric(ly$light_hover_sat %||% ly$hover_sat %||% 1)   # light mode's (never set: dark's)
+cd$light_hover_val <- as.numeric(ly$light_hover_val %||% ly$hover_val %||% 1)
 cd$outline_transparency <- as.numeric(ly$outline_transparency %||% 0)
 cd$node_pad <- as.numeric(ly$node_pad %||% 0)
 cd$project_max_width <- as.numeric(ly$project_max_width %||% 0)

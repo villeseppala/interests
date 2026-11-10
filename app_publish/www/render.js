@@ -243,8 +243,9 @@ var outlineSaturation = 1;   // multiplier on node-outline color saturation (HSV
 // outline thickness (the behaviour before this setting existed).
 var hoverEdgeOutlineW = null;
 function hoverEdgeOutline() { return (hoverEdgeOutlineW != null) ? hoverEdgeOutlineW : (nodeOutlineWidth || 3); }
-var hoverSatMult = 1;        // hover highlight colour: multiplier on HSV saturation (1 = edge colour as is, 0 = grey)
-var hoverValMult = 1;        // hover highlight colour: multiplier on HSV value/brightness (1 = as is; capped at full)
+var hoverSatMult = 1;        // hover highlight colour, dark mode: multiplier on HSV saturation (1 = edge colour as is, 0 = grey)
+var hoverValMult = 1;        // hover highlight colour, dark mode: multiplier on HSV value/brightness (1 = as is; capped at full)
+var lightHoverSatMult = null, lightHoverValMult = null;   // ...light mode (null: the dark values)
 var outlineOpacity = 1;      // node-outline opacity (0 = fully transparent, 1 = solid); from the transparency slider
 var nodeTextPad = 0;         // extra horizontal padding (px) between a node's title and its edges (author-controllable)
 var nodeBgSameAsGraph = false;
@@ -273,11 +274,6 @@ var inlineColCenterLatch = { Theme: false, Skill: false };
 // each column's header down by the same amount so the header rides just above its (centred) node stack,
 // keeping the header→stack gap equal to the Project column's.
 var inlineColCenterOff = { Theme: 0, Project: 0, Skill: 0 };
-// Compact titles: while open nodes make the Theme or Skill column taller than the view (so it has to be
-// scrolled to read them all), that column's Theme/Skill title areas — collapsed nodes whole, open nodes'
-// headers — shrink to this share of their height, never below what the title itself needs (compactTitleH).
-// Author setting (Layout tab, title_compact_pct); 1 = no shrinking.
-var TITLE_COMPACT = 0.7;
 // True while a one-finger scroll or two-finger pinch is in progress. The node-overlay renderer skips
 // rebuilding node inner-HTML while set, so the element under the finger is never detached mid-gesture
 // (detaching it kills touch-event routing → dead scroll/pinch). A final render on touchend applies any
@@ -327,6 +323,23 @@ function expGradient(col, dir) {
   return 'linear-gradient(' + dir + ',' + stops.join(',') + ')';
 }
 var articlesEnabled = false; // when on, nodes with a full-text article show a "Read full article" link
+// Project nodes whose id has an article (articles/<id>.qmd): a small page icon by the title links to it
+// (articles/<id>.html, or the address in the article's `link:` front matter), so readers see which projects
+// have a write-up without opening the node.
+var articleIdSet = {};
+var articleUrlMap = {};   // id -> link target, from scan_articles()$urls
+var ARTICLE_SLOT = 32;   // px reserved right of the title for the icon (nodeBodyHtml + the width/height measuring)
+function projHasArticle(d) { return !!(articlesEnabled && d && d.group === 'Project' && articleIdSet[String(d.id)]); }
+function projArticleIconHtml(d) {
+  var tip = (currentLang === 'fi') ? 'Lue artikkeli' : 'Read the article';
+  return '<a class="proj-article-link" href="' + (articleUrlMap[String(d.id)] || ('articles/' + d.id + '.html')) + '" target="_blank" rel="noopener noreferrer" ' +
+    'title="' + tip + '" aria-label="' + tip + '" data-node-id="' + d.id + '" style="pointer-events:auto;position:absolute;' +
+    'right:' + Math.max(2, nodeTextPad) + 'px;top:50%;transform:translateY(-50%);z-index:8;color:' + colProject + ';">' +
+    '<svg viewBox="0 0 16 16" width="21" height="21" aria-hidden="true" style="display:block;">' +
+    '<path d="M3.5 1.5h6l3 3v10h-9z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>' +
+    '<path d="M9.5 1.5v3h3M5.5 8h5M5.5 10.5h5M5.5 13h3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>' +
+    '</svg></a>';
+}
 var nodeHoverGradients = {}; // same, for hovered node's neighbours
 var nodeBaseGradients = {};  // persistent edge-color gradients: {side,color} for Theme/Skill, {bands:{left,right}} for Project
 // Node-gradient opacity at the edge wall (1 = the true edge color). Higher = brighter/more saturated.
@@ -362,10 +375,11 @@ var hoveredNodeId = null;
 // A instead of closing it, and a second click closes it. A click on the title area always closes.
 var _focusNodeId = null;
 function focusNode(id) { _focusNodeId = (id == null) ? null : String(id); applyHighlightState(); }
-// The node that keeps its highlight with nothing hovered: the focused node while it is open, else the
-// most recently opened one.
+// The node that keeps its highlight with nothing hovered: the focused node while it is open. Once the reader
+// has clicked a node, closing it leaves no lasting highlight: it does not pass to another open node. Before
+// any click (nodes open by default, Open all), the most recently opened one.
 function persistentHighlightId() {
-  if (_focusNodeId && inlineExpandedMap[_focusNodeId]) return _focusNodeId;
+  if (_focusNodeId) return inlineExpandedMap[_focusNodeId] ? _focusNodeId : null;
   return topOpenNodeId();
 }
 // Did this Cytoscape tap land on the open node's title area (header)? Accounts for a sticky title that
@@ -632,7 +646,7 @@ function scaleHsv(hex, mult, vmult) {
       ['mousedown','mouseup','dblclick','touchstart','touchend'].forEach(function (evt) {
         ov.addEventListener(evt, function (e) {
           var t = e.target;
-          if (t && t.closest && (t.closest('.inline-node-desc') || t.closest('.inline-copy-link') || t.closest('.inline-article-link') || t.closest('.inline-article-expand') || t.closest('.node-title-edit'))) e.stopPropagation();
+          if (t && t.closest && (t.closest('.inline-node-desc') || t.closest('.inline-copy-link') || t.closest('.inline-article-link') || t.closest('.proj-article-link') || t.closest('.inline-article-expand') || t.closest('.node-title-edit'))) e.stopPropagation();
         }, false);
       });
       // Inline editing (author app): double-click a title or description to edit it, commit on blur.
@@ -728,6 +742,7 @@ function scaleHsv(hex, mult, vmult) {
         }
         // Let the article link navigate normally, but keep the tap from collapsing the node.
         if (t && t.closest && t.closest('.inline-article-link')) e.stopPropagation();
+        if (t && t.closest && t.closest('.proj-article-link')) e.stopPropagation();   // project's article icon
       }, false);
       // Reuse one div per node across renders (keyed by id), instead of wiping ov.innerHTML each frame.
       // Crucial for touch: a drag/pinch calls render() every frame; recreating the div under the finger
@@ -795,11 +810,12 @@ function scaleHsv(hex, mult, vmult) {
 /* ── Apply dynamic colors to DOM ──────────────────────────────────────────── */
 
 // The graph page's top bar — the nav bar, the header cluster laid over it (which can wrap onto a
-// second row) and the column-button strip — is ONE colour: the site's nav-bar blue (#081626; light
-// mode #e2eaf3, as in style.css / article.css), the same as on the article pages.
+// second row) and the column-button strip — is ONE colour: in dark mode the site's nav-bar blue
+// (#081626, as on the article pages); in light mode the graph background (colBg), so bar and map read as
+// one surface. applyColors re-runs this, so it follows the light background setting.
 var TOP_BAR_DARK = '#081626', TOP_BAR_LIGHT = '#e2eaf3';
 function applyTopBarColor() {
-  var c = lightMode ? TOP_BAR_LIGHT : TOP_BAR_DARK;
+  var c = lightMode ? (colBg || TOP_BAR_LIGHT) : TOP_BAR_DARK;
   var nav = document.getElementById('site-nav'); if (nav) nav.style.background = c;
   var hb = document.getElementById('inline-header-right'); if (hb) hb.style.background = c;
   var st = document.getElementById('col-btn-strip'); if (st) st.style.background = c;
@@ -1330,19 +1346,8 @@ function applyInitialFontScale() {
   applyNodeFontScaleLayout();
 }
 
-// A Theme/Skill node's compact title-area height (TITLE_COMPACT of its base height, but never below the
-// title's own measured height, so it can't clip). Measured once per base height / width / language / fonts.
-function compactTitleH(n) {
-  var b = inlineBase[n.id()];
-  var key = b.h + '|' + (n.data('w') || 0) + '|' + currentLang + '|' + fontNode + '|' + fontSubs + '|' + TITLE_COMPACT;
-  if (b._ck !== key) {
-    b._ck = key;
-    b._ch = Math.min(b.h, Math.max(Math.round(b.h * TITLE_COMPACT), Math.ceil(collapsedNodeHeight(n.data()))));
-  }
-  return b._ch;
-}
-// An expanded node's header (title area) as shown — less than its collapsed height in a compacted column —
-// and its whole height as shown.
+// An expanded node's header (title area) as shown, and its whole height as shown. (Formerly shrunk by
+// "compact titles" in a crowded column; removed, so the header is always its full collapsed height.)
 function exHdrH(ex) { return (ex.hdrH != null) ? Math.min(ex.hdrH, ex.origH) : ex.origH; }
 function exShownH(ex) { return ex.h - ex.origH + exHdrH(ex); }
 
@@ -1388,21 +1393,7 @@ function applyInlinePositions() {
     var arr = cols[g];
     arr.sort(function (a, b) { return inlineBase[a.id()].y - inlineBase[b.id()].y; });
     var firstTop = inlineBase[arr[0].id()].y - inlineBase[arr[0].id()].h / 2;
-    // Compact titles (TITLE_COMPACT): decided on the full heights — would the column, top-aligned and with
-    // something open in it, still run past the visible bottom? — so compacting can't undo its own reason.
-    // cutOf: how much a node's title area loses then; stackH: its height in the stack.
-    function cutOf(n) { var gr = n.data('group'); return (gr === 'Theme' || gr === 'Skill') ? inlineBase[n.id()].h - compactTitleH(n) : 0; }
-    function stackH(n, cmp) { var ex = inlineExpandedMap[n.id()]; return (ex ? ex.h : inlineBase[n.id()].h) - (cmp ? cutOf(n) : 0); }
-    var compact = false;
-    if (g === 'Theme' || g === 'Skill') {
-      var cum0 = 0, bottom0 = -Infinity, open0 = false;
-      arr.forEach(function (n) {
-        var b = inlineBase[n.id()], h = stackH(n, false);
-        bottom0 = (b.y - b.h / 2) + cum0 + h; cum0 += (h - b.h);
-        if (inlineExpandedMap[n.id()]) open0 = true;
-      });
-      compact = open0 && bottom0 - Math.min(cum0, Math.max(0, firstTop - projTop)) > availBottom;
-    }
+    function stackH(n) { var ex = inlineExpandedMap[n.id()]; return ex ? ex.h : inlineBase[n.id()].h; }
     // First pass: total growth + base-stacked bottom of the WHOLE column (drives scroll), plus separate
     // "centring subset" metrics that EXCLUDE About nodes — so the Skill stack is centred on its skill
     // nodes only. The About block rides the same offset and simply hangs below (a slightly bottom-heavy
@@ -1411,7 +1402,7 @@ function applyInlinePositions() {
     var centerBottomBase = -Infinity, centerExpBottom = -Infinity;
     arr.forEach(function (n) {
       var b = inlineBase[n.id()], ex = inlineExpandedMap[n.id()];
-      var h = stackH(n, compact);
+      var h = stackH(n);
       var expBottom = (b.y - b.h / 2) + cum + h;
       bottom = expBottom;
       if (n.data('group') !== 'About') {
@@ -1443,8 +1434,7 @@ function applyInlinePositions() {
       }
     }
     inlineColCenterOff[g] = centerOff;   // header (positionHeaders) rides down by the same amount
-    // Rise into the space above (Theme/Skill only; Project is already at the top). Never down: compact
-    // titles can make the column shorter than its base.
+    // Rise into the space above (Theme/Skill only; Project is already at the top). Never down.
     var shiftUp = Math.max(0, Math.min(totalDelta, Math.max(0, firstTop - projTop)));
     inlineColShiftUp[g] = shiftUp;
     // Clamp this column's own scroll to what still overflows after the upward shift + centre offset. A
@@ -1458,8 +1448,8 @@ function applyInlinePositions() {
     cum = 0;
     arr.forEach(function (n) {
       var b = inlineBase[n.id()], ex = inlineExpandedMap[n.id()];
-      var h = stackH(n, compact);
-      if (ex) ex.hdrH = ex.origH - (compact ? cutOf(n) : 0);   // its header as shown (exHdrH)
+      var h = stackH(n);
+      if (ex) ex.hdrH = ex.origH;   // its header as shown (exHdrH)
       n.data('h', h);
       n.position('y', (b.y - b.h / 2) + cum + h / 2 - shiftUp - off + centerOff);
       cum += (h - b.h);
@@ -1614,8 +1604,13 @@ function editableLabel(data) {
   return span('en-only', 'en', en) + span('fi-only', 'fi', fi);
 }
 
-// Hover-highlight colour: the edge colour with the author's hover saturation / value multipliers.
-function hoverTint(hex) { return scaleHsv(hex, hoverSatMult, hoverValMult); }
+// Hover-highlight colour: the edge colour with the author's hover saturation / value multipliers (each colour
+// mode its own; light falls back to dark).
+function hoverTint(hex) {
+  if (lightMode) return scaleHsv(hex, lightHoverSatMult != null ? lightHoverSatMult : hoverSatMult,
+                                      lightHoverValMult != null ? lightHoverValMult : hoverValMult);
+  return scaleHsv(hex, hoverSatMult, hoverValMult);
+}
 function hexRgba(hex, a) {
   var r = parseInt(hex.slice(1,3),16)||0, g = parseInt(hex.slice(3,5),16)||0, b = parseInt(hex.slice(5,7),16)||0;
   return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
@@ -1660,10 +1655,22 @@ function projectBandGeom(id, count) {
   return geom;
 }
 
-// The plain high-contrast colour of the hoverWhiteOutline highlight — used for the hovered node's
-// outline and for the casing around its edges. White on a dark background, black on a light one:
-// the point is contrast against whatever it sits on, not the literal colour.
-function plainHoverColor() { return lightMode ? '#000000' : '#ffffff'; }
+// hoverWhiteOutline ("hover outline") draws the hovered node's outline and its edges' casings in the EDGE
+// colours themselves (with the hover S/V tint), never plain black/white. A Project's outline runs from its
+// Theme edge colours (left) to its Skill edge colours (right): top border from the top bands' colours,
+// bottom from the bottom bands', closed side walls (no ribbons running in) in that side's colours.
+function projectHoverOutlineHtml(n, bw, z, op) {
+  var b = projectBandColors(n, 1, hoverTint), es = edgeAttachSides(n);
+  var L = b.left, R = b.right;
+  if (!L.length && !R.length) L = R = [saturateColor(colProject, outlineSaturation)];
+  if (!L.length) L = R; if (!R.length) R = L;
+  var tl = L[0], bl = L[L.length - 1], tr = R[0], br = R[R.length - 1], st = z + 'opacity:' + op + ';';
+  var out = '<div style="' + st + 'left:0;top:0;width:100%;height:' + bw + 'px;background:linear-gradient(to right,' + tl + ',' + tr + ');"></div>' +
+            '<div style="' + st + 'left:0;bottom:0;width:100%;height:' + bw + 'px;background:linear-gradient(to right,' + bl + ',' + br + ');"></div>';
+  if (!es.left)  out += '<div style="' + st + 'left:0;top:0;bottom:0;width:' + bw + 'px;background:linear-gradient(to bottom,' + tl + ',' + bl + ');"></div>';
+  if (!es.right) out += '<div style="' + st + 'right:0;top:0;bottom:0;width:' + bw + 'px;background:linear-gradient(to bottom,' + tr + ',' + br + ');"></div>';
+  return out;
+}
 
 // Which walls of a node have edges running into them. The plain hover outline is left OPEN on those
 // walls: a border there would draw a line straight across the flow, breaking the visual run from node
@@ -1700,9 +1707,9 @@ function nodeBorderBandsHtml(data) {
   // thickens the connected Theme/Skill outlines — it just makes them solid).
   var emph = n.hasClass('hovered') || n.hasClass('nbr-hi');
   var op = emph ? 1 : outlineOpacity;
-  // hoverWhiteOutline: the hovered node itself gets a plain high-contrast outline instead of its
-  // source colour, so source colours read purely as "adjacent" and this one node reads as "hovered".
-  var plainCol = (hoverWhiteOutline && n.hasClass('hovered')) ? plainHoverColor() : null;
+  // hoverWhiteOutline: the hovered node itself gets a full outline in its edge colour(s) — see
+  // projectHoverOutlineHtml — while other nodes keep their normal (or no) outline.
+  var hovOut = hoverWhiteOutline && n.hasClass('hovered');
   var bw = n.hasClass('selected') ? (mobileMode ? 14 : 9) * bm : baseW;   // only selection changes width
   var z = 'position:absolute;pointer-events:none;z-index:7;';
   // A box in colour `c`, closed on top and bottom but open wherever edges attach, so the outline runs
@@ -1721,7 +1728,7 @@ function nodeBorderBandsHtml(data) {
     var col = (edge && (lightMode ? edge.data('lightColor') : edge.data('color')))
               || (lightMode ? (n.data('lightEdgeColor') || n.data('edgeColor')) : n.data('edgeColor'))
               || (grp === 'Theme' ? colTheme : colSkill);
-    if (plainCol) return openBox(plainCol);   // hovered: open where the ribbons run in
+    if (hovOut) return openBox(hoverTint(col));   // hovered: edge colour, open where the ribbons run in
     col = saturateColor(col, outlineSaturation);
     return '<div style="' + z + 'opacity:' + op + ';top:0;left:0;right:0;bottom:0;box-sizing:border-box;border:' + bw + 'px solid ' + col + ';"></div>';
   }
@@ -1729,14 +1736,13 @@ function nodeBorderBandsHtml(data) {
   // Prefer bands computed in buildBaseGradients (while edges were present) so the outline always
   // matches the visible gradient; fall back to a live recompute if the map isn't built yet.
   var out = '';
-  var pcol = plainCol || saturateColor(colProject, outlineSaturation);
+  var pcol = saturateColor(colProject, outlineSaturation);
   // hoverWhiteOutline: a Project is outlined ONLY while hovered, and then all the way round — its left
   // and right walls included, except where ribbons actually run in (a project with no Skill links keeps
   // its right wall, and vice versa). Every other project sits bare.
-  if (hoverWhiteOutline) {
-    if (!plainCol) return '';   // not the hovered node → no project outline at all
-    return openBox(pcol);
-  }
+  // A clicked (selected) project is outlined in its edge colours too, never the plain project colour.
+  if (hovOut || n.hasClass('selected')) return projectHoverOutlineHtml(n, bw, z, op);
+  if (hoverWhiteOutline) return '';   // not hovered/clicked → no project outline at all
   // Default style: top & bottom outline only, in the project's own colour (from the Color tab). The
   // left/right walls stay open so the edge ribbons flow into the node's sides; connection colours still
   // read from the node's internal gradient. Solid on hover / neighbour-highlight, else the chosen opacity.
@@ -1995,7 +2001,8 @@ function nodeBodyHtml(data, noGradient) {
     // Title side padding: LEFT clears the accordion chevron; RIGHT is minimal (projects have no right
     // chevron), so the node fits a tighter horizontal space. autoFitProjectWidth matches these.
     var projPadL = Math.max(9, accGutter) + nodeTextPad;
-    var projPadR = 9 + nodeTextPad;
+    var artOn = projHasArticle(data);
+    var projPadR = 9 + nodeTextPad + (artOn ? ARTICLE_SLOT : 0);   // + the article icon's slot
     var availW = nodeW - ptypeColW - projPadL - projPadR;
     // Wrap decision follows the CURRENTLY shown language so the box height (measured for the same
     // language) matches exactly — no empty space when the shown title is short, no clipping when it's
@@ -2014,7 +2021,7 @@ function nodeBodyHtml(data, noGradient) {
       '<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:4px ' + projPadR + 'px 4px ' + projPadL + 'px;' +
       'text-align:center;overflow:hidden;position:relative;z-index:6;">' +
       '<div style="color:' + colProject + ';font-family:Arial,Helvetica,sans-serif;font-size:' + projFn + 'px;' +
-      'font-weight:bold;line-height:1.3;white-space:' + (curOneLine ? 'nowrap' : 'normal') + ';' + wrap + '">' + label + '</div></div>' +
+      'font-weight:bold;line-height:1.3;white-space:' + (curOneLine ? 'nowrap' : 'normal') + ';' + wrap + '">' + label + '</div>' + (artOn ? projArticleIconHtml(data) : '') + '</div>' +
       typeCol + grad(gradientExtent / 2) + border() + acc() + '</div>';
   }
   return '';
@@ -2362,6 +2369,28 @@ function reflowInline() {
   inlineRefreshView();   // layoutInlineScroll() re-fits and calls applyInlinePositions()
   syncOpenIdsToShiny();
 }
+
+/* ── "Info" dropdown (header cluster, beside the projects dropdown) ──
+   The nodes flagged `info: true` in graph.json (About nodes, hidden from the map), each with its title and
+   description, in one panel that opens on hover. From the payload (static site) or the setInfoItems message
+   (Shiny apps); redrawn on a language switch. Hidden altogether when there are none. */
+var infoItems = [];
+function renderInfoMenu() {
+  var slot = document.getElementById('site-info-slot'); if (!slot) return;
+  if (!infoItems.length) { slot.innerHTML = ''; slot.style.display = 'none'; return; }
+  slot.style.display = '';
+  var fi = currentLang === 'fi';
+  var body = infoItems.map(function (it) {
+    var t = (fi && it.title_fi) ? it.title_fi : (it.title || '');
+    var x = (fi && it.text_fi) ? it.text_fi : (it.text || '');
+    return '<div class="info-item"><div class="info-title">' + esc(t) + '</div>' +
+           '<div class="info-text">' + mdToHtml(x) + '</div></div>';
+  }).join('');
+  slot.innerHTML = '<div class="nav-dropdown"><a href="#" onclick="return false;"><span class="info-label">Info</span>' +
+    '<span class="nav-caret">&#9660;</span></a><div class="info-menu">' + body + '</div></div>';
+}
+function setInfoItems(items) { infoItems = Array.isArray(items) ? items : []; renderInfoMenu(); }
+Shiny.addCustomMessageHandler('setInfoItems', function (msg) { setInfoItems(msg && msg.items); });
 
 // Toggle a node's inline expansion (same as tapping it): collapse if open, else request its content.
 function toggleNodeInline(id) {
@@ -2799,9 +2828,9 @@ function applyHighlightState() {
       addHovGrad(nodeHoverGradients, String(hid), { bands: projectBandColors(hn, GRAD_ALPHA_BASE, hoverTint) });
   }
   var _hovIds = pinnedHoverIds.slice();
-  // The last-opened (still open) node keeps its highlight at all times, so its links stay marked while
-  // the reader moves away to read it; hovering another node highlights that one TOO (two at once).
-  [persistentHighlightId(), hoveredNodeId].forEach(function (hid) {
+  // The last-opened (still open) node keeps its highlight, so its links stay marked while the reader
+  // moves away to read it. Hovering a node suspends it (only the hovered one shows); it returns on leave.
+  [(hoveredNodeId != null) ? null : persistentHighlightId(), hoveredNodeId].forEach(function (hid) {
     if (hid != null && _hovIds.indexOf(String(hid)) < 0) _hovIds.push(String(hid));
   });
   _hovIds.forEach(applyHoverFor);
@@ -2963,10 +2992,10 @@ function drawEdgeOverlay() {
     return p;
   }
   var anySel = edgePaths.some(function (ep) { return ep.isSel; });
-  // hoverWhiteOutline: a plain-coloured casing drawn just under each hovered edge, so the hovered
-  // node's links carry the same outline as the node. Never a hit target (hlId null) — the coloured
+  // hoverWhiteOutline: a casing in the edge's own (hover-tinted) colour drawn just under each hovered
+  // edge, so the hovered node's links carry the outline too. Never a hit target (hlId null) — the
   // path on top of it keeps that role.
-  var hovCase  = hoverWhiteOutline ? plainHoverColor() : null;
+  var hovCase  = hoverWhiteOutline;
   var hovCaseW = strokeW * 2.25 + 2 * hoverEdgeOutline() * zoom;
   var NORM_OP = edgeOpacity;  // default edge opacity (author-controllable)
   var DIM_OP = edgeOpacity * (lightMode ? 0.6 : 0.82);  // faded context when a node is selected
@@ -2980,7 +3009,7 @@ function drawEdgeOverlay() {
     // Hovered (not selected) — keep hover preview working during a selection
     edgePaths.forEach(function (ep) {
       if (!ep.isHov || ep.isSel) return;
-      if (hovCase) svg.appendChild(makePath(ep.pathD, hovCase, hovCaseW, NORM_OP, ep.dashes, null));
+      if (hovCase) svg.appendChild(makePath(ep.pathD, hoverTint(lightMode ? ep.lightColor : ep.color), hovCaseW, NORM_OP, ep.dashes, null));
       svg.appendChild(makePath(ep.pathD, hoverTint(lightMode ? ep.lightColor : ep.color), strokeW * 2.25, NORM_OP, ep.dashes, ep.hlId));   // hovered: hover S/V sliders apply
     });
     // Top: selected edges — full color, fully opaque, slightly thicker
@@ -2992,7 +3021,7 @@ function drawEdgeOverlay() {
     // No selection: hovered edge sits below normal edges so other connections stay visible
     edgePaths.forEach(function (ep) {
       if (!ep.isHov) return;
-      if (hovCase) svg.appendChild(makePath(ep.pathD, hovCase, hovCaseW, NORM_OP, ep.dashes, null));
+      if (hovCase) svg.appendChild(makePath(ep.pathD, hoverTint(lightMode ? ep.lightColor : ep.color), hovCaseW, NORM_OP, ep.dashes, null));
       svg.appendChild(makePath(ep.pathD, hoverTint(lightMode ? ep.lightColor : ep.color), strokeW * 2.25, NORM_OP, ep.dashes, ep.hlId));   // hovered: hover S/V sliders apply
     });
     edgePaths.forEach(function (ep) {
@@ -3074,7 +3103,8 @@ function drawEdgeBands(svg, rawEdges, zoom, pan) {
     p.setAttribute('opacity', op);
     if (re.hlId != null) { p.setAttribute('data-hl', re.hlId); p.style.pointerEvents = 'auto'; }  // hover/click target
     if (!stroke) return p;
-    // `stroke` casings the ribbon in the plain hover colour, keeping its source colour as the fill —
+    if (stroke === 'edge') stroke = color;   // hover outline in the ribbon's own (hover-tinted) colour
+    // `stroke` casings the ribbon (in its own colour under the hover outline), keeping the fill —
     // the edge equivalent of the hovered node's plain outline (hoverWhiteOutline). Drawn as two open
     // paths along the ribbon's top and bottom rather than as a border on the closed polygon: a closed
     // stroke would cap both ends, putting a line across the flow exactly where it meets a node.
@@ -3105,9 +3135,9 @@ function drawEdgeBands(svg, rawEdges, zoom, pan) {
     if (!ok(re) || busy(re) || !isTop(re)) return;
     svg.appendChild(ribbon(re, anySel ? DIM_OP : NORM_OP));
   });
-  // hoverWhiteOutline: ring the hovered node's edges in the same plain colour as the node itself, so
-  // the whole hovered "star" (node + its links) is outlined while the adjacent nodes stay purely colour-coded.
-  var hovStroke  = hoverWhiteOutline ? plainHoverColor() : null;
+  // hoverWhiteOutline: ring the hovered node's edges in their own colours, so the whole hovered "star"
+  // (node + its links) is outlined while the adjacent nodes stay purely colour-coded.
+  var hovStroke  = hoverWhiteOutline ? 'edge' : null;
   var hovStrokeW = hoverEdgeOutline() * zoom;
   rawEdges.forEach(function (re) {                                   // hovered (takes precedence)
     if (!ok(re) || !re.edge.hasClass('hovered') || re.edge.hasClass('selected')) return;
@@ -3960,7 +3990,7 @@ function autoFitProjectWidth(data) {
     if (!n.data) return;
     if (n.data.group === 'Project') {
       var label = (currentLang === 'fi' && n.data.label_fi) ? n.data.label_fi : (n.data.label || '');
-      var tw = ctx.measureText(label).width;
+      var tw = ctx.measureText(label).width + (projHasArticle(n.data) ? ARTICLE_SLOT : 0);   // + article icon slot
       if (tw > maxTextW) maxTextW = tw;
       if ((n.data.w || 0) > baseW) baseW = n.data.w;
       if ((n.data.h || 0) > baseH) baseH = n.data.h;
@@ -4158,7 +4188,7 @@ function measureProjectNodeHeight(nodeData, w) {
   var _spec = (inlineMode && accordionIcon !== 'none') ? ACC_ICONS[accordionIcon] : null;
   var _gut  = (_spec && _spec.c) ? Math.round(accordionIconSize * (_spec.mult || 1) * 0.7) + 16 : 0;
   var padL = Math.max(9, _gut) + nodeTextPad;
-  var padR = 9 + nodeTextPad;
+  var padR = 9 + nodeTextPad + (projHasArticle(nodeData) ? ARTICLE_SLOT : 0);   // article icon slot (nodeBodyHtml)
   var ptypeColW = (!mobileMode && nodeData.ptype) ? Math.round(w * ptypePct / 100) : 0;
   var containerW = Math.max(w - ptypeColW - padL - padR, 4);   // 4px 8px vertical padding → vPad 8
   // Measure the CURRENTLY shown language (matches nodeBodyHtml's Project branch): one row if it fits on
@@ -4724,6 +4754,7 @@ function setLanguage(lang) {
   var titleStr = (lang === 'fi' ? langData.page_title_fi : langData.page_title_en) || langData.page_title_en;
   if (titleStr) document.title = titleStr;
   applyHeaderTexts();   // site-address label + projects-menu label follow the language too
+  renderInfoMenu();     // the Info dropdown too
   // Node heights are measured for the shown language, so re-measure + re-stack + re-fit on switch
   // (keeps open nodes + scroll). Otherwise fall back to just repositioning the headers.
   if (cy && inlineMode && !useMobileLayout()) applyNodeFontScaleLayout();
@@ -5108,13 +5139,8 @@ Shiny.addCustomMessageHandler('setProjectOutline', function (msg) {
 
 // Hover highlight colour: saturation / value multipliers on the edge colour (author sliders).
 // Hovered-edge outline thickness in px (author slider); null/undefined = follow the node outline.
-// Compact-title strength: the share (%) of their height that Theme/Skill title areas keep in a column
-// compacted by open nodes (see TITLE_COMPACT). 100 = no shrinking.
-Shiny.addCustomMessageHandler('setTitleCompact', function (msg) {
-  var p = (msg && msg.pct != null) ? +msg.pct : 70;
-  TITLE_COMPACT = Math.max(0.1, Math.min(1, p / 100));
-  if (cy && inlineBase) reflowInline();
-});
+// Compact titles were removed; the handler stays as a no-op so older payloads / apps sending it don't fail.
+Shiny.addCustomMessageHandler('setTitleCompact', function () {});
 
 Shiny.addCustomMessageHandler('setHoverEdgeOutline', function (msg) {
   hoverEdgeOutlineW = (msg && msg.px != null && msg.px !== '') ? +msg.px : null;
@@ -5124,6 +5150,8 @@ Shiny.addCustomMessageHandler('setHoverEdgeOutline', function (msg) {
 Shiny.addCustomMessageHandler('setHoverHsv', function (msg) {
   if (msg.sat != null) hoverSatMult = +msg.sat;
   if (msg.val != null) hoverValMult = +msg.val;
+  if (msg.light_sat != null) lightHoverSatMult = +msg.light_sat;
+  if (msg.light_val != null) lightHoverValMult = +msg.light_val;
   if (cy) applyHighlightState();
 });
 
@@ -5387,6 +5415,10 @@ function ensureInlineSidebarBtn() {
   if (!navSlot) { navSlot = document.createElement('div'); navSlot.id = 'site-nav-slot'; }
   hdr.appendChild(navSlot);
   if (window.siteNavFillSlot) window.siteNavFillSlot();
+  var infoSlot = document.getElementById('site-info-slot');   // "Info" dropdown, right after it
+  if (!infoSlot) { infoSlot = document.createElement('div'); infoSlot.id = 'site-info-slot'; }
+  hdr.appendChild(infoSlot);
+  renderInfoMenu();
   hdr.appendChild(fc);                                    // description font size — pushed right
   // (the zoom buttons −/100%/+/fit are no longer shown in the bar; Ctrl/⌘ + wheel and pinch still zoom)
   hdr.appendChild(wrap);                                  // Open/Collapse toolbar — right
@@ -5452,7 +5484,14 @@ Shiny.addCustomMessageHandler('setAspectPreview', function (msg) {
 });
 
 Shiny.addCustomMessageHandler('setArticlesEnabled', function (msg) {
+  var before = JSON.stringify([articlesEnabled, articleIdSet, articleUrlMap]);
   articlesEnabled = !!(msg && msg.value);
+  if (msg && msg.ids != null) {   // ids of nodes with an article (project icons)
+    articleIdSet = {};
+    [].concat(msg.ids).forEach(function (id) { articleIdSet[String(id)] = true; });
+  }
+  if (msg && msg.urls && typeof msg.urls === 'object' && !Array.isArray(msg.urls)) articleUrlMap = msg.urls;
+  if (cy && JSON.stringify([articlesEnabled, articleIdSet, articleUrlMap]) !== before) refreshLayout();   // icon slot changes title widths
   // Re-render any currently open description so the article link appears/disappears.
   if (lastDescMsg) { try { Shiny._handlers['showDescPanel'](lastDescMsg); } catch (e) {} }
 });
@@ -5507,7 +5546,8 @@ window.initStaticApp = function(payload) {
   if (payload.node_outline != null) Shiny._handlers['setNodeOutline']({ width: payload.node_outline });
   if (payload.project_outline != null) Shiny._handlers['setProjectOutline']({ width: payload.project_outline });
   if (payload.outline_saturation != null) Shiny._handlers['setOutlineSaturation']({ value: payload.outline_saturation });
-  if (payload.hover_sat != null || payload.hover_val != null) Shiny._handlers['setHoverHsv']({ sat: payload.hover_sat, val: payload.hover_val });
+  if (payload.hover_sat != null || payload.hover_val != null) Shiny._handlers['setHoverHsv']({ sat: payload.hover_sat, val: payload.hover_val,
+    light_sat: payload.light_hover_sat, light_val: payload.light_hover_val });
   if (payload.hover_edge_outline != null) Shiny._handlers['setHoverEdgeOutline']({ px: payload.hover_edge_outline });
   if (payload.title_compact_pct != null) Shiny._handlers['setTitleCompact']({ pct: payload.title_compact_pct });
   if (payload.outline_transparency != null) Shiny._handlers['setOutlineTransparency']({ pct: payload.outline_transparency });
@@ -5518,7 +5558,8 @@ window.initStaticApp = function(payload) {
   if (payload.desc_pad != null) Shiny._handlers['setDescPad']({ px: payload.desc_pad });
   if (payload.inline_mode != null) Shiny._handlers['setInlineMode']({ value: payload.inline_mode });
   if (payload.auto_fit_open != null) Shiny._handlers['setAutoFitOpen']({ value: payload.auto_fit_open });
-  if (payload.articles_enabled != null) Shiny._handlers['setArticlesEnabled']({ value: payload.articles_enabled });
+  if (payload.info) setInfoItems(payload.info);   // the Info dropdown's items (static site)
+  if (payload.articles_enabled != null) Shiny._handlers['setArticlesEnabled']({ value: payload.articles_enabled, ids: payload.article_ids, urls: payload.article_urls });
   // Defer graph init to a new macrotask so any pending viewport-settle resize events
   // are processed first — ensures useMobileLayout() reads the correct dimensions.
   setTimeout(function() { Shiny._handlers['initCy'](payload); }, 0);
